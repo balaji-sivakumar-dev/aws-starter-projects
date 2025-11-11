@@ -1,0 +1,9 @@
+{
+  "resource": "/todos",
+  "path": "/todos",
+  "httpMethod": "POST",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"title\": \"Learn SAM\", \"description\": \"Build local-first API\"}"
+}

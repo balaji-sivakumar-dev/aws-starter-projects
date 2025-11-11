@@ -1,0 +1,17 @@
+{
+  "name": "todo-cdk",
+  "version": "0.1.0",
+  "bin": {
+    "todo-cdk": "bin/todo.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "cdk": "cdk"
+  },
+  "devDependencies": {
+    "aws-cdk-lib": "^2.154.0",
+    "constructs": "^10.3.0",
+    "typescript": "^5.4.0"
+  }
+}

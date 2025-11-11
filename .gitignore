@@ -1,0 +1,22 @@
+# macOS / OS noise
+.DS_Store
+Thumbs.db
+
+# IDE settings
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs & env files
+*.log
+.env
+.env.*
+
+# Python virtualenvs (repo root only)
+/venv/
+/env/
+
+# Node artifacts (repo root only)
+/node_modules/
+/dist/
+/build/

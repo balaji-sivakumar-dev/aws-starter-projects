@@ -1,0 +1,12 @@
+{
+  "resource": "/todos/{id}",
+  "path": "/todos/REPLACE_ID",
+  "pathParameters": {
+    "id": "REPLACE_ID"
+  },
+  "httpMethod": "PUT",
+  "headers": {
+    "Content-Type": "application/json"
+  },
+  "body": "{\"status\": \"done\"}"
+}

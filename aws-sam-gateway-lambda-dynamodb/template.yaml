@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: SAM – Todo API (API Gateway + Lambda + DynamoDB)
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Timeout: 20
+    MemorySize: 256
+    Tracing: Active
+    Environment:
+      Variables:
+        TABLE_NAME: !Ref TodoTable
+        POWERTOOLS_SERVICE_NAME: todo-api
+        DDB_ENDPOINT: ''
+
+Resources:
+  TodoTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub ${AWS::StackName}-todos
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: status
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: status-index
+          KeySchema:
+            - AttributeName: status
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: false
+
+  TodoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref TodoTable
+      Events:
+        PostTodo:
+          Type: Api
+          Properties:
+            Path: /todos
+            Method: post
+            RestApiId: !Ref HttpApi
+        ListTodos:
+          Type: Api
+          Properties:
+            Path: /todos
+            Method: get
+            RestApiId: !Ref HttpApi
+        GetTodo:
+          Type: Api
+          Properties:
+            Path: /todos/{id}
+            Method: get
+            RestApiId: !Ref HttpApi
+        PutTodo:
+          Type: Api
+          Properties:
+            Path: /todos/{id}
+            Method: put
+            RestApiId: !Ref HttpApi
+        DeleteTodo:
+          Type: Api
+          Properties:
+            Path: /todos/{id}
+            Method: delete
+            RestApiId: !Ref HttpApi
+
+  HttpApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: v1
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiUrl:
+    Description: Invoke URL
+    Value: !Sub "https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com/v1"
+  TableName:
+    Description: DynamoDB Table Name
+    Value: !Ref TodoTable
