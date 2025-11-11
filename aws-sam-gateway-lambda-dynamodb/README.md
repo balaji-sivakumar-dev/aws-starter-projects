@@ -1,5 +1,12 @@
 # AWS SAM Todo App – Local‑first + CDK‑ready
 
+## Services in This Starter
+- **AWS SAM (Serverless Application Model)** – an open-source framework + CLI that lets you define serverless infrastructure as concise YAML/JSON and run the stack locally with the same Lambda runtime Docker uses in AWS.
+- **AWS SAM CLI** – the developer toolchain that compiles the SAM template into CloudFormation, runs `sam local start-api`, and drives guided deployments so you can ship the stack without manually crafting AWS CLI commands.
+- **AWS Lambda** – the compute service that executes `src/app.py` on-demand. You only pay for milliseconds of execution time and never manage servers or scaling.
+- **Amazon DynamoDB** – the fully managed NoSQL database backing the Todo items. In this project you can swap between DynamoDB Local (Docker) for dev and the managed service for prod.
+- **Amazon API Gateway (HTTP API)** – the managed front door that exposes `/todos` endpoints, handles CORS, and forwards requests to the Lambda function with minimal configuration.
+
 A complete, **local‑first** serverless Todo API using **API Gateway + Lambda + DynamoDB** with **AWS SAM**. Includes optional **DynamoDB Local** via Docker, sample seed data, and a **CDK adapter** you can use when you’re ready to deploy on AWS using AWS CDK.
 
 ---

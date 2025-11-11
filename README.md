@@ -13,7 +13,4 @@ Curated AWS Infrastructure-as-Code examples that pair **hands-on application cod
 | --- | --- | --- |
 | [`aws-sam-gateway-lambda-dynamodb`](aws-sam-gateway-lambda-dynamodb/README.md) | AWS SAM (Python) with optional CDK adapter (TypeScript) | Local-first Todo API using API Gateway + Lambda + DynamoDB, Dockerized DynamoDB Local, seeded sample data, and a matching CDK stack for future deployments. See the [Setup guide](aws-sam-gateway-lambda-dynamodb/Setup.md) for instructions. |
 
-## Roadmap
-- Add more SAM/CDK blueprints covering event-driven, data, and observability patterns.
-- Provide shared tooling (linting, tests, pipelines) that can be reused across starters.
-- Document migration tips for taking a local SAM prototype into a production CDK stack.
+
