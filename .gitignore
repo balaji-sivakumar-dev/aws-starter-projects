@@ -20,3 +20,10 @@ Thumbs.db
 /node_modules/
 /dist/
 /build/
+
+# python
+src/boto3*
+src/botocore*
+src/pydantic*
+src/**/*.dist-info/
+src/**/*.egg-info/
