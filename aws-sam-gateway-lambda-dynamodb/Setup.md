@@ -85,6 +85,10 @@ Check it’s responding:
 aws dynamodb list-tables --endpoint-url http://localhost:8000
 ```
 
+# List table content 
+```
+aws dynamodb scan --endpoint-url http://localhost:8000 --table-name local-todos
+```
 ---
 
 ## **4️⃣ Seed Local Table**
@@ -174,6 +178,22 @@ docker compose down
 ## **7️⃣ Deploy to AWS with SAM**
 
 Ensure AWS CLI credentials are configured:
+
+Verify if credentials are configured:
+```bash
+aws configure list
+```
+
+You should see something like:
+```bash
+      Name                    Value             Type    Location
+      ----                    -----             ----    --------
+   profile                <not set>             None
+access_key     ****************ABCD      config-file    ~/.aws/credentials
+secret_key     ****************1234      config-file    ~/.aws/credentials
+    region                ca-central-1      config-file    ~/.aws/config
+
+```
 ```bash
 aws configure
 ```
