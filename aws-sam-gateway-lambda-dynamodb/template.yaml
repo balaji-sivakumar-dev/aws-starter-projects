@@ -4,7 +4,7 @@ Description: SAM – Todo API (API Gateway + Lambda + DynamoDB)
 
 Globals:
   Function:
-    Runtime: python3.11
+    Runtime: python3.13
     Timeout: 20
     MemorySize: 256
     Tracing: Active

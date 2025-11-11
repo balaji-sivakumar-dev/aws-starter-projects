@@ -27,3 +27,7 @@ src/botocore*
 src/pydantic*
 src/**/*.dist-info/
 src/**/*.egg-info/
+venv/
+.aws-sam/
+__pycache__/
+*.pyc

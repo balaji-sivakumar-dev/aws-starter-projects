@@ -1,0 +1,6 @@
+{
+  "TodoFunction": {
+    "TABLE_NAME": "local-todos",
+    "DDB_ENDPOINT": "http://host.docker.internal:8000"
+  }
+}

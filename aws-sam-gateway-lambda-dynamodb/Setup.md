@@ -1,104 +1,124 @@
-# Setup.md — Run Locally with SAM & Deploy with CDK
+# **Setup.md — Run Locally with AWS SAM & Deploy with CDK**
 
 This guide walks you through:
-1) **Running locally** with **AWS SAM** + **DynamoDB Local**  
-2) **Deploying to AWS** using **SAM**  
-3) **Deploying to AWS** using the optional **CDK adapter** (TypeScript)
+1. 🧱 Running locally with **AWS SAM + DynamoDB Local**  
+2. ☁️ Deploying to AWS using **SAM**  
+3. 🧩 Optionally deploying with **AWS CDK (TypeScript)**  
 
-> Tested on macOS. Commands are similar on Linux/Windows (PowerShell may need slight changes).
+> Tested on **macOS (Apple Silicon)**. Commands are nearly identical for Linux and Windows (use PowerShell equivalents).
 
 ---
 
-## 0) Prerequisites
-- **AWS SAM CLI**: https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html
-- **Docker Desktop** (for DynamoDB Local): https://www.docker.com/products/docker-desktop/
-- **Python 3.11** + `pip`
-- **Node.js 18+** (only if using the CDK adapter)
-- **AWS CLI v2** (configured with credentials if you plan to deploy)
+## **0️⃣ Prerequisites**
+Make sure these are installed:
 
-Verify:
+| Tool | Required for | Install / Docs |
+|------|---------------|----------------|
+| **AWS SAM CLI (≥ 1.144)** | Local build & deploy | [Install SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) |
+| **Docker Desktop** | DynamoDB Local & SAM containers | [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
+| **Python 3.13 + pip** | Lambda runtime | `brew install python` |
+| **AWS CLI v2** | Cloud deploys | [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html) |
+| **Node 18+ + npm** | Only for CDK adapter | [Node LTS](https://nodejs.org) |
+
+Verify versions:
 ```bash
 sam --version
 docker --version
 python3 --version
 aws --version
-node --version   # only for CDK
-npm --version    # only for CDK
+node --version     # only if using CDK
+npm --version      # only if using CDK
 ```
 
 ---
 
-## 1) Clone & Install Dependencies
+## **1️⃣ Clone & Prepare Environment**
 
-### 🧹 Use Virtual Environments (recommended)
-
-To keep dependencies isolated per project:
-```
+```bash
+git clone <your-repo-url>
 cd aws-sam-gateway-lambda-dynamodb
-
-# Create venv folder
-python3 -m venv venv
-
-# Activate it
-source venv/bin/activate
-
-# (You’ll see your prompt change, e.g. (venv) MacBook$)
-
-# Then install your project deps inside venv
-pip install -r requirements.txt -t src/
-
-# To Deactivate Virtual Environment
-
-deactivate
-
 ```
-### Install Python Dependencies
+
+### 🔹 Create a Virtual Environment (recommended)
+```bash
+python3 -m venv venv
+source venv/bin/activate      # (venv) prompt appears
+pip install aws-sam-cli boto3
+```
+
+Deactivate any time with:
+```bash
+deactivate
+```
+
+---
+
+## **2️⃣ Install Dependencies & Build**
+
+> Simply place `requirements.txt` in `src/` and let `sam build` handle it.
 
 ```bash
 cd aws-sam-gateway-lambda-dynamodb
-
-# Install Python deps into the Lambda src folder
-pip install -r requirements.txt -t src/
+sam build
 ```
 
-> Why install into `src/`? So that `sam build` bundles the dependencies alongside the handler.
+If you want to confirm the Python runtime, open `template.yaml` — it should read:
+```yaml
+Globals:
+  Function:
+    Runtime: python3.13
+```
 
 ---
 
-## 2) Start DynamoDB Local (Docker)
+## **3️⃣ Start DynamoDB Local (Docker)**
+
 ```bash
 docker compose up -d
-# confirm it is running
 docker ps | grep dynamodb-local
 ```
 
-By default this starts **DynamoDB Local** at `http://localhost:8000` (mapped to container port `8000`).
+✅ You should see `0.0.0.0:8000->8000/tcp` in the PORTS column.
+
+Check it’s responding:
+```bash
+aws dynamodb list-tables --endpoint-url http://localhost:8000
+```
 
 ---
 
-## 3) (Optional) Seed Local Table
-Create and seed a **local** table (separate from the SAM stack’s cloud table):
+## **4️⃣ Seed Local Table**
+
+This creates and seeds a test table inside DynamoDB Local.
+
 ```bash
 export TABLE_NAME=local-todos
 export DDB_ENDPOINT=http://localhost:8000
-
-python scripts/seed_local_ddb.py
+python3 scripts/seed_local_ddb.py
 ```
 
-You should see:
-- “Creating table…” (first run) and then “Table ready: local-todos”
-- “Seeded 3 items.”
+Expected output:
+```
+Creating table...
+Table ready: local-todos
+Seeded 3 items.
+```
 
 ---
 
-## 4) Run the API Locally (SAM)
-Build and start the local API:
+## **5️⃣ Run the API Locally**
+
+### 5.1 Build (if needed)
 ```bash
 sam build
+```
 
-# Point Lambda at DynamoDB Local.
-# macOS/Windows Docker often needs host.docker.internal. On Linux, use localhost.
-cat > env.json << 'JSON'
+### 5.2 Create `env_local.json` for local run
+> On macOS/Windows, use `host.docker.internal`.  
+> On Linux, use `localhost`.
+
+```bash
+cat > env_local.json <<'JSON'
 {
   "TodoFunction": {
     "TABLE_NAME": "local-todos",
@@ -106,118 +126,134 @@ cat > env.json << 'JSON'
   }
 }
 JSON
-
-sam local start-api --env-vars env.json
 ```
 
-You’ll see the local endpoint, typically: `http://127.0.0.1:3000`.
+### 5.3 Start the local API
+```bash
+sam local start-api --env-vars env_local.json
+```
 
-### Test the endpoints
+Output shows a local endpoint like:
+```
+Mounting TodoFunction at http://127.0.0.1:3000/todos [GET,POST,...]
+```
+
+---
+
+## **6️⃣ Test Endpoints**
 ```bash
 # Create
-curl -sS -X POST http://127.0.0.1:3000/todos   -H 'Content-Type: application/json'   -d '{"title":"First Todo","description":"hello"}' | jq
+curl -sS -X POST http://127.0.0.1:3000/todos \
+  -H 'Content-Type: application/json' \
+  -d '{"title":"First Todo","description":"hello"}' | jq
 
 # List
 curl -sS http://127.0.0.1:3000/todos | jq
 
-# Get by ID
-ID="<paste id from create/list>"
+# Get one
+ID="ac4c77bc-d368-4657-b2b8-107d059518fc"
 curl -sS http://127.0.0.1:3000/todos/$ID | jq
 
 # Update
-curl -sS -X PUT http://127.0.0.1:3000/todos/$ID   -H 'Content-Type: application/json'   -d '{"status":"done"}' | jq
+curl -sS -X PUT http://127.0.0.1:3000/todos/$ID \
+  -H 'Content-Type: application/json' \
+  -d '{"status":"done"}' | jq
 
 # Delete
 curl -i -sS -X DELETE http://127.0.0.1:3000/todos/$ID
 ```
 
-Stop the local API with `Ctrl+C` when done. To stop DynamoDB Local:
+Stop the API with `Ctrl +C`.  
+Stop DynamoDB Local with:
 ```bash
 docker compose down
 ```
 
 ---
 
-## 5) Deploy to AWS with SAM (Cloud)
-> Make sure your AWS CLI credentials are set (`aws configure`).
+## **7️⃣ Deploy to AWS with SAM**
 
+Ensure AWS CLI credentials are configured:
 ```bash
-# Clean build
-sam build
+aws configure
+```
 
-# First-time guided deploy (creates a parameters file for next time)
+Deploy:
+```bash
+sam build
 sam deploy --guided
 ```
 
-During the guided deploy, you’ll choose:
+Follow the prompts:
 - Stack Name (e.g., `sam-todo-stack`)
-- AWS Region (e.g., `ca-central-1` or `us-east-1`)
-- Confirm creation of IAM roles
-- Save arguments to a config file (recommended)
+- Region (e.g., `ca-central-1`)
+- Confirm IAM role creation
+- Save to a config file (yes)
 
-After deploy, SAM prints stack **Outputs** including the `ApiUrl`. Test it:
+Test deployed API:
 ```bash
 API_URL="https://xxxxxx.execute-api.<region>.amazonaws.com/v1"
-
-curl -sS -X POST "$API_URL/todos"   -H 'Content-Type: application/json'   -d '{"title":"Cloud Todo","description":"deployed via SAM"}' | jq
+curl -sS "$API_URL/todos" | jq
 ```
 
-### Update & Redeploy
+Redeploy:
 ```bash
 sam build && sam deploy
 ```
 
-### Delete the Stack
+Remove stack:
 ```bash
 aws cloudformation delete-stack --stack-name sam-todo-stack
 ```
 
 ---
 
-## 6) Deploy to AWS with **CDK Adapter** (Optional)
-This repo includes a **CDK** stack that mirrors the SAM stack. Useful if you prefer CDK or want to evolve the architecture.
+## **8️⃣ Deploy to AWS with CDK (Optional)**
 
-### Install & Build
 ```bash
 cd cdk
 npm install
 npm run build
-```
-
-### Synthesize & Deploy
-```bash
 npx cdk synth
 npx cdk deploy
 ```
 
-After a successful deploy, the CDK prints outputs including `ApiUrl`. Use it the same way as the SAM URL.
-
-### Destroy
+Destroy:
 ```bash
 npx cdk destroy
 ```
 
 ---
 
-## 7) Environment Variables & Config
-- **Local mode**: set `TABLE_NAME=local-todos`, `DDB_ENDPOINT=http://localhost:8000` (or `http://host.docker.internal:8000` when invoked via SAM’s Docker runtime on macOS/Windows).
-- **Cloud mode**: do **not** set `DDB_ENDPOINT`. The Lambda will use DynamoDB in the target AWS Region, and the table name is provided by the stack.
+## **9️⃣ Environment Variables**
+
+| Mode | TABLE_NAME | DDB_ENDPOINT |
+|------|-------------|---------------|
+| **Local (host)** | `local-todos` | `http://localhost:8000` |
+| **Local via SAM (Docker)** | `local-todos` | `http://host.docker.internal:8000` |
+| **Cloud (AWS)** | *auto from stack* | *unset* |
 
 ---
 
-## 8) Troubleshooting
-- **DynamoDB Local not reachable**: Ensure Docker is running; try `curl http://localhost:8000/shell/` (DDB Local UI) if enabled.
-- **SAM can’t reach DDB Local on macOS/Windows**: Use `host.docker.internal` instead of `localhost` in `env.json`.
-- **Missing dependencies**: Ensure you installed Python deps into `src/` **before** `sam build`.
-- **AccessDenied on cloud**: The SAM template grants CRUD policy to the Lambda for the table; re‑deploy if you changed resource names.
-- **CORS issues**: CORS is enabled for `'*'` (demo). Tighten in production.
+## **🔟 Troubleshooting**
+
+| Issue | Fix |
+|-------|-----|
+| **Connection refused to DDB Local** | Ensure container maps `8000:8000`; run `docker compose up -d` |
+| **SAM can’t reach DDB Local on macOS/Windows** | Use `host.docker.internal` in `env.json` |
+| **Missing modules** | Run `sam build` (after ensuring `src/requirements.txt`) |
+| **Permission denied in cloud** | Re-deploy so IAM policy updates propagate |
+| **CORS** | Demo uses `'*'`; restrict origins for production |
 
 ---
 
-## 9) Cost & Cleanup
-- Local runs via Docker are free.
-- In AWS, resources are in pay‑as‑you‑go tiers (DynamoDB PAY_PER_REQUEST, Lambda, API Gateway). Costs are typically low for test stacks.
-- **Cleanup**: Run `aws cloudformation delete-stack --stack-name <name>` (SAM) or `npx cdk destroy` (CDK).
+## **💰 Costs & Cleanup**
+
+| Environment | Cost |
+|--------------|------|
+| **Local (Docker)** | Free |
+| **AWS Cloud** | Pay-per-use (Lambda + API Gateway + DynamoDB) |
+| **Cleanup** | `aws cloudformation delete-stack --stack-name <name>` or `npx cdk destroy` |
 
 ---
 
