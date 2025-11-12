@@ -155,7 +155,7 @@ curl -sS -X POST http://127.0.0.1:3000/todos \
 curl -sS http://127.0.0.1:3000/todos | jq
 
 # Get one
-ID="ac4c77bc-d368-4657-b2b8-107d059518fc"
+ID="1a31c3fc-45b9-44f7-8152-47d258340d60"
 curl -sS http://127.0.0.1:3000/todos/$ID | jq
 
 # Update
@@ -224,6 +224,35 @@ sam build && sam deploy
 Remove stack:
 ```bash
 aws cloudformation delete-stack --stack-name sam-todo-stack
+```
+
+> ⚠️ SAM Stores the deployables in S3 Bucket 
+
+🧹 Cleanup tip
+
+> Deleting your stack (aws cloudformation delete-stack) does not delete the S3 bucket.
+
+```bash
+aws s3 ls | grep sam
+aws s3 rb s3://<<bucket_name>> --force
+```
+
+> if there are multiple versions in the bucket (most likely), try this
+```bash
+BUCKET=<your-sam-artifacts-bucket>
+aws s3api list-object-versions --bucket "$BUCKET" --output json \
+| jq -r '.Versions[]?, .DeleteMarkers[]? | [.Key, .VersionId] | @tsv' \
+| while IFS=$'\t' read -r k v; do aws s3api delete-object --bucket "$BUCKET" --key "$k" --version-id "$v"; done
+aws s3api delete-bucket --bucket "$BUCKET"
+
+```
+
+Alternate option to delete using a Shell file 
+
+```bash
+
+./scripts/cleanup_sam.sh --stack sam-todo-app2 --delete-stack --region ca-central-1
+
 ```
 
 ---
