@@ -58,7 +58,6 @@ deactivate
 > Simply place `requirements.txt` in `src/` and let `sam build` handle it.
 
 ```bash
-cd aws-sam-gateway-lambda-dynamodb
 sam build
 ```
 
@@ -85,8 +84,8 @@ Check it’s responding:
 aws dynamodb list-tables --endpoint-url http://localhost:8000
 ```
 
-# List table content 
-```
+List table contents:
+```bash
 aws dynamodb scan --endpoint-url http://localhost:8000 --table-name local-todos
 ```
 ---
@@ -113,6 +112,7 @@ Seeded 3 items.
 ## **5️⃣ Run the API Locally**
 
 ### 5.1 Build (if needed)
+> Run this any time you change Python code or the template so the local container picks up the latest bundle.
 ```bash
 sam build
 ```
@@ -133,6 +133,7 @@ JSON
 ```
 
 ### 5.3 Start the local API
+This spins up a local API Gateway emulator + Lambda container wired to DynamoDB Local using the env file above.
 ```bash
 sam local start-api --env-vars env_local.json
 ```
@@ -154,8 +155,10 @@ curl -sS -X POST http://127.0.0.1:3000/todos \
 # List
 curl -sS http://127.0.0.1:3000/todos | jq
 
-# Get one
+# Grab an id from the JSON above
 ID="1a31c3fc-45b9-44f7-8152-47d258340d60"
+
+# Get one
 curl -sS http://127.0.0.1:3000/todos/$ID | jq
 
 # Update
@@ -178,25 +181,23 @@ docker compose down
 ## **7️⃣ Deploy to AWS with SAM**
 
 Ensure AWS CLI credentials are configured:
-
-Verify if credentials are configured:
-```bash
-aws configure list
-```
-
-You should see something like:
-```bash
-      Name                    Value             Type    Location
-      ----                    -----             ----    --------
-   profile                <not set>             None
-access_key     ****************ABCD      config-file    ~/.aws/credentials
-secret_key     ****************1234      config-file    ~/.aws/credentials
-    region                ca-central-1      config-file    ~/.aws/config
-
-```
-```bash
-aws configure
-```
+1. Inspect the current profile:
+   ```bash
+   aws configure list
+   ```
+   Example output:
+   ```
+         Name                    Value             Type    Location
+         ----                    -----             ----    --------
+      profile                <not set>             None
+   access_key     ****************ABCD      config-file    ~/.aws/credentials
+   secret_key     ****************1234      config-file    ~/.aws/credentials
+       region                ca-central-1   config-file    ~/.aws/config
+   ```
+2. If anything is missing, run the guided setup:
+   ```bash
+   aws configure
+   ```
 
 Deploy:
 ```bash
@@ -247,30 +248,29 @@ aws s3api delete-bucket --bucket "$BUCKET"
 
 ```
 
-Alternate option to delete using a Shell file 
+Alternate option: use the helper script to drop the stack and purge its artifact bucket in one go.
 
 ```bash
-
 ./scripts/cleanup_sam.sh --stack sam-todo-app2 --delete-stack --region ca-central-1
-
 ```
 
 ---
 
-## **8️⃣ Deploy to AWS with CDK (Optional)**
+## **8️⃣ Deploy to AWS with CDK **
+
+The CDK adapter mirrors the SAM template (REST API + Lambda + DynamoDB) and uses the `PythonFunction` construct to bundle the Python source + `requirements.txt`. Run the following from `aws-sam-gateway-lambda-dynamodb/cdk`:
 
 ```bash
 cd cdk
-npm install
-npm run build
-npx cdk synth
-npx cdk deploy
+npm install           # once per machine to pull CDK + Node typings
+npm run build         # transpile TypeScript -> dist/
+npx cdk synth         # uses the locally installed CDK CLI
+npx cdk deploy        # creates/updates the stack
 ```
 
-Destroy:
-```bash
-npx cdk destroy
-```
+Useful extras:
+- `npx cdk diff` – preview infrastructure changes before deploying.
+- `npx cdk destroy` – removes the CDK stack (clean up any residual S3 buckets if prompted).
 
 ---
 
