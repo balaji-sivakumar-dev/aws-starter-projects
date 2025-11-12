@@ -131,6 +131,7 @@ cat > env_local.json <<'JSON'
 }
 JSON
 ```
+> Tip: copy this block into `env_local.json.example`, commit the example, and add `env_local.json` to `.gitignore` so each developer can provide OS-specific overrides safely.
 
 ### 5.3 Start the local API
 This spins up a local API Gateway emulator + Lambda container wired to DynamoDB Local using the env file above.
@@ -216,6 +217,11 @@ Test deployed API:
 API_URL="https://xxxxxx.execute-api.<region>.amazonaws.com/v1"
 curl -sS "$API_URL/todos" | jq
 ```
+You can also confirm the stack finished by running:
+```bash
+sam list stack-outputs --stack-name sam-todo-stack
+```
+or checking the CloudFormation console for the `CREATE_COMPLETE` state.
 
 Redeploy:
 ```bash
@@ -267,10 +273,15 @@ npm run build         # transpile TypeScript -> dist/
 npx cdk synth         # uses the locally installed CDK CLI
 npx cdk deploy        # creates/updates the stack
 ```
+> ✅ Re-run `npm install` whenever `package.json` changes so new CDK dependencies (e.g., `@types/node`) are pulled in before building.
 
 Useful extras:
 - `npx cdk diff` – preview infrastructure changes before deploying.
 - `npx cdk destroy` – removes the CDK stack (clean up any residual S3 buckets if prompted).
+- After `npx cdk deploy`, verify the stack via the CloudFormation console or
+  ```bash
+  aws cloudformation describe-stacks --stack-name TodoCdkStack --query "Stacks[0].StackStatus"
+  ```
 
 ---
 
@@ -312,5 +323,6 @@ Useful extras:
 - Add pagination & GSI queries by `status`.
 - Add CloudWatch dashboards and Powertools.
 - Add a frontend (React/Next.js/Expo) that calls this API.
+- Document Windows/PowerShell command equivalents (e.g., `py -3 scripts/seed_local_ddb.py`) for full cross-platform clarity.
 
 Happy building! 🚀
