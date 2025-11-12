@@ -1,9 +1,9 @@
 import { Duration, Stack, StackProps, CfnOutput } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { AttributeType, BillingMode, Table } from 'aws-cdk-lib/aws-dynamodb';
-import { Runtime, Code, Function as LambdaFn } from 'aws-cdk-lib/aws-lambda';
-import { HttpApi, CorsHttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
-import { LambdaProxyIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { PythonFunction } from '@aws-cdk/aws-lambda-python-alpha';
+import { RestApi, LambdaIntegration, Cors } from 'aws-cdk-lib/aws-apigateway';
 import * as path from 'path';
 
 export class TodoStack extends Stack {
@@ -13,6 +13,7 @@ export class TodoStack extends Stack {
     const table = new Table(this, 'TodoTable', {
       billingMode: BillingMode.PAY_PER_REQUEST,
       partitionKey: { name: 'id', type: AttributeType.STRING },
+      tableName: `${this.stackName}-todos`,
     });
 
     table.addGlobalSecondaryIndex({
@@ -20,10 +21,11 @@ export class TodoStack extends Stack {
       partitionKey: { name: 'status', type: AttributeType.STRING },
     });
 
-    const fn = new LambdaFn(this, 'TodoFunction', {
-      runtime: Runtime.PYTHON_3_11,
-      handler: 'app.handler',
-      code: Code.fromAsset(path.join(__dirname, '../../src')),
+    const fn = new PythonFunction(this, 'TodoFunction', {
+      runtime: Runtime.PYTHON_3_13,
+      entry: path.join(__dirname, '../../src'),
+      index: 'app.py',
+      handler: 'handler',
       timeout: Duration.seconds(20),
       environment: {
         TABLE_NAME: table.tableName,
@@ -32,27 +34,26 @@ export class TodoStack extends Stack {
 
     table.grantReadWriteData(fn);
 
-    const api = new HttpApi(this, 'HttpApi', {
-      corsPreflight: {
-        allowMethods: [CorsHttpMethod.ANY],
-        allowOrigins: ['*'],
-        allowHeaders: ['*'],
+    const api = new RestApi(this, 'TodoApi', {
+      deployOptions: { stageName: 'v1' },
+      defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowMethods: Cors.ALL_METHODS,
+        allowHeaders: Cors.DEFAULT_HEADERS,
       },
     });
 
-    api.addRoutes({
-      path: '/todos',
-      methods: [ 'GET' as any, 'POST' as any ],
-      integration: new LambdaProxyIntegration({ handler: fn }),
-    });
+    const todos = api.root.addResource('todos');
+    const todosById = todos.addResource('{id}');
 
-    api.addRoutes({
-      path: '/todos/{id}',
-      methods: [ 'GET' as any, 'PUT' as any, 'DELETE' as any ],
-      integration: new LambdaProxyIntegration({ handler: fn }),
-    });
+    const lambdaIntegration = new LambdaIntegration(fn);
+    todos.addMethod('GET', lambdaIntegration);
+    todos.addMethod('POST', lambdaIntegration);
+    todosById.addMethod('GET', lambdaIntegration);
+    todosById.addMethod('PUT', lambdaIntegration);
+    todosById.addMethod('DELETE', lambdaIntegration);
 
-    new CfnOutput(this, 'ApiUrl', { value: api.apiEndpoint });
+    new CfnOutput(this, 'ApiUrl', { value: api.url ?? '' });
     new CfnOutput(this, 'TableName', { value: table.tableName });
   }
 }

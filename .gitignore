@@ -12,14 +12,15 @@ Thumbs.db
 .env
 .env.*
 
-# Python virtualenvs (repo root only)
-/venv/
-/env/
+# Python virtualenvs
+venv/
+env/
 
-# Node artifacts (repo root only)
-/node_modules/
-/dist/
-/build/
+# Node artifacts
+node_modules/
+dist/
+build/
+cdk.out/
 
 # python
 src/boto3*

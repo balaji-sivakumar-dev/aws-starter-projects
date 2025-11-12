@@ -73,27 +73,36 @@ def update_todo(todo_id: str, event):
 
     updates = []
     expr_values = {}
+    expr_names = {}
     if data.title is not None:
-        updates.append("title = :t")
+        updates.append("#title = :t")
         expr_values[":t"] = data.title
+        expr_names["#title"] = "title"
     if data.description is not None:
-        updates.append("description = :d")
+        updates.append("#description = :d")
         expr_values[":d"] = data.description
+        expr_names["#description"] = "description"
     if data.status is not None:
-        updates.append("status = :s")
+        updates.append("#status = :s")
         expr_values[":s"] = data.status
-    updates.append("updated_at = :u")
-    expr_values[":u"] = TodoItem.now_iso()
+        expr_names["#status"] = "status"
 
     if not expr_values:
         return _response(400, {"message": "Nothing to update"})
 
-    resp = table().update_item(
-        Key={"id": todo_id},
-        UpdateExpression="SET " + ", ".join(updates),
-        ExpressionAttributeValues=expr_values,
-        ReturnValues="ALL_NEW",
-    )
+    updates.append("updated_at = :u")
+    expr_values[":u"] = TodoItem.now_iso()
+
+    update_kwargs = {
+        "Key": {"id": todo_id},
+        "UpdateExpression": "SET " + ", ".join(updates),
+        "ExpressionAttributeValues": expr_values,
+        "ReturnValues": "ALL_NEW",
+    }
+    if expr_names:
+        update_kwargs["ExpressionAttributeNames"] = expr_names
+
+    resp = table().update_item(**update_kwargs)
     return _response(200, resp.get("Attributes", {}))
 
 def delete_todo(todo_id: str):

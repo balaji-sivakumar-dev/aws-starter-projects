@@ -58,7 +58,6 @@ deactivate
 > Simply place `requirements.txt` in `src/` and let `sam build` handle it.
 
 ```bash
-cd aws-sam-gateway-lambda-dynamodb
 sam build
 ```
 
@@ -85,6 +84,10 @@ Check it’s responding:
 aws dynamodb list-tables --endpoint-url http://localhost:8000
 ```
 
+List table contents:
+```bash
+aws dynamodb scan --endpoint-url http://localhost:8000 --table-name local-todos
+```
 ---
 
 ## **4️⃣ Seed Local Table**
@@ -109,6 +112,7 @@ Seeded 3 items.
 ## **5️⃣ Run the API Locally**
 
 ### 5.1 Build (if needed)
+> Run this any time you change Python code or the template so the local container picks up the latest bundle.
 ```bash
 sam build
 ```
@@ -127,8 +131,10 @@ cat > env_local.json <<'JSON'
 }
 JSON
 ```
+> Tip: copy this block into `env_local.json.example`, commit the example, and add `env_local.json` to `.gitignore` so each developer can provide OS-specific overrides safely.
 
 ### 5.3 Start the local API
+This spins up a local API Gateway emulator + Lambda container wired to DynamoDB Local using the env file above.
 ```bash
 sam local start-api --env-vars env_local.json
 ```
@@ -150,8 +156,10 @@ curl -sS -X POST http://127.0.0.1:3000/todos \
 # List
 curl -sS http://127.0.0.1:3000/todos | jq
 
+# Grab an id from the JSON above
+ID="1a31c3fc-45b9-44f7-8152-47d258340d60"
+
 # Get one
-ID="ac4c77bc-d368-4657-b2b8-107d059518fc"
 curl -sS http://127.0.0.1:3000/todos/$ID | jq
 
 # Update
@@ -174,9 +182,23 @@ docker compose down
 ## **7️⃣ Deploy to AWS with SAM**
 
 Ensure AWS CLI credentials are configured:
-```bash
-aws configure
-```
+1. Inspect the current profile:
+   ```bash
+   aws configure list
+   ```
+   Example output:
+   ```
+         Name                    Value             Type    Location
+         ----                    -----             ----    --------
+      profile                <not set>             None
+   access_key     ****************ABCD      config-file    ~/.aws/credentials
+   secret_key     ****************1234      config-file    ~/.aws/credentials
+       region                ca-central-1   config-file    ~/.aws/config
+   ```
+2. If anything is missing, run the guided setup:
+   ```bash
+   aws configure
+   ```
 
 Deploy:
 ```bash
@@ -195,6 +217,11 @@ Test deployed API:
 API_URL="https://xxxxxx.execute-api.<region>.amazonaws.com/v1"
 curl -sS "$API_URL/todos" | jq
 ```
+You can also confirm the stack finished by running:
+```bash
+sam list stack-outputs --stack-name sam-todo-stack
+```
+or checking the CloudFormation console for the `CREATE_COMPLETE` state.
 
 Redeploy:
 ```bash
@@ -206,22 +233,55 @@ Remove stack:
 aws cloudformation delete-stack --stack-name sam-todo-stack
 ```
 
+> ⚠️ SAM Stores the deployables in S3 Bucket 
+
+🧹 Cleanup tip
+
+> Deleting your stack (aws cloudformation delete-stack) does not delete the S3 bucket.
+
+```bash
+aws s3 ls | grep sam
+aws s3 rb s3://<<bucket_name>> --force
+```
+
+> if there are multiple versions in the bucket (most likely), try this
+```bash
+BUCKET=<your-sam-artifacts-bucket>
+aws s3api list-object-versions --bucket "$BUCKET" --output json \
+| jq -r '.Versions[]?, .DeleteMarkers[]? | [.Key, .VersionId] | @tsv' \
+| while IFS=$'\t' read -r k v; do aws s3api delete-object --bucket "$BUCKET" --key "$k" --version-id "$v"; done
+aws s3api delete-bucket --bucket "$BUCKET"
+
+```
+
+Alternate option: use the helper script to drop the stack and purge its artifact bucket in one go.
+
+```bash
+./scripts/cleanup_sam.sh --stack sam-todo-app2 --delete-stack --region ca-central-1
+```
+
 ---
 
-## **8️⃣ Deploy to AWS with CDK (Optional)**
+## **8️⃣ Deploy to AWS with CDK **
+
+The CDK adapter mirrors the SAM template (REST API + Lambda + DynamoDB) and uses the `PythonFunction` construct to bundle the Python source + `requirements.txt`. Run the following from `aws-sam-gateway-lambda-dynamodb/cdk`:
 
 ```bash
 cd cdk
-npm install
-npm run build
-npx cdk synth
-npx cdk deploy
+npm install           # once per machine to pull CDK + Node typings
+npm run build         # transpile TypeScript -> dist/
+npx cdk synth         # uses the locally installed CDK CLI
+npx cdk deploy        # creates/updates the stack
 ```
+> ✅ Re-run `npm install` whenever `package.json` changes so new CDK dependencies (e.g., `@types/node`) are pulled in before building.
 
-Destroy:
-```bash
-npx cdk destroy
-```
+Useful extras:
+- `npx cdk diff` – preview infrastructure changes before deploying.
+- `npx cdk destroy` – removes the CDK stack (clean up any residual S3 buckets if prompted).
+- After `npx cdk deploy`, verify the stack via the CloudFormation console or
+  ```bash
+  aws cloudformation describe-stacks --stack-name TodoCdkStack --query "Stacks[0].StackStatus"
+  ```
 
 ---
 
@@ -263,5 +323,6 @@ npx cdk destroy
 - Add pagination & GSI queries by `status`.
 - Add CloudWatch dashboards and Powertools.
 - Add a frontend (React/Next.js/Expo) that calls this API.
+- Document Windows/PowerShell command equivalents (e.g., `py -3 scripts/seed_local_ddb.py`) for full cross-platform clarity.
 
 Happy building! 🚀
