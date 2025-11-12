@@ -20,6 +20,7 @@ env/
 node_modules/
 dist/
 build/
+cdk.out/
 
 # python
 src/boto3*
