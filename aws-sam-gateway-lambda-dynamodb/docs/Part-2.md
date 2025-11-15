@@ -367,6 +367,17 @@ Set up an AWS **Budget Alert** (free):
 
 ---
 
+## 📚 Additional Resources
+
+### 🔗 GitHub Repository (Full Source Code)
+All code for this backend (SAM, CDK, Lambda, DynamoDB) is available here:
+
+👉 **https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb**
+
+Feel free to explore the repo, open issues, or adapt it for your own serverless projects.
+
+---
+
 # 👀 Coming Up in Part 3 — UI + Cognito Authentication
 
 Part 3 will focus on:
