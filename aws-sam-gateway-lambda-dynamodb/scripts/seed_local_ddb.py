@@ -5,9 +5,24 @@ import boto3
 
 LOCAL_ENDPOINT = os.getenv("DDB_ENDPOINT", "http://localhost:8000")
 TABLE_NAME = os.getenv("TABLE_NAME", "local-todos")
+REGION = os.getenv("AWS_REGION", "ca-central-1")
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "dummy")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "dummy")
 
-client = boto3.client("dynamodb", endpoint_url=LOCAL_ENDPOINT)
-resource = boto3.resource("dynamodb", endpoint_url=LOCAL_ENDPOINT)
+client = boto3.client(
+    "dynamodb",
+    endpoint_url=LOCAL_ENDPOINT,
+    region_name=REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+resource = boto3.resource(
+    "dynamodb",
+    endpoint_url=LOCAL_ENDPOINT,
+    region_name=REGION,
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
 
 def ensure_table():
     existing = client.list_tables().get("TableNames", [])
