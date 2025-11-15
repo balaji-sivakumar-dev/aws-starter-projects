@@ -8,8 +8,8 @@ description: "Deep dive into the architecture, Lambda internals, and local-first
 
 # 📘 Serverless TODO App — Article Series
 
-| Part | Title | 
-|------|--------|
+| Part | Title | Link |
+|------|--------|-------|
 | **1** | [Architecture Overview](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m) |
 | **2** | [Local Backend with AWS SAM *(You are here)*](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m) |
 | **3** | Deploying Backend to AWS (SAM + CDK) - *(Coming soon…)* |
