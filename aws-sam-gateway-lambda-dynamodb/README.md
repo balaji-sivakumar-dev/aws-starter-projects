@@ -80,6 +80,12 @@ aws-sam-todo/
 
 ---
 
+## 💰 Cost Note
+- Local work (SAM + DynamoDB Local) is free.
+- SAM/CDK cloud deploys upload artifacts to an S3 bucket; the first 5 GB is free for 12 months, then standard S3 storage/request pricing applies until you delete the bucket.
+
+---
+
 ## 🚀 Roadmap Ideas
 - Auth with Amazon Cognito (JWT authorizer)
 - Pagination with `LastEvaluatedKey`

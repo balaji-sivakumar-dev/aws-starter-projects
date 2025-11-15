@@ -88,6 +88,13 @@ List table contents:
 ```bash
 aws dynamodb scan --endpoint-url http://localhost:8000 --table-name local-todos
 ```
+
+> No AWS credentials on this machine? For purely local work you can export dummy values so the AWS CLI and seed script are satisfied:
+> ```bash
+> export AWS_ACCESS_KEY_ID=dummy
+> export AWS_SECRET_ACCESS_KEY=dummy
+> export AWS_REGION=ca-central-1
+> ```
 ---
 
 ## **4️⃣ Seed Local Table**
@@ -137,6 +144,8 @@ JSON
 This spins up a local API Gateway emulator + Lambda container wired to DynamoDB Local using the env file above.
 ```bash
 sam local start-api --env-vars env_local.json
+# Add --skip-pull-image to reuse an existing base image and avoid downloads:
+# sam local start-api --skip-pull-image --env-vars env_local.json
 ```
 
 Output shows a local endpoint like:
@@ -233,7 +242,7 @@ Remove stack:
 aws cloudformation delete-stack --stack-name sam-todo-stack
 ```
 
-> ⚠️ SAM Stores the deployables in S3 Bucket 
+> ⚠️ SAM stores deployables in an S3 bucket. After the 12‑month free tier (5 GB), you’ll pay pennies for storage/requests until you delete the bucket.
 
 🧹 Cleanup tip
 
@@ -313,6 +322,7 @@ Useful extras:
 |--------------|------|
 | **Local (Docker)** | Free |
 | **AWS Cloud** | Pay-per-use (Lambda + API Gateway + DynamoDB) |
+| **Artifact Bucket** | SAM/CDK uploads to S3; first 5 GB is free for 12 months, then minimal S3 storage/request charges apply until the bucket is deleted. |
 | **Cleanup** | `aws cloudformation delete-stack --stack-name <name>` or `npx cdk destroy` |
 
 ---
