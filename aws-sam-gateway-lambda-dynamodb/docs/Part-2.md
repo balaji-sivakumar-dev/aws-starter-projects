@@ -19,13 +19,13 @@ https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-g
 
 # 🎯 What This Part Covers
 
-- The architecture, purpose, and motivation behind this backend
-- How the Lambda function is structured and how each critical component works
-- How to run this entire serverless stack **locally** using AWS SAM
-- How DynamoDB Local and Lambda containers integrate seamlessly
-- Deployment using **AWS SAM** (CloudFormation)
-- Deployment using **AWS CDK** (no application code changes required)
-- A teaser for Part 3: UI + Cognito Authentication
+- The architecture, purpose, and motivation behind this backend  
+- How the Lambda function is structured and how each critical component works  
+- How to run this entire serverless stack **locally** using AWS SAM  
+- How DynamoDB Local and Lambda containers integrate seamlessly  
+- Deployment using **AWS SAM** (CloudFormation)  
+- Deployment using **AWS CDK** (no application code changes required)  
+- A teaser for Part 3: UI + Cognito Authentication  
 
 ---
 
@@ -33,10 +33,10 @@ https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-g
 
 Most AWS tutorials show you how to write and deploy a Lambda function, but they rarely address the real challenges:
 
-- How do you run AWS Lambda locally?
-- How do you emulate API Gateway locally?
-- How do you test DynamoDB without AWS charges?
-- How do you seed test data?
+- How do you run AWS Lambda locally?  
+- How do you emulate API Gateway locally?  
+- How do you test DynamoDB without AWS charges?  
+- How do you seed test data?  
 - How can SAM and CDK deploy the same codebase?
 
 This project solves all of these.
@@ -305,14 +305,76 @@ The Lambda code (`src/`) stays untouched — proving that your backend logic is 
 
 ---
 
+# ⚠️ **Important Watchouts — AWS Free Tier & Cost Notes**
+
+Although this project is designed to stay *within free-tier limits*, there are some important cost considerations to be aware of:
+
+### **1️⃣ S3 Upload Costs (SAM / CDK Deployments)**  
+Both **SAM** and **CDK** upload your Lambda package to an S3 bucket.  
+S3 is **not always free** unless you are in your first 12 months on AWS.
+
+- S3 storage: may incur small charges after free tier (5GB for 12 months only)  
+- S3 PUT requests: may incur costs depending on number of deployments  
+
+⚠️ *If you deploy frequently, watch your S3 usage.*
+
+---
+
+### **2️⃣ API Gateway Free Tier Is NOT “Always Free”**  
+Amazon API Gateway offers:
+
+- **1M REST API calls/month — only for the first 12 months**
+
+After that period, you will incur charges per million requests.
+
+If your API is idle, cost will be near zero, but it is **not always free**.
+
+---
+
+### **3️⃣ DynamoDB Is Always Free (Up to Limits)**  
+DynamoDB has an *always-free* tier:
+
+- 25GB storage  
+- Limited read/write request units  
+
+This is safe for hobby projects as long as:
+
+- You use **on-demand** mode (recommended)
+- You stay within read/write limits
+
+---
+
+### **4️⃣ Lambda Has an Always-Free Tier**  
+You get:
+
+- 1M requests/month (always free)  
+- 400,000 GB-seconds compute/month  
+
+Most personal projects never exceed these.
+
+---
+
+### **5️⃣ CloudFormation / CDK / SAM Itself Is Free**  
+But the resources they create may not be.
+
+---
+
+### **✔️ Recommended Action**  
+Set up an AWS **Budget Alert** (free):
+
+- Set threshold to **$1 or $2**
+- Receive email if anything is created that may incur cost
+
+---
+
 # 👀 Coming Up in Part 3 — UI + Cognito Authentication
 
 Part 3 will focus on:
 
-- React + Vite frontend
-- AWS Cognito Hosted UI
-- Persisting user sessions
-- Calling this backend with JWT authentication
-- Deploying UI to Vercel or Amplify
+- React + Vite frontend  
+- AWS Cognito Hosted UI  
+- Persisting user sessions  
+- Calling this backend with JWT authentication  
+- Deploying UI to Vercel or Amplify  
 
 Stay tuned — Part 3 completes the full-stack serverless TODO application! 🚀
