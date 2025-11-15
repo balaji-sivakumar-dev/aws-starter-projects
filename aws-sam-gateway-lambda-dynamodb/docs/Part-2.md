@@ -2,8 +2,8 @@
 title: "🏗️ Part 2 — Running a Serverless API Locally with AWS SAM (API Gateway + Lambda + DynamoDB)"
 published: false
 tags: aws, serverless, sam, dynamodb
-cover_image: https://dev-to-uploads.s3.amazonaws.com/uploads/articles/q3p0fmx9d47j4vkgc46u.png
-description: "Deep dive into the architecture, local-first workflow, and deployment paths (SAM + CDK) for the Todo API backend."
+cover_image: https://dev-to-uploads.s3.amazonaws.com/uploads/articles/kjdkh7z4gye6o3c2afwi.png
+description: "Deep dive into the architecture, local-first workflow, and developer experience for the Todo API backend."
 ---
 
 # 🏗️ Part 2 — Running a Serverless API Locally with AWS SAM  
@@ -23,9 +23,9 @@ https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-g
 - How the Lambda function is structured and how each critical component works  
 - How to run this entire serverless stack **locally** using AWS SAM  
 - How DynamoDB Local and Lambda containers integrate seamlessly  
-- Deployment using **AWS SAM** (CloudFormation)  
-- Deployment using **AWS CDK** (no application code changes required)  
-- A teaser for Part 3: UI + Cognito Authentication  
+- How this local-first workflow prepares you for cloud deployment (covered in Part 3)  
+
+👉 **Note:** Deploying this stack to real AWS (with SAM or CDK) and configuring AWS credentials will be covered in **Part 3**.
 
 ---
 
@@ -37,7 +37,6 @@ Most AWS tutorials show you how to write and deploy a Lambda function, but they 
 - How do you emulate API Gateway locally?  
 - How do you test DynamoDB without AWS charges?  
 - How do you seed test data?  
-- How can SAM and CDK deploy the same codebase?
 
 This project solves all of these.
 
@@ -46,7 +45,6 @@ The goal is to create a **production-shaped**, cloud-ready backend that:
 - Runs 100% locally  
 - Uses local DynamoDB for fast development  
 - Uses SAM to emulate API Gateway + Lambda in containers  
-- Deploys unchanged to AWS using SAM **or** CDK  
 
 This becomes the backend foundation for the full Todo App.
 
@@ -69,7 +67,7 @@ Here is the structure of the backend:
 └──────────────┬───────────┘
                │ boto3
 ┌──────────────▼───────────┐
-│ DynamoDB (Local / AWS)    │
+│ DynamoDB (Local / AWS)   │
 └───────────────────────────┘
 ```
 
@@ -77,12 +75,11 @@ Here is the structure of the backend:
 
 | Component | Purpose |
 |----------|---------|
-| **API Gateway** | Exposes REST endpoints |
+| **API Gateway (emulated by SAM)** | Exposes REST endpoints locally |
 | **Lambda** | Contains router + CRUD handlers |
 | **DynamoDB** | Storage for TODO items |
 | **DynamoDB Local** | Local database for fast testing |
 | **AWS SAM** | Local Lambda + API Gateway emulator |
-| **AWS CDK** | Alternate IaC deployment path |
 
 ---
 
@@ -95,9 +92,9 @@ The backend implements a complete CRUD API for TODO items.
 | Method | Route | Description |
 |-------|--------|-------------|
 | POST | `/todos` | Create a new TODO |
-| GET | `/todos` | List all TODOs |
-| GET | `/todos/{id}` | Fetch a specific TODO |
-| PUT | `/todos/{id}` | Update a TODO |
+| GET  | `/todos` | List all TODOs |
+| GET  | `/todos/{id}` | Fetch a specific TODO |
+| PUT  | `/todos/{id}` | Update a TODO |
 | DELETE | `/todos/{id}` | Delete a TODO |
 
 ### DynamoDB Schema
@@ -109,9 +106,9 @@ Each TODO item includes:
 - `description`  
 - `status`  
 - `created_at`  
-- `updated_at`
+- `updated_at`  
 
-A **GSI on `status`** is designed for future filtered queries.
+💡 *Future enhancement:* A **GSI on `status`** can be added later to support filtered queries such as `/todos?status=done`. It is not required for the current implementation.
 
 ---
 
@@ -121,15 +118,17 @@ A **GSI on `status`** is designed for future filtered queries.
 
 The SAM template defines:
 
-- Lambda runtime (Python 3.13)
-- Source code directory (`src/`)
-- API routes mapping
-- DynamoDB table and GSI
+- Lambda runtime (currently `python3.13`)  
+- Source code directory (`src/`)  
+- API routes mapping  
+- DynamoDB table  
 - Environment variables:
   - `TABLE_NAME`
   - `DDB_ENDPOINT` (used only for local runs)
 
-SAM uses CloudFormation under the hood for deployment.
+If you prefer a different Python version (e.g. `python3.11`), you can update the `Runtime` field in `template.yaml` without changing the app code.
+
+SAM uses CloudFormation under the hood, but in this part we only use it for **local emulation**, not real AWS deployment.
 
 ---
 
@@ -150,7 +149,7 @@ It dispatches each request to:
 - `update_todo`
 - `delete_todo`
 
-This design allows **one Lambda to manage all routes**, keeping the architecture simple and cost-efficient.
+This design allows **one Lambda to manage all routes**, keeping the architecture simple and cost-efficient for a small app.
 
 ---
 
@@ -179,12 +178,12 @@ ddb = boto3.resource("dynamodb", endpoint_url=os.getenv("DDB_ENDPOINT"))
 This makes the backend environment-agnostic:
 
 ### Local  
-`DDB_ENDPOINT=http://localhost:8000`
+`DDB_ENDPOINT=http://localhost:8000` → points to **DynamoDB Local**.
 
-### AWS  
-Environment variable omitted → connect to real DynamoDB.
+### Later in AWS  
+When `DDB_ENDPOINT` is not set, `boto3` will connect to **managed DynamoDB** (we’ll use this in Part 3).
 
-No code changes needed.
+No code changes needed — only environment changes.
 
 ---
 
@@ -200,7 +199,7 @@ This is the main highlight of this project — **running real Lambda + API Gatew
 docker compose up -d
 ```
 
-Runs on `localhost:8000`.
+This will start **DynamoDB Local** on `localhost:8000` based on the `docker-compose.yml` in the project.
 
 ---
 
@@ -212,6 +211,11 @@ export DDB_ENDPOINT=http://localhost:8000
 python3 scripts/seed_local_ddb.py
 ```
 
+This script will:
+
+- Create the table (if it doesn’t exist)  
+- Insert some sample TODO items  
+
 ---
 
 ## 3️⃣ Build the Lambda Using SAM
@@ -220,9 +224,13 @@ python3 scripts/seed_local_ddb.py
 sam build
 ```
 
+SAM will package the Lambda code using the runtime defined in `template.yaml`.
+
 ---
 
 ## 4️⃣ Create env file for the local Lambda container
+
+Create `env_local.json` in the project root:
 
 ```bash
 cat > env_local.json <<'JSON'
@@ -234,6 +242,8 @@ cat > env_local.json <<'JSON'
 }
 JSON
 ```
+
+`host.docker.internal` lets the Lambda container talk to DynamoDB Local running on your host machine.
 
 ---
 
@@ -249,128 +259,18 @@ Test it:
 curl http://127.0.0.1:3000/todos | jq
 ```
 
-🎉 *You now have a fully local, serverless API running on your laptop!*
+You should see the seeded TODO items from DynamoDB Local.
 
----
+🎉 *You now have a fully local, serverless API running on your laptop!*  
 
-# ☁️ Deploying to AWS (Using SAM)
-
-```bash
-sam build
-sam deploy --guided
-```
-
-SAM will:
-
-- Package the Lambda
-- Upload artifacts to S3
-- Create DynamoDB table, IAM roles, API Gateway
-- Output the public API URL
-
-Future deploys:
-
-```bash
-sam deploy
-```
-
-Cleanup:
-
-```bash
-aws cloudformation delete-stack --stack-name <stack-name>
-```
-
----
-
-# 🧰 Deploying Using CDK (Same Codebase, Zero Changes)
-
-Inside `cdk/lib/todo-stack.ts`, the entire infrastructure is defined using CDK.
-
-Commands:
-
-```bash
-cd cdk
-npm install
-npm run build
-npx cdk synth
-npx cdk deploy
-```
-
-Destroy:
-
-```bash
-npx cdk destroy
-```
-
-The Lambda code (`src/`) stays untouched — proving that your backend logic is **IaC-agnostic**.
-
----
-
-# ⚠️ **Important Watchouts — AWS Free Tier & Cost Notes**
-
-Although this project is designed to stay *within free-tier limits*, there are some important cost considerations to be aware of:
-
-### **1️⃣ S3 Upload Costs (SAM / CDK Deployments)**  
-Both **SAM** and **CDK** upload your Lambda package to an S3 bucket.  
-S3 is **not always free** unless you are in your first 12 months on AWS.
-
-- S3 storage: may incur small charges after free tier (5GB for 12 months only)  
-- S3 PUT requests: may incur costs depending on number of deployments  
-
-⚠️ *If you deploy frequently, watch your S3 usage.*
-
----
-
-### **2️⃣ API Gateway Free Tier Is NOT “Always Free”**  
-Amazon API Gateway offers:
-
-- **1M REST API calls/month — only for the first 12 months**
-
-After that period, you will incur charges per million requests.
-
-If your API is idle, cost will be near zero, but it is **not always free**.
-
----
-
-### **3️⃣ DynamoDB Is Always Free (Up to Limits)**  
-DynamoDB has an *always-free* tier:
-
-- 25GB storage  
-- Limited read/write request units  
-
-This is safe for hobby projects as long as:
-
-- You use **on-demand** mode (recommended)
-- You stay within read/write limits
-
----
-
-### **4️⃣ Lambda Has an Always-Free Tier**  
-You get:
-
-- 1M requests/month (always free)  
-- 400,000 GB-seconds compute/month  
-
-Most personal projects never exceed these.
-
----
-
-### **5️⃣ CloudFormation / CDK / SAM Itself Is Free**  
-But the resources they create may not be.
-
----
-
-### **✔️ Recommended Action**  
-Set up an AWS **Budget Alert** (free):
-
-- Set threshold to **$1 or $2**
-- Receive email if anything is created that may incur cost
+This tight feedback loop is what makes SAM + DynamoDB Local such a powerful combo for backend development.
 
 ---
 
 ## 📚 Additional Resources
 
 ### 🔗 GitHub Repository (Full Source Code)
-All code for this backend (SAM, CDK, Lambda, DynamoDB) is available here:
+All code for this backend (SAM templates, Lambda, DynamoDB Local scripts) is available here:
 
 👉 **https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb**
 
@@ -378,14 +278,21 @@ Feel free to explore the repo, open issues, or adapt it for your own serverless 
 
 ---
 
-# 👀 Coming Up in Part 3 — UI + Cognito Authentication
+# 👀 Coming Up in Part 3 — Deploying to AWS (SAM + CDK + Cost Watchouts)
 
-Part 3 will focus on:
+In **Part 3**, we’ll move from local-only development to **real AWS deployment**:
 
-- React + Vite frontend  
-- AWS Cognito Hosted UI  
-- Persisting user sessions  
-- Calling this backend with JWT authentication  
-- Deploying UI to Vercel or Amplify  
+- Configuring AWS credentials safely  
+- How SAM packages and uploads to S3  
+- Deploying the stack to AWS using **SAM**  
+- Deploying the same code using **CDK**  
+- Understanding AWS free tier vs “always free”  
+- Setting up AWS Budgets to avoid surprises  
 
-Stay tuned — Part 3 completes the full-stack serverless TODO application! 🚀
+Later, in **Part 4**, we’ll wire this backend to:
+
+- A React + Vite frontend  
+- AWS Cognito Hosted UI for authentication  
+- Vercel (or Amplify) for frontend hosting  
+
+Stay tuned — we’ll take this local backend all the way to production-ready! 🚀
