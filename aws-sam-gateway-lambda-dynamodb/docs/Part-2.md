@@ -244,7 +244,7 @@ export AWS_REGION=ca-central-1
 
 ---
 
-## **1.5️⃣ Create & Activate Python Virtual Environment using venv**
+## **2️⃣ Create & Activate Python Virtual Environment using venv**
 
 macOS / Linux:
 ```bash
@@ -267,7 +267,7 @@ deactivate
 
 ---
 
-## **2️⃣ Seed Data**
+## **3️⃣ Seed Data**
 
 ```bash
 export TABLE_NAME=local-todos
@@ -277,7 +277,7 @@ python3 scripts/seed_local_ddb.py
 
 ---
 
-## **3️⃣ Build the Project**
+## **4️⃣ Build the Project**
 
 ```bash
 sam build
@@ -285,7 +285,7 @@ sam build
 
 ---
 
-## **4️⃣ Create env_local.json**
+## **5️⃣ Create env_local.json**
 
 ```json
 {
@@ -298,7 +298,7 @@ sam build
 
 ---
 
-## **5️⃣ Start Local API Gateway**
+## **6️⃣ Start Local API Gateway**
 
 ```bash
 sam local start-api --env-vars env_local.json
@@ -312,7 +312,7 @@ http://127.0.0.1:3000
 
 ---
 
-# **6️⃣ Test Endpoints with curl (smoke test)**
+# **7️⃣ Test Endpoints with curl (smoke test)**
 
 ```bash
 # Create
