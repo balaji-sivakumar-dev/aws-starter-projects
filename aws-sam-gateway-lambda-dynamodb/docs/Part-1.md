@@ -11,8 +11,8 @@ description: "How I combined AWS Lambda, DynamoDB, Cognito, and Vercel hosting t
 
 | Part | Title | 
 |------|--------|
-| **1** | [Architecture Overview](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m) |
-| **2** | [Local Backend with AWS SAM *(You are here)*](https://dev.to/balaji_sivakumar_e7a4b07a/part-2-running-a-serverless-api-locally-with-aws-sam-api-gateway-lambda-dynamodb-dob) |
+| **1** | [Architecture Overview *(You are here)*](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m) |
+| **2** | [Local Backend with AWS SAM](https://dev.to/balaji_sivakumar_e7a4b07a/part-2-running-a-serverless-api-locally-with-aws-sam-api-gateway-lambda-dynamodb-dob) |
 | **3** | Deploying Backend to AWS (SAM + CDK) - *(Coming soon…)* |
 
 ---
