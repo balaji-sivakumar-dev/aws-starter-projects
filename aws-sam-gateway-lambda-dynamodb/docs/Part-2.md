@@ -32,6 +32,16 @@ This ensures rapid, cost-free development before deploying to AWS (in Part 3).
 🔗 **GitHub Repo:**  
 https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb
 
+> Scope: Part 2 is **local-only**. Cloud deploy, auth, and hardening land in Part 3.
+
+---
+
+# 🧰 Prerequisites for Local-Only
+- AWS SAM CLI
+- Docker (for Lambda + DynamoDB Local containers)
+- Python 3.13
+- Optional: AWS CLI (not required for local-only; dummy creds work)
+
 ---
 
 # 🎯 What This Part Covers
@@ -59,7 +69,9 @@ SAM provides a **near-identical Lambda runtime** locally using Docker.
 
 ---
 
-# 🏗️ Architecture Overview
+# 🏗️ Architecture Overview & What You’ll Build
+
+Single Lambda handles all `/todos` routes, talking to DynamoDB Local via SAM’s local API Gateway:
 
 ```
 [SAM Local API Gateway]
@@ -98,31 +110,23 @@ Below are the **essential excerpts** needed to understand the backend logic.
 ## **1️⃣ Lambda Router (src/app.py)**
 
 ```python
-def lambda_handler(event, context):
-    http_method = event["httpMethod"]
-    resource = event["resource"]
+def handler(event, context):
+    path = event.get("resource") or event.get("path", "")
+    http_method = event.get("httpMethod", "GET").upper()
+    path_params = event.get("pathParameters") or {}
 
-    if resource == "/todos" and http_method == "GET":
-        return list_todos()
+    if path == "/todos" and http_method == "POST":
+        return create_todo(event)
+    if path == "/todos" and http_method == "GET":
+        return list_todos(event)
+    if path == "/todos/{id}" and http_method == "GET":
+        return get_todo(path_params.get("id"))
+    if path == "/todos/{id}" and http_method == "PUT":
+        return update_todo(path_params.get("id"), event)
+    if path == "/todos/{id}" and http_method == "DELETE":
+        return delete_todo(path_params.get("id"))
 
-    if resource == "/todos" and http_method == "POST":
-        body = json.loads(event["body"])
-        return create_todo(body)
-
-    if resource == "/todos/{id}":
-        todo_id = event["pathParameters"]["id"]
-
-        if http_method == "GET":
-            return get_todo(todo_id)
-
-        if http_method == "PUT":
-            body = json.loads(event["body"])
-            return update_todo(todo_id, body)
-
-        if http_method == "DELETE":
-            return delete_todo(todo_id)
-
-    return {"statusCode": 404, "body": "Not Found"}
+    return _response(404, {"message": "Not Found"})
 ```
 
 ✔ Simple but effective routing  
@@ -135,18 +139,14 @@ def lambda_handler(event, context):
 
 ```python
 class TodoCreate(BaseModel):
-    title: str
+    title: str = Field(min_length=1)
     description: Optional[str] = None
+    status: str = Field(default="pending")  # pending|done
 
 class TodoUpdate(BaseModel):
-    title: Optional[str]
-    description: Optional[str]
-    status: Optional[str]
-
-class TodoItem:
-    @staticmethod
-    def now():
-        return datetime.utcnow().isoformat()
+    title: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
 ```
 
 ✔ Ensures clean validation  
@@ -173,20 +173,20 @@ This makes the DB layer **environment-agnostic**.
 
 ```python
 def create_todo(data):
-    payload = TodoCreate(**data)
+    payload = TodoCreate(**json.loads(data.get("body") or "{}"))
 
     item = {
         "id": str(uuid.uuid4()),
         "title": payload.title,
         "description": payload.description,
-        "status": "pending",
-        "created_at": TodoItem.now(),
-        "updated_at": TodoItem.now(),
+        "status": payload.status,
+        "created_at": TodoItem.now_iso(),
+        "updated_at": TodoItem.now_iso(),
     }
 
     table.put_item(Item=item)
 
-    return {"statusCode": 200, "body": json.dumps(item)}
+    return _response(201, item)
 ```
 
 ✔ Validated input  
@@ -228,6 +228,13 @@ Resources:
 
 ```bash
 docker compose up -d
+```
+
+If you don’t have AWS creds configured, export dummy values so CLI + seed script work:
+```bash
+export AWS_ACCESS_KEY_ID=dummy
+export AWS_SECRET_ACCESS_KEY=dummy
+export AWS_REGION=ca-central-1
 ```
 
 ---
@@ -277,7 +284,7 @@ http://127.0.0.1:3000
 
 ---
 
-# **6️⃣ Test Endpoints with curl**
+# **6️⃣ Test Endpoints with curl (smoke test)**
 
 ```bash
 # Create
