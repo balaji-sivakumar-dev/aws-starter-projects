@@ -37,10 +37,10 @@ https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-g
 ---
 
 # 🧰 Prerequisites for Local-Only
-- AWS SAM CLI
-- Docker (for Lambda + DynamoDB Local containers)
-- Python 3.13
-- Optional: AWS CLI (not required for local-only; dummy creds work)
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html)
+- [Docker (for Lambda + DynamoDB Local containers)](https://www.docker.com/products/docker-desktop/)
+- [Python 3.13](https://www.python.org/downloads/)
+- [Optional: AWS CLI (not required for local-only; dummy creds work)](https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html)
 
 ---
 
@@ -74,15 +74,20 @@ SAM provides a **near-identical Lambda runtime** locally using Docker.
 Single Lambda handles all `/todos` routes, talking to DynamoDB Local via SAM’s local API Gateway:
 
 ```
-[SAM Local API Gateway]
-         |
-         |  (HTTP /todos)
-         |
-[Lambda Runtime (Docker)]
-         |
-         | boto3
-         |
-[DynamoDB Local (Docker)]
+┌──────────────────────────┐
+│ API Gateway (Local)      │
+└──────────────┬───────────┘
+               │
+        /todos routes
+               │
+┌──────────────▼───────────┐
+│ AWS Lambda (Python 3.13) │  <-- src/app.py
+│ Router + Handlers (Local)│
+└──────────────┬───────────┘
+               │ boto3
+┌──────────────▼───────────┐
+│ DynamoDB (Local)         │
+└──────────────────────────┘
 ```
 
 ---
@@ -311,7 +316,7 @@ curl -i -sS -X DELETE http://127.0.0.1:3000/todos/$ID
 # 📚 Additional Resources
 
 GitHub Repository:  
-👉 https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb
+👉 [aws-sam-gateway-lambda-dynamodb](https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb)
 
 ---
 
