@@ -202,28 +202,21 @@ def create_todo(data):
 
 ## **5️⃣ SAM Template — What Each Part Does**
 
-- **Globals**  
-  Sets defaults for all functions: `Runtime: python3.13`, `Timeout: 20s`, and environment variables. `TABLE_NAME` and `DDB_ENDPOINT` are injected into the Lambda so the code can read `os.environ` without hardcoding names or endpoints.
+- **Globals** – shared settings for every Lambda: Python 3.13 runtime, 20s timeout, and env vars (`TABLE_NAME`, `DDB_ENDPOINT`) so code can read `os.environ` instead of hardcoding values.
 
-- **TodoTable (DynamoDB)**  
-  Pay-per-request table named `${StackName}-todos` with a primary key `id` and a `status-index` GSI. This is the backing store the Lambda writes to and reads from.
+- **TodoTable (DynamoDB)** – a pay-per-request table named `${StackName}-todos` with partition key `id` and a `status-index` GSI (Global Secondary Index). This is where all TODO items live.
 
-- **HttpApi (API Gateway)**  
-  Defines the HTTP API (`StageName: v1`) with permissive CORS for local dev.
+- **HttpApi (API Gateway)** – creates the `/v1` HTTP API with permissive CORS so you can call it from anywhere during dev.
 
-- **TodoFunction (Lambda)**  
-  - `CodeUri: src/` and `Handler: app.handler` point to the Python entry point (`src/app.py::handler`).  
-  - `Policies: DynamoDBCrudPolicy` grants read/write access to `TodoTable`.  
-  - `Events` map HTTP routes to this single Lambda:
-    - `POST /todos`
-    - `GET /todos`
-    - `GET /todos/{id}`
-    - `PUT /todos/{id}`
-    - `DELETE /todos/{id}`
-  - In AWS, `DDB_ENDPOINT` is empty (real DynamoDB). For local runs, override it in `env_local.json` to point at DynamoDB Local.
+- **TodoFunction (Lambda)**
+  - `CodeUri: src/`, `Handler: app.handler` → entry point is `src/app.py::handler`.
+  - `Policies: DynamoDBCrudPolicy` → grants this Lambda CRUD access to `TodoTable`.
+  - `Events` wire HTTP verbs/paths to the single function:
+    - `POST /todos`, `GET /todos`, `GET /todos/{id}`, `PUT /todos/{id}`, `DELETE /todos/{id}`
+  - `DDB_ENDPOINT` is empty in AWS (uses managed DynamoDB). For local runs, set it in `env_local.json` to hit DynamoDB Local.
+  - `sam local start-api` reads these mappings so local routing mirrors production.
 
-- **Outputs**  
-  Expose the API URL and table name after deploy for easy copy/paste/testing.
+- **Outputs** – surface the API URL and table name after deploy so you can copy/paste them into tests or clients.
 
 ---
 
@@ -302,6 +295,8 @@ sam build
 
 ```bash
 sam local start-api --env-vars env_local.json
+# Add --debug to see detailed SAM logs while developing:
+# sam local start-api --env-vars env_local.json --debug
 ```
 
 Endpoint:
@@ -334,12 +329,29 @@ curl -sS -X PUT http://127.0.0.1:3000/todos/$ID   -H 'Content-Type: application/
 curl -i -sS -X DELETE http://127.0.0.1:3000/todos/$ID
 ```
 
+Cloud next steps (covered in Part 3): `sam deploy --guided` with a real DynamoDB table (leave `DDB_ENDPOINT` empty).
+
+---
+
+# **8️⃣ Stop Local Services**
+
+- Stop SAM server: hit `Ctrl+C` in the terminal running `sam local start-api`.
+- Stop DynamoDB Local:  
+  ```bash
+  docker compose down
+  ```
+
 ---
 
 # 📚 Additional Resources
 
 GitHub Repository:  
 👉 [aws-sam-gateway-lambda-dynamodb](https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb)
+
+AWS docs for deeper dives:  
+- [AWS Lambda](https://docs.aws.amazon.com/lambda/latest/dg/welcome.html)  
+- [AWS SAM](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/what-is-sam.html)  
+- [Amazon DynamoDB](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Introduction.html)
 
 ---
 
