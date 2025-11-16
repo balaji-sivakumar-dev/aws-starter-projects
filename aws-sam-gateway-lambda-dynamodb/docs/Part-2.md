@@ -30,7 +30,7 @@ This article expands on **Part 1**, diving into how the backend works and how to
 This ensures rapid, cost-free development before deploying to AWS (in Part 3).
 
 🔗 **GitHub Repo:**  
-https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb
+👉 [aws-sam-gateway-lambda-dynamodb](https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb)
 
 > Scope: Part 2 is **local-only**. Cloud deploy, auth, and hardening land in Part 3.
 
@@ -200,30 +200,30 @@ def create_todo(data):
 
 ---
 
-## **5️⃣ SAM Template (excerpt)**
+## **5️⃣ SAM Template — What Each Part Does**
 
-```yaml
-Resources:
-  TodoFunction:
-    Type: AWS::Serverless::Function
-    Properties:
-      Runtime: python3.13
-      Handler: app.lambda_handler
-      CodeUri: src/
-      Environment:
-        Variables:
-          TABLE_NAME: local-todos
-          DDB_ENDPOINT: http://host.docker.internal:8000
-      Events:
-        TodosApi:
-          Type: Api
-          Properties:
-            Path: /todos
-            Method: ANY
-```
+- **Globals**  
+  Sets defaults for all functions: `Runtime: python3.13`, `Timeout: 20s`, and environment variables. `TABLE_NAME` and `DDB_ENDPOINT` are injected into the Lambda so the code can read `os.environ` without hardcoding names or endpoints.
 
-✔ Shows how API routes map to Lambda  
-✔ Shows environment variables for local DB  
+- **TodoTable (DynamoDB)**  
+  Pay-per-request table named `${StackName}-todos` with a primary key `id` and a `status-index` GSI. This is the backing store the Lambda writes to and reads from.
+
+- **HttpApi (API Gateway)**  
+  Defines the HTTP API (`StageName: v1`) with permissive CORS for local dev.
+
+- **TodoFunction (Lambda)**  
+  - `CodeUri: src/` and `Handler: app.handler` point to the Python entry point (`src/app.py::handler`).  
+  - `Policies: DynamoDBCrudPolicy` grants read/write access to `TodoTable`.  
+  - `Events` map HTTP routes to this single Lambda:
+    - `POST /todos`
+    - `GET /todos`
+    - `GET /todos/{id}`
+    - `PUT /todos/{id}`
+    - `DELETE /todos/{id}`
+  - In AWS, `DDB_ENDPOINT` is empty (real DynamoDB). For local runs, override it in `env_local.json` to point at DynamoDB Local.
+
+- **Outputs**  
+  Expose the API URL and table name after deploy for easy copy/paste/testing.
 
 ---
 
@@ -244,7 +244,7 @@ export AWS_REGION=ca-central-1
 
 ---
 
-## **1.5️⃣ Create & Activate Python venv**
+## **1.5️⃣ Create & Activate Python Virtual Environment using venv**
 
 macOS / Linux:
 ```bash
