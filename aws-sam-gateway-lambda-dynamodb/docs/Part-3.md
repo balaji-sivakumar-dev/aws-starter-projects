@@ -1,16 +1,14 @@
 ---
-title: "🌐 Part 3 — Deploying the Serverless API to AWS with SAM & CDK"
+title: "🏗️ Part 2 — Running a Serverless API Locally with AWS SAM"
 published: false
-tags: aws, serverless, sam, cdk
+tags: aws, serverless, sam, dynamodb
 cover_image: https://dev-to-uploads.s3.amazonaws.com/uploads/articles/kjdkh7z4gye6o3c2afwi.png
-description: "Deploying the TODO backend to AWS using SAM & CDK, with credential setup and cost watchouts."
+description: "Local-first backend development with AWS SAM, Lambda, and DynamoDB Local."
 ---
 
 # 📘 Serverless TODO App — Article Series
-
 - **Part 1 — Architecture Overview**  
   🔗 [PART1](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m)
-
 - **Part 2 — Local Backend with AWS SAM (This Article)**  
   🔗 [PART2](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m)
 
@@ -19,19 +17,19 @@ description: "Deploying the TODO backend to AWS using SAM & CDK, with credential
 
 ---
 
-# 🌐 Part 3 — Deploying the Serverless API to AWS  
-### (SAM + CDK + AWS Credentials + Costs)
+# 🏗️ Part 2 — Running a Serverless API Locally with AWS SAM  
+### (API Gateway + Lambda + DynamoDB Local)
 
-In **Part 2**, you ran the entire backend locally using SAM, Lambda containers, and DynamoDB Local.
+This article is the **local development chapter** of the Serverless TODO App series.  
+Here, we focus on running the backend **100% locally**, using:
 
-In this part, we move to **real AWS deployment**, covering:
+- AWS SAM  
+- Lambda emulation in Docker  
+- DynamoDB Local  
+- Seed scripts  
+- Local testing workflows  
 
-- AWS credentials setup  
-- S3 packaging behavior  
-- SAM deploy workflow  
-- CDK deploy workflow  
-- Free tier vs Always-Free services  
-- Cost watchouts and best practices  
+**Cloud deployment will be covered in Part 3.**
 
 🔗 **GitHub Repo (Source Code)**  
 https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-gateway-lambda-dynamodb
@@ -40,78 +38,88 @@ https://github.com/balaji-sivakumar-dev/aws-starter-projects/tree/main/aws-sam-g
 
 # 🎯 What This Part Covers
 
-- Configuring AWS credentials safely  
-- How SAM uploads Lambda packages to S3  
-- Deploying the backend using SAM  
-- Deploying the backend using CDK  
-- Understanding AWS free tier  
-- Preventing accidental charges (Budgets)
+- Backend architecture and motivations  
+- Explaining Lambda, routing, validation, and data layer  
+- How AWS SAM fully emulates Lambda + API Gateway locally  
+- Using DynamoDB Local for fast development  
+- Local debugging and testing  
+- Preparing for AWS deployment (next part)
 
 ---
 
-# 🔐 Setting Up AWS Credentials
+# 🧭 Motivation — Why Local First?
 
-(placeholder — we will refine later)
+Cloud deployment is powerful, but cloud iteration is slow.
 
-- AWS SSO  
-- AWS CLI configure  
-- Builder ID  
-- Which method to choose  
+Local-first development means you can:
 
----
+- Iterate instantly  
+- Avoid AWS costs  
+- Work offline  
+- Debug faster  
+- Prepare for cloud deployment confidently  
 
-# ☁️ Deploying with SAM
-
-Steps:
-
-```bash
-sam build
-sam deploy --guided
-```
-
-CloudFormation creates:
-
-- Lambda  
-- DynamoDB  
-- API Gateway  
-- IAM roles  
-- CloudWatch Logs  
-
-Cleanup:
-
-```bash
-aws cloudformation delete-stack --stack-name <name>
-```
+This project lets you experience *real Lambda + API Gateway* behavior locally using SAM.
 
 ---
 
-# 🧰 Deploying with CDK
+# 🏗️ Architecture Overview
 
-Commands:
-
-```bash
-npm install
-npm run build
-npx cdk synth
-npx cdk deploy
+```
+[Local API Gateway (SAM)]
+         |
+         |
+   [Lambda Container]
+         |
+         |
+[DynamoDB Local (Docker)]
 ```
 
-Cleanup:
+Components:
 
-```bash
-npx cdk destroy
-```
+| Component | Purpose |
+|----------|---------|
+| SAM | Emulates API Gateway and Lambda locally |
+| Lambda (Python) | Backend logic |
+| DynamoDB Local | Local NoSQL storage |
+| Docker | Runs Lambda + DynamoDB containers |
 
 ---
 
-# ⚠️ Important Cost Watchouts
+# 🧩 What the Backend Does
 
-- S3 upload costs  
-- API Gateway not always free  
-- DynamoDB Always-Free limits  
-- Lambda Always-Free limits  
-- CloudWatch Logs  
-- Safe cost guardrails with AWS Budget alerts  
+CRUD API for TODO items:
+
+| Method | Route | Description |
+|--------|--------|-------------|
+| GET | /todos | List all items |
+| GET | /todos/{id} | Get by ID |
+| POST | /todos | Create |
+| PUT | /todos/{id} | Update |
+| DELETE | /todos/{id} | Delete |
+
+---
+
+# 🧠 Deep Dive — How the Lambda Works
+
+Includes details on:
+
+- Routing logic  
+- Pydantic validation  
+- DynamoDB Local connection via environment variables  
+- How SAM template wires API + Lambda + Env  
+
+---
+
+# 🏃‍♂️ Running the Backend Locally
+
+Includes instructions for:
+
+- Starting DynamoDB Local  
+- Seeding test data  
+- Building the SAM app  
+- Running `sam local start-api`  
+- Testing with curl  
 
 ---
 
@@ -122,9 +130,9 @@ GitHub Repo:
 
 ---
 
-# ⏭️ Next Steps — Part 4
+# ⏭️ Next Steps — Part 3
 
-**Part 4 — UI + Cognito Authentication**  
-🔗 _URL_PLACEHOLDER_PART4_
+Continue with:  
+**🌐 Part 3 — Deploying the Serverless API to AWS with SAM & CDK**  
+🔗 In progress...
 
-(Coming soon!)
