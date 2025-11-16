@@ -244,6 +244,29 @@ export AWS_REGION=ca-central-1
 
 ---
 
+## **1.5️⃣ Create & Activate Python venv**
+
+macOS / Linux:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r src/requirements.txt
+```
+
+Windows (PowerShell):
+```powershell
+python -m venv venv
+.\venv\Scripts\Activate.ps1
+pip install -r src/requirements.txt
+```
+
+Deactivate any time:
+```bash
+deactivate
+```
+
+---
+
 ## **2️⃣ Seed Data**
 
 ```bash
