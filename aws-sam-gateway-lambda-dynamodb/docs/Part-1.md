@@ -6,6 +6,17 @@ cover_image: https://dev-to-uploads.s3.amazonaws.com/uploads/articles/kjdkh7z4gy
 
 description: "How I combined AWS Lambda, DynamoDB, Cognito, and Vercel hosting to build a modern full-stack TODO app with zero servers to manage."
 ---
+
+# 📘 Serverless TODO App — Article Series
+
+| Part | Title | 
+|------|--------|
+| **1** | [Architecture Overview](https://dev.to/balaji_sivakumar_e7a4b07a/building-a-serverless-todo-app-with-aws-vercel-my-first-aws-project-1h1m) |
+| **2** | [Local Backend with AWS SAM *(You are here)*](https://dev.to/balaji_sivakumar_e7a4b07a/part-2-running-a-serverless-api-locally-with-aws-sam-api-gateway-lambda-dynamodb-dob) |
+| **3** | Deploying Backend to AWS (SAM + CDK) - *(Coming soon…)* |
+
+---
+
 ## 🧰 How I Built a Serverless TODO App with AWS Lambda, DynamoDB & Vercel
 
 I’ve always wanted to build a **real full-stack application** that’s completely **serverless**, scalable, and affordable to host.  
@@ -132,5 +143,4 @@ Thanks for reading 🙏
 This was my **first post on Dev.to** — more articles coming soon!
 
 ---
-
 
