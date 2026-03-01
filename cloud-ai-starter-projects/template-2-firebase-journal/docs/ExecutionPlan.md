@@ -20,9 +20,9 @@
 - Firebase CLI deployment split for Hosting + Functions.
 
 ## Iterative Build Plan
-1. Bootstrap skeleton and placeholders. (current)
-2. Terraform foundation modules and root wiring.
-3. Cloud Functions API routes and Firestore data access.
+1. Bootstrap skeleton and placeholders. (completed)
+2. Terraform foundation modules and root wiring. (completed)
+3. Cloud Functions API routes and Firestore data access. (next)
 4. Async workflow + AI Gateway with guardrails and status updates.
 5. React web app with Firebase Auth and journal UI.
 6. Docs finalization with CLI-first setup/runbook and smoke checklist.

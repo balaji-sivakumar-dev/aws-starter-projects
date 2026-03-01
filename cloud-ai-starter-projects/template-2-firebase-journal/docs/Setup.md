@@ -1,5 +1,7 @@
 # Setup
 
-Status: placeholder.
+Status:
+- Iteration 1 complete: scaffold.
+- Iteration 2 complete: Terraform foundation modules.
 
-Will include GCP/Firebase account setup, Terraform provisioning, Firebase CLI deploy, and local emulator guidance.
+Next setup detail will be expanded after API/workflow implementation.
