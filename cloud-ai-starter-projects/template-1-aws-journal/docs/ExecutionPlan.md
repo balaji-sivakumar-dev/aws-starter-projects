@@ -23,13 +23,11 @@
 ## Iterative Build Plan
 1. Bootstrap repository skeleton and placeholder docs. (complete)
 2. Terraform platform base and module wiring. (complete)
-3. API service and domain persistence:
-   - /health, /me, /entries CRUD, /entries/{entryId}/ai enqueue
-   - requestId propagation and error contract `{ code, message, requestId }`
-   - per-user isolation with `PK=USER#{sub}`
+3. API service and domain persistence. (complete)
 4. Workflow + AI full implementation:
    - status transitions (QUEUED/PROCESSING/COMPLETE/FAILED)
    - AI Gateway guardrails + Bedrock call + derived fields persistence
+   (complete)
 5. React web app:
    - Hosted UI login/logout
    - list/detail/create/edit, AI trigger button, aiStatus + summary/tags rendering

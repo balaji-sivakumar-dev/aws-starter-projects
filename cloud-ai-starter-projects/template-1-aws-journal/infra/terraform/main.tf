@@ -100,6 +100,8 @@ module "lambda_ai" {
         BEDROCK_MODEL_ID   = var.bedrock_model_id
         MAX_INPUT_CHARS    = "8000"
         MAX_OUTPUT_TOKENS  = "256"
+        AI_RATE_LIMIT_MAX_REQUESTS = "5"
+        AI_RATE_LIMIT_WINDOW_SECONDS = "60"
       }
       policy_statements = [
         {

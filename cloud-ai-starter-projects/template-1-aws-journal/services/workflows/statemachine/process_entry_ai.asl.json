@@ -1,5 +1,5 @@
 {
-  "Comment": "ProcessEntryAIWorkflow - skeleton",
+  "Comment": "ProcessEntryAIWorkflow",
   "StartAt": "ValidateInput",
   "States": {
     "ValidateInput": {
@@ -23,9 +23,15 @@
         "FunctionName": "${ai_gateway_lambda_arn}",
         "Payload.$": "$"
       },
+      "OutputPath": "$.Payload",
       "Retry": [
         {
-          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "States.Timeout"
+          ],
           "IntervalSeconds": 2,
           "MaxAttempts": 2,
           "BackoffRate": 2
@@ -38,6 +44,11 @@
           "Next": "MarkFailed"
         }
       ],
+      "Next": "PersistDerivedFields"
+    },
+    "PersistDerivedFields": {
+      "Type": "Pass",
+      "Comment": "AI Gateway persists summary/tags and aiStatus updates in DynamoDB",
       "Next": "MarkComplete"
     },
     "MarkComplete": {
@@ -46,7 +57,7 @@
     "MarkFailed": {
       "Type": "Fail",
       "Error": "EntryAIProcessingFailed",
-      "Cause": "Validation failed or AI Gateway invocation failed"
+      "Cause": "Validation failed or AI processing failed"
     }
   }
 }

@@ -1,13 +1,25 @@
 # Workflow
 
-Current state machine file:
+State machine file:
 - `services/workflows/statemachine/process_entry_ai.asl.json`
 
-Current flow (Iteration 3 prep):
-- ValidateInput
-- InvokeAIGateway (with retry/catch)
-- MarkComplete / MarkFailed
+## ProcessEntryAIWorkflow
+1. `ValidateInput`
+2. `InvokeAIGateway` (retry on transient Lambda errors)
+3. `PersistDerivedFields` (pass-through marker; AI Gateway writes to DynamoDB)
+4. `MarkComplete`
 
-Next iteration will align fully with spec transitions:
-- Validate -> mark PROCESSING -> AI Gateway -> persist summary/tags -> COMPLETE
-- Failure path updates `aiStatus=FAILED` + `aiError`
+Failure path:
+- Any error routes to `MarkFailed`.
+- AI Gateway updates entry `aiStatus=FAILED` and `aiError` before failing the state machine.
+
+## AI Gateway Lambda Responsibilities
+- Enforces hard limits:
+  - `MAX_INPUT_CHARS`
+  - `MAX_OUTPUT_TOKENS`
+  - per-user rate limit hook (`AI_RATE_LIMIT_MAX_REQUESTS` + `AI_RATE_LIMIT_WINDOW_SECONDS`)
+- Loads entry via per-user keys.
+- Sets `aiStatus=PROCESSING`.
+- Calls Bedrock model configured by `BEDROCK_MODEL_ID`.
+- Persists `summary`, `tags`, `aiUpdatedAt`, and `aiStatus=COMPLETE`.
+- On error, persists `aiStatus=FAILED` and `aiError`.
