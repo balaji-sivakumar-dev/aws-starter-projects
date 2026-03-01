@@ -1,12 +1,12 @@
 # API
 
-Base path: Cloud Function `api` HTTP endpoint.
+Base path: Firebase Cloud Function `api` endpoint.
 
 ## Conventions
-- Auth: Firebase ID token bearer auth required for all routes except `GET /health`.
-- User identity: `userId = Firebase UID`.
+- Auth: Firebase ID token bearer auth required except `GET /health`.
+- User identity: `userId = Firebase UID` from verified token.
 - Error shape: `{ "code": string, "message": string, "requestId": string }`.
-- Pagination: `limit` and `nextToken`.
+- Pagination: `limit` + opaque `nextToken`.
 
 ## Routes
 - `GET /health`
@@ -16,15 +16,14 @@ Base path: Cloud Function `api` HTTP endpoint.
 - `GET /entries/{entryId}`
 - `PUT /entries/{entryId}`
 - `DELETE /entries/{entryId}` (soft delete)
-- `POST /entries/{entryId}/ai` (enqueue async processor)
+- `POST /entries/{entryId}/ai` (enqueue async processing)
 
-## Core payloads
-Create request:
+## Create payload
 ```json
 { "title": "string", "body": "string" }
 ```
 
-Entry response item:
+## Entry payload
 ```json
 {
   "entryId": "string",

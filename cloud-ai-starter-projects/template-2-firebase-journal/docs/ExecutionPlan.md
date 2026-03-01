@@ -25,8 +25,8 @@
 3. Cloud Functions API routes and Firestore data access. (completed)
 4. Async workflow + AI Gateway with guardrails and status updates. (completed)
 5. React web app with Firebase Auth and journal UI. (completed)
-6. Docs finalization with CLI-first setup/runbook and smoke checklist. (next)
+6. Docs finalization with CLI-first setup/runbook and smoke checklist. (completed)
 
 ## Commit Cadence
-- Commit after each valid iteration.
-- Keep changes additive in Template 2 folder only.
+- Commits created after each valid iteration.
+- Changes kept additive in Template 2 folder only.

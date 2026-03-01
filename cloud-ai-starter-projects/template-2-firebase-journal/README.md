@@ -1,5 +1,9 @@
 # Template 2 - Firebase/Firestore Journal Starter Kit (Terraform + Firebase CLI)
 
-This is a new reusable Template 2 starter.
+Reusable Template 2 starter for Firebase/GCP with optional AI workflow.
 
-Status: bootstrap skeleton and execution plan initialized.
+Status: implementation complete for Template 2 scope.
+
+See:
+- `docs/ExecutionPlan.md`
+- `docs/GCP-Firebase-Terraform-Setup.md`
