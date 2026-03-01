@@ -1,0 +1,19 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+
+# Firebase / Node
+node_modules/
+.firebase/
+firebase-debug.log
+build/
+dist/
+.env
+!.env.example
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/

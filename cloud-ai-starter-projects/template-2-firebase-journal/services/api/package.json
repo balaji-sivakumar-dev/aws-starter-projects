@@ -1,0 +1,9 @@
+{
+  "name": "template-2-journal-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'API scaffold pending implementation'"
+  }
+}

@@ -1,0 +1,1 @@
+# Module variable definitions placeholder.

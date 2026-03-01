@@ -1,0 +1,10 @@
+{
+  "name": "template-2-journal-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Web scaffold pending implementation'",
+    "build": "echo 'Web scaffold pending implementation'"
+  }
+}
