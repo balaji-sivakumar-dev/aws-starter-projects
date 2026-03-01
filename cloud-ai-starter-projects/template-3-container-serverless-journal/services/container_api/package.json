@@ -1,0 +1,16 @@
+{
+  "name": "template-3-container-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.848.0",
+    "@aws-sdk/client-sfn": "^3.848.0",
+    "@aws-sdk/lib-dynamodb": "^3.848.0",
+    "express": "^4.21.2",
+    "jose": "^5.9.6"
+  }
+}

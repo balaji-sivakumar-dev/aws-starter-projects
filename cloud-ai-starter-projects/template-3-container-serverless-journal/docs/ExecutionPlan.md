@@ -8,7 +8,7 @@
 ## Delivery Plan
 1. Bootstrap skeleton and docs placeholders. (completed)
 2. Terraform shared platform and compute plug-in wiring. (completed)
-3. Compute adapters: lambda and container with stable routes. (in progress)
-4. AI gateway/workflow adapters with guardrails.
-5. Web app and contract validation notes.
+3. Compute adapters: lambda and container with stable routes. (completed)
+4. AI gateway/workflow adapters with guardrails. (completed)
+5. Web app and contract validation notes. (next)
 6. Final docs: setup, migration, runbook, TODO.

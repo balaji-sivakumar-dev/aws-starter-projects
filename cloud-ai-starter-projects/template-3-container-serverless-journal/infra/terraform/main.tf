@@ -45,13 +45,6 @@ module "db" {
   env        = var.env
 }
 
-module "workflow" {
-  source = "./modules/workflow"
-
-  app_prefix = var.app_prefix
-  env        = var.env
-}
-
 module "compute_lambda" {
   source = "./modules/compute_lambda"
   count  = local.use_lambda_api ? 1 : 0
@@ -77,6 +70,19 @@ module "ai_gateway" {
   journal_table_arn = module.db.table_arn
   journal_table_name = module.db.table_name
   bedrock_model_id  = var.bedrock_model_id
+}
+
+module "workflow" {
+  source = "./modules/workflow"
+
+  app_prefix = var.app_prefix
+  env        = var.env
+
+  definition_path = "${path.module}/../../services/workflows/statemachine/process_entry_ai.asl.json"
+  definition_substitutions = {
+    ai_gateway_lambda_arn = module.ai_gateway.lambda_arn
+  }
+  ai_gateway_lambda_arn = module.ai_gateway.lambda_arn
 }
 
 module "compute_container" {
