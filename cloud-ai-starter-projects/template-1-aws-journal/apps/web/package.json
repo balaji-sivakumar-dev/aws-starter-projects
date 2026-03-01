@@ -1,0 +1,10 @@
+{
+  "name": "template-1-aws-journal-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React SPA for Template 1 journal starter",
+  "scripts": {
+    "start": "echo 'Web app scaffold pending implementation'",
+    "build": "echo 'Web app scaffold pending implementation'"
+  }
+}

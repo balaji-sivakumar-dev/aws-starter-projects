@@ -1,0 +1,11 @@
+{
+  "Comment": "Template placeholder for ProcessEntryAIWorkflow",
+  "StartAt": "NotImplemented",
+  "States": {
+    "NotImplemented": {
+      "Type": "Fail",
+      "Error": "NotImplemented",
+      "Cause": "Workflow definition will be added in implementation step"
+    }
+  }
+}
