@@ -10,5 +10,11 @@
 2. Terraform shared platform and compute plug-in wiring. (completed)
 3. Compute adapters: lambda and container with stable routes. (completed)
 4. AI gateway/workflow adapters with guardrails. (completed)
-5. Web app and contract validation notes. (next)
-6. Final docs: setup, migration, runbook, TODO.
+5. Web app and contract validation notes. (completed)
+6. Final docs: setup, migration, runbook, TODO. (completed)
+
+## Post-implementation manual steps
+1. Configure AWS profile and deploy target settings.
+2. Build/push container image if using container/hybrid mode.
+3. Apply Terraform for chosen mode.
+4. Configure web app env and run smoke tests.
