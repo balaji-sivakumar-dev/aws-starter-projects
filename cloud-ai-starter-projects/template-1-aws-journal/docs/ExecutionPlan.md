@@ -42,3 +42,7 @@
 ## Commit Cadence
 - Commit after each valid iteration above with clear scoped messages.
 - Keep commits additive in the new template folder only.
+
+## Iteration Status
+- Iteration 1 complete: project skeleton + docs placeholders committed.
+- Iteration 2 in progress: Terraform platform modules and root wiring for dev are being implemented.

@@ -1,16 +1,15 @@
-# Output names locked by template spec; values added during implementation.
 output "api_base_url" {
-  value       = ""
+  value       = module.api_gateway_http.api_endpoint
   description = "HTTP API base URL"
 }
 
 output "cognito_domain" {
-  value       = ""
+  value       = module.auth_cognito.hosted_ui_domain
   description = "Cognito hosted UI domain"
 }
 
 output "cognito_client_id" {
-  value       = ""
+  value       = module.auth_cognito.user_pool_client_id
   description = "Cognito app client id"
 }
 
@@ -20,11 +19,11 @@ output "region" {
 }
 
 output "web_bucket_name" {
-  value       = ""
+  value       = module.s3_spa_hosting.bucket_name
   description = "S3 bucket name for SPA"
 }
 
 output "site_url" {
-  value       = ""
+  value       = module.s3_spa_hosting.site_url
   description = "Site URL for the SPA"
 }

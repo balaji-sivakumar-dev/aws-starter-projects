@@ -1,11 +1,52 @@
 {
-  "Comment": "Template placeholder for ProcessEntryAIWorkflow",
-  "StartAt": "NotImplemented",
+  "Comment": "ProcessEntryAIWorkflow - skeleton",
+  "StartAt": "ValidateInput",
   "States": {
-    "NotImplemented": {
+    "ValidateInput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "And": [
+            { "Variable": "$.userId", "IsPresent": true },
+            { "Variable": "$.entryId", "IsPresent": true },
+            { "Variable": "$.requestId", "IsPresent": true }
+          ],
+          "Next": "InvokeAIGateway"
+        }
+      ],
+      "Default": "MarkFailed"
+    },
+    "InvokeAIGateway": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ai_gateway_lambda_arn}",
+        "Payload.$": "$"
+      },
+      "Retry": [
+        {
+          "ErrorEquals": ["Lambda.ServiceException", "Lambda.AWSLambdaException", "Lambda.SdkClientException"],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "ResultPath": "$.error",
+          "Next": "MarkFailed"
+        }
+      ],
+      "Next": "MarkComplete"
+    },
+    "MarkComplete": {
+      "Type": "Succeed"
+    },
+    "MarkFailed": {
       "Type": "Fail",
-      "Error": "NotImplemented",
-      "Cause": "Workflow definition will be added in implementation step"
+      "Error": "EntryAIProcessingFailed",
+      "Cause": "Validation failed or AI Gateway invocation failed"
     }
   }
 }
