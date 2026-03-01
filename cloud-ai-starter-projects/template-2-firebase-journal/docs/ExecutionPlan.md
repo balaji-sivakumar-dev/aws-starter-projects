@@ -24,8 +24,8 @@
 2. Terraform foundation modules and root wiring. (completed)
 3. Cloud Functions API routes and Firestore data access. (completed)
 4. Async workflow + AI Gateway with guardrails and status updates. (completed)
-5. React web app with Firebase Auth and journal UI. (next)
-6. Docs finalization with CLI-first setup/runbook and smoke checklist.
+5. React web app with Firebase Auth and journal UI. (completed)
+6. Docs finalization with CLI-first setup/runbook and smoke checklist. (next)
 
 ## Commit Cadence
 - Commit after each valid iteration.
