@@ -24,14 +24,12 @@
 1. Bootstrap repository skeleton and placeholder docs. (complete)
 2. Terraform platform base and module wiring. (complete)
 3. API service and domain persistence. (complete)
-4. Workflow + AI full implementation:
-   - status transitions (QUEUED/PROCESSING/COMPLETE/FAILED)
-   - AI Gateway guardrails + Bedrock call + derived fields persistence
-   (complete)
+4. Workflow + AI full implementation. (complete)
 5. React web app:
    - Hosted UI login/logout
    - list/detail/create/edit, AI trigger button, aiStatus + summary/tags rendering
-6. Documentation + runbook completion and smoke-test checklist.
+   (complete)
+6. Documentation + runbook completion and smoke-test checklist. (in progress)
 
 ## Commit Cadence
 - Commit after each valid iteration above with clear scoped messages.

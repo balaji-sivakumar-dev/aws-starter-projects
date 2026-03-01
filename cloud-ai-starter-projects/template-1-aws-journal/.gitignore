@@ -9,6 +9,8 @@ crash.log
 node_modules/
 build/
 dist/
+.env
+!.env.example
 
 # Python
 __pycache__/

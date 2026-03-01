@@ -2,4 +2,4 @@
 
 This project is a new reusable template for Template 1.
 
-Status: Terraform infrastructure wiring in progress.
+Status: infra, API, workflow, and web app are implemented; final doc polishing remains.
