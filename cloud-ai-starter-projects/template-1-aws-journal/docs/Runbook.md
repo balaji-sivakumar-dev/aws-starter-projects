@@ -2,12 +2,13 @@
 
 ## Manual Testing Readiness
 - Backend + workflow test: ready after Terraform apply.
-- Full end-to-end manual test (including UI): ready now once web `.env` is configured.
+- Full end-to-end manual test (including UI): ready now.
 
-## When to Set Up AWS Accounts
-Set up AWS account access now (if not already done), including:
-- IAM credentials/profile with required service access.
-- Bedrock model access enabled in your chosen region.
+## Setup Order
+1. Follow `docs/AWSAccount-Terraform-Setup.md`.
+2. Deploy Terraform.
+3. Configure `apps/web/.env` from Terraform outputs.
+4. Start web app and run smoke checks.
 
 ## Smoke Checklist
 1. `GET /health` returns 200.

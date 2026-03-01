@@ -20,17 +20,15 @@
 - Step Functions async workflow and AI Gateway Lambda with guardrails.
 - React SPA with Cognito Hosted UI login and journal management UI.
 
-## Iterative Build Plan
-1. Bootstrap repository skeleton and placeholder docs. (complete)
-2. Terraform platform base and module wiring. (complete)
-3. API service and domain persistence. (complete)
-4. Workflow + AI full implementation. (complete)
-5. React web app:
-   - Hosted UI login/logout
-   - list/detail/create/edit, AI trigger button, aiStatus + summary/tags rendering
-   (complete)
-6. Documentation + runbook completion and smoke-test checklist. (in progress)
+## Iterative Build Plan Status
+1. Bootstrap repository skeleton and placeholder docs. (completed)
+2. Terraform platform base and module wiring. (completed)
+3. API service and domain persistence. (completed)
+4. Workflow + AI implementation (status transitions + Bedrock gateway). (completed)
+5. React web app (login, list/detail/create/edit, AI trigger, aiStatus display). (completed)
+6. Documentation and runbook finalization. (completed)
+7. Detailed AWS account + Terraform setup guide (CLI-first). (completed)
 
 ## Commit Cadence
-- Commit after each valid iteration above with clear scoped messages.
-- Keep commits additive in the new template folder only.
+- Commits were created after each valid iteration.
+- Changes remain additive within `cloud-ai-starter-projects/template-1-aws-journal/`.
