@@ -10,9 +10,9 @@
 
 ## Reuse vs New Build
 ### Reuse (reference-only patterns from existing SAM project)
-- Lambda handler structure and in-function routing style as baseline simplicity reference.
-- DynamoDB helper structure (`table()` style initialization) adapted for new domain needs.
-- Basic docs structure pattern (`Setup`, architecture-oriented markdown docs).
+- Lambda handler structure and simple routing baseline.
+- DynamoDB helper style (lazy table/client initialization) adapted to single-table Journal model.
+- Docs organization pattern for setup/architecture/runbook files.
 
 ### New implementation (Terraform + new architecture)
 - Full Terraform module stack (`auth_cognito`, `api_gateway_http`, `lambda`, `dynamodb`, `step_functions`, `s3_spa_hosting`).
@@ -21,28 +21,20 @@
 - React SPA with Cognito Hosted UI login and journal management UI.
 
 ## Iterative Build Plan
-1. Bootstrap repository skeleton and placeholder docs. (current step)
-2. Terraform platform base:
-   - variables, naming, providers, backend placeholders
-   - S3 SPA hosting + Cognito + DynamoDB modules
-3. Terraform integration:
-   - Lambda packaging wiring, API routes/JWT authorizer, Step Functions
-   - root outputs (`api_base_url`, `cognito_domain`, `cognito_client_id`, `region`, `web_bucket_name`, `site_url`)
-4. API service:
+1. Bootstrap repository skeleton and placeholder docs. (complete)
+2. Terraform platform base and module wiring. (complete)
+3. API service and domain persistence:
    - /health, /me, /entries CRUD, /entries/{entryId}/ai enqueue
    - requestId propagation and error contract `{ code, message, requestId }`
-5. Workflow + AI:
-   - state machine Validate -> AI Gateway -> Persist -> COMPLETE/FAILED
-   - retries for transient failures and status updates
-6. React web app:
+   - per-user isolation with `PK=USER#{sub}`
+4. Workflow + AI full implementation:
+   - status transitions (QUEUED/PROCESSING/COMPLETE/FAILED)
+   - AI Gateway guardrails + Bedrock call + derived fields persistence
+5. React web app:
    - Hosted UI login/logout
    - list/detail/create/edit, AI trigger button, aiStatus + summary/tags rendering
-7. Documentation + runbook completion and smoke-test checklist.
+6. Documentation + runbook completion and smoke-test checklist.
 
 ## Commit Cadence
 - Commit after each valid iteration above with clear scoped messages.
 - Keep commits additive in the new template folder only.
-
-## Iteration Status
-- Iteration 1 complete: project skeleton + docs placeholders committed.
-- Iteration 2 in progress: Terraform platform modules and root wiring for dev are being implemented.
