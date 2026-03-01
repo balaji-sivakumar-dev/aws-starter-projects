@@ -1,4 +1,7 @@
 {
+  "functions": {
+    "source": "services/api"
+  },
   "hosting": {
     "public": "apps/web/dist",
     "ignore": [
