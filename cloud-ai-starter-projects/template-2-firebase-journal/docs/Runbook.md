@@ -6,10 +6,11 @@
 
 ## Setup Order (CLI-first)
 1. Follow `docs/GCP-Firebase-Terraform-Setup.md`.
-2. Apply Terraform foundation.
-3. Deploy Firebase Functions.
-4. Configure and run web app.
-5. Run smoke checks.
+2. Track remaining manual actions in `docs/TODO.md`.
+3. Apply Terraform foundation.
+4. Deploy Firebase Functions.
+5. Configure and run web app.
+6. Run smoke checks.
 
 ## Smoke Checklist
 1. `GET /health` returns 200.
