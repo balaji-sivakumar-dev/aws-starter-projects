@@ -5,7 +5,7 @@ locals {
   use_lambda_api         = var.compute_mode == "serverless" || var.compute_mode == "hybrid"
   use_container_api      = var.compute_mode == "container" || var.compute_mode == "hybrid"
 
-  api_lambda_routes = {
+  api_routes = {
     health = { route_key = "GET /health", authorization = "NONE" }
     me = { route_key = "GET /me", authorization = "JWT" }
     list_entries = { route_key = "GET /entries", authorization = "JWT" }
@@ -16,16 +16,15 @@ locals {
     enqueue_ai = { route_key = "POST /entries/{entryId}/ai", authorization = "JWT" }
   }
 
-  api_container_routes = {
-    health = { route_key = "GET /health", authorization = "NONE" }
-    me = { route_key = "GET /me", authorization = "JWT" }
-    list_entries = { route_key = "GET /entries", authorization = "JWT" }
-    create_entry = { route_key = "POST /entries", authorization = "JWT" }
-    get_entry = { route_key = "GET /entries/{entryId}", authorization = "JWT" }
-    update_entry = { route_key = "PUT /entries/{entryId}", authorization = "JWT" }
-    delete_entry = { route_key = "DELETE /entries/{entryId}", authorization = "JWT" }
-    enqueue_ai = { route_key = "POST /entries/{entryId}/ai", authorization = "JWT" }
-  }
+  # Hybrid mode keeps contract stable by splitting ownership of routes.
+  # Lambda handles core CRUD and container handles AI enqueue endpoint.
+  lambda_route_keys = var.compute_mode == "hybrid"
+    ? toset(["health", "me", "list_entries", "create_entry", "get_entry", "update_entry", "delete_entry"])
+    : (var.compute_mode == "serverless" ? toset(keys(local.api_routes)) : toset([]))
+
+  container_route_keys = var.compute_mode == "hybrid"
+    ? toset(["enqueue_ai"])
+    : (var.compute_mode == "container" ? toset(keys(local.api_routes)) : toset([]))
 }
 
 module "auth" {
@@ -108,20 +107,22 @@ module "api_edge" {
   jwt_audience         = [module.auth.user_pool_client_id]
 
   lambda_routes = local.use_lambda_api ? {
-    for key, route in local.api_lambda_routes : key => {
+    for key, route in local.api_routes : key => {
       route_key         = route.route_key
       authorization     = route.authorization
       lambda_arn        = module.compute_lambda[0].function_arn
       lambda_invoke_arn = module.compute_lambda[0].function_invoke_arn
     }
+    if contains(local.lambda_route_keys, key)
   } : {}
 
   container_routes = local.use_container_api ? {
-    for key, route in local.api_container_routes : key => {
+    for key, route in local.api_routes : key => {
       route_key      = route.route_key
       authorization  = route.authorization
       integration_uri = module.compute_container[0].service_url
     }
+    if contains(local.container_route_keys, key)
   } : {}
 }
 

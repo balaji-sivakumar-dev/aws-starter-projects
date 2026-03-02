@@ -36,6 +36,18 @@ function lookupSk(entryId) {
   return `ENTRYID#${entryId}`;
 }
 
+function encodeNextToken(lastKey) {
+  return Buffer.from(JSON.stringify(lastKey), "utf8").toString("base64url");
+}
+
+function decodeNextToken(nextToken) {
+  try {
+    return JSON.parse(Buffer.from(nextToken, "base64url").toString("utf8"));
+  } catch {
+    return null;
+  }
+}
+
 function requestId(req) {
   return req.header("x-request-id") || crypto.randomUUID();
 }
@@ -97,6 +109,11 @@ app.get("/entries", auth, async (req, res) => {
   const rid = requestId(req);
   try {
     const limit = Math.max(1, Math.min(Number(req.query.limit || 20), 100));
+    const startKey = req.query.nextToken ? decodeNextToken(String(req.query.nextToken)) : null;
+    if (req.query.nextToken && !startKey) {
+      return fail(res, 400, "VALIDATION_ERROR", "invalid nextToken", rid);
+    }
+
     const result = await ddb.send(
       new QueryCommand({
         TableName: TABLE_NAME,
@@ -107,11 +124,12 @@ app.get("/entries", auth, async (req, res) => {
         },
         ScanIndexForward: false,
         Limit: limit,
+        ExclusiveStartKey: startKey || undefined,
       })
     );
 
     const items = (result.Items || []).filter((x) => !x.deletedAt).map(toEntry);
-    res.json({ items, nextToken: null, requestId: rid });
+    res.json({ items, nextToken: result.LastEvaluatedKey ? encodeNextToken(result.LastEvaluatedKey) : null, requestId: rid });
   } catch {
     fail(res, 500, "INTERNAL_ERROR", "internal server error", rid);
   }
@@ -199,17 +217,22 @@ app.put("/entries/:entryId", auth, async (req, res) => {
     if (body !== undefined && !String(body).trim()) {
       return fail(res, 400, "VALIDATION_ERROR", "body cannot be empty", rid);
     }
+    if (title === undefined && body === undefined) {
+      return fail(res, 400, "VALIDATION_ERROR", "nothing to update", rid);
+    }
 
+    const nextTitle = title !== undefined ? String(title).trim() : item.title;
+    const nextBody = body !== undefined ? String(body).trim() : item.body;
     await ddb.send(
       new UpdateCommand({
         TableName: TABLE_NAME,
         Key: { PK: item.PK, SK: item.SK },
-        UpdateExpression: "SET #updatedAt = :u, #title = if_not_exists(#title,:et), #body = if_not_exists(#body,:eb)",
+        UpdateExpression: "SET #updatedAt = :u, #title = :t, #body = :b",
         ExpressionAttributeNames: { "#updatedAt": "updatedAt", "#title": "title", "#body": "body" },
         ExpressionAttributeValues: {
           ":u": nowIso(),
-          ":et": title !== undefined ? String(title).trim() : item.title,
-          ":eb": body !== undefined ? String(body).trim() : item.body,
+          ":t": nextTitle,
+          ":b": nextBody,
         },
       })
     );

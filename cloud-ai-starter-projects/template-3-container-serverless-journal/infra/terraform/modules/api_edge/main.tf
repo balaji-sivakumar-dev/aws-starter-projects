@@ -59,9 +59,7 @@ resource "aws_apigatewayv2_route" "this" {
   api_id    = aws_apigatewayv2_api.this.id
   route_key = each.value.route_key
 
-  target = each.value.kind == "lambda"
-    ? "integrations/${aws_apigatewayv2_integration.lambda[each.key].id}"
-    : "integrations/${aws_apigatewayv2_integration.container[each.key].id}"
+  target = each.value.kind == "lambda" ? "integrations/${aws_apigatewayv2_integration.lambda[each.key].id}" : "integrations/${aws_apigatewayv2_integration.container[each.key].id}"
 
   authorization_type = each.value.authorization == "NONE" ? "NONE" : "JWT"
   authorizer_id      = each.value.authorization == "NONE" ? null : aws_apigatewayv2_authorizer.jwt.id

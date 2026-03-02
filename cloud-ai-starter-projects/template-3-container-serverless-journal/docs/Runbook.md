@@ -15,4 +15,4 @@
 ## Mode-specific checks
 - `serverless`: ensure API integrates with lambda function.
 - `container`: ensure App Runner URL is reachable and JWT verification works in container.
-- `hybrid`: ensure both compute adapters are reachable via same edge contract.
+- `hybrid`: ensure CRUD routes resolve through lambda and `POST /entries/{entryId}/ai` resolves through container path.

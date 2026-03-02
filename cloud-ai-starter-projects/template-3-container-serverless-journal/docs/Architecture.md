@@ -18,7 +18,7 @@ Keep API edge/auth/domain stable while swapping compute adapters.
 ## Deployment modes
 - `serverless`: API routes -> Lambda adapter
 - `container`: API routes -> App Runner adapter
-- `hybrid`: same contract split across lambda/container paths
+- `hybrid`: lambda handles CRUD routes, container handles `POST /entries/{entryId}/ai`
 
 ## Data model
 - `PK=USER#{userId}`
