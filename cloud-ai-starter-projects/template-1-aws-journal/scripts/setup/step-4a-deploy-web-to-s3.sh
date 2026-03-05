@@ -56,6 +56,17 @@ if [ -n "${CF_DISTRIBUTION_ID}" ]; then
 fi
 echo
 
+echo ">> Endpoint check (best-effort)"
+set +e
+STATUS_CODE="$(curl -s -o /dev/null -w "%{http_code}" "${SITE_URL}/index.html")"
+set -e
+if [ "${STATUS_CODE}" = "200" ] || [ "${STATUS_CODE}" = "304" ]; then
+  echo "OK: ${SITE_URL}/index.html returned ${STATUS_CODE}"
+else
+  echo "WARN: ${SITE_URL}/index.html returned ${STATUS_CODE} (may take time to propagate)"
+fi
+echo
+
 pushd "${WEB_DIR}" >/dev/null
 
 echo ">> npm install"
@@ -84,11 +95,17 @@ echo
 echo "== Export outputs to ${ENV_FILE} =="
 mkdir -p "${OUT_DIR}"
 
+LOGIN_REDIRECT_URI="${SITE_URL}/callback"
+LOGIN_REDIRECT_URI_ENC="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "${LOGIN_REDIRECT_URI}")"
+LOGIN_URL="https://${COGNITO_DOMAIN}/login?client_id=${COGNITO_CLIENT_ID}&response_type=code&redirect_uri=${LOGIN_REDIRECT_URI_ENC}"
+
 cat > "${ENV_FILE}" <<EOF_ENV
 VITE_API_BASE_URL=${API_BASE_URL}
 VITE_COGNITO_DOMAIN=${COGNITO_DOMAIN}
 VITE_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
 VITE_SITE_URL=${SITE_URL}
+VITE_CLOUDFRONT_URL=${SITE_URL}
+VITE_COGNITO_LOGIN_URL=${LOGIN_URL}
 EOF_ENV
 
 echo "✅ Wrote ${ENV_FILE}"

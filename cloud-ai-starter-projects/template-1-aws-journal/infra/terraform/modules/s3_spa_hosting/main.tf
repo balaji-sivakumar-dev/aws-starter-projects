@@ -22,13 +22,14 @@ resource "aws_s3_bucket_ownership_controls" "this" {
 resource "aws_s3_bucket_public_access_block" "this" {
   bucket = aws_s3_bucket.this.id
 
-  block_public_acls       = false
-  block_public_policy     = false
-  ignore_public_acls      = false
-  restrict_public_buckets = false
+  block_public_acls       = var.enable_cloudfront
+  block_public_policy     = var.enable_cloudfront
+  ignore_public_acls      = var.enable_cloudfront
+  restrict_public_buckets = var.enable_cloudfront
 }
 
 resource "aws_s3_bucket_website_configuration" "this" {
+  count  = var.enable_cloudfront ? 0 : 1
   bucket = aws_s3_bucket.this.id
 
   index_document {
@@ -41,6 +42,7 @@ resource "aws_s3_bucket_website_configuration" "this" {
 }
 
 resource "aws_s3_bucket_policy" "public_read" {
+  count  = var.enable_cloudfront ? 0 : 1
   bucket = aws_s3_bucket.this.id
 
   policy = jsonencode({
@@ -59,6 +61,16 @@ resource "aws_s3_bucket_policy" "public_read" {
   depends_on = [aws_s3_bucket_public_access_block.this]
 }
 
+resource "aws_cloudfront_origin_access_control" "this" {
+  count = var.enable_cloudfront ? 1 : 0
+
+  name                              = "${local.bucket_name}-oac"
+  description                       = "OAC for ${local.bucket_name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
 resource "aws_cloudfront_distribution" "this" {
   count = var.enable_cloudfront ? 1 : 0
 
@@ -67,24 +79,18 @@ resource "aws_cloudfront_distribution" "this" {
   default_root_object = "index.html"
 
   origin {
-    domain_name = local.website_domain
-    origin_id   = "s3-website-origin"
-
-    custom_origin_config {
-      http_port              = 80
-      https_port             = 443
-      origin_protocol_policy = "http-only"
-      origin_ssl_protocols   = ["TLSv1.2"]
-    }
+    domain_name              = aws_s3_bucket.this.bucket_regional_domain_name
+    origin_id                = "s3-origin"
+    origin_access_control_id = aws_cloudfront_origin_access_control.this[0].id
   }
 
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD", "OPTIONS"]
     cached_methods   = ["GET", "HEAD", "OPTIONS"]
-    target_origin_id = "s3-website-origin"
+    target_origin_id = "s3-origin"
 
     forwarded_values {
-      query_string = false
+      query_string = true
 
       cookies {
         forward = "none"
@@ -106,4 +112,46 @@ resource "aws_cloudfront_distribution" "this" {
   viewer_certificate {
     cloudfront_default_certificate = true
   }
+
+  custom_error_response {
+    error_code            = 403
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 200
+    response_page_path    = "/index.html"
+    error_caching_min_ttl = 0
+  }
+}
+
+data "aws_iam_policy_document" "cloudfront_oac" {
+  count = var.enable_cloudfront ? 1 : 0
+
+  statement {
+    sid     = "AllowCloudFrontServiceRead"
+    effect  = "Allow"
+    actions = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.this.arn}/*"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.this[0].arn]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "cloudfront_oac" {
+  count  = var.enable_cloudfront ? 1 : 0
+  bucket = aws_s3_bucket.this.id
+  policy = data.aws_iam_policy_document.cloudfront_oac[0].json
 }

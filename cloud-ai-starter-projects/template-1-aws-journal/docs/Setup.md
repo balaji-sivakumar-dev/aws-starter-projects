@@ -29,7 +29,7 @@ export AWS_PROFILE=journal-dev
 ## Bootstrap Terraform backend
 ```bash
 AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
-AWS_PROFILE=journal-dev ./scripts/setup/step-2b-create-backend-file.sh dev
+AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh dev
 ```
 
 ## Configure environment
@@ -47,7 +47,7 @@ Notes:
 - The web app uses the current browser origin for Cognito redirect/logout URLs.
 - Terraform now allows both localhost and the deployed site URL for callbacks.
 
-## Deploy web app to S3 (CloudFront enabled)
+## Deploy web app to S3 (CloudFront + private S3)
 Deploy:
 ```bash
 AWS_PROFILE=journal-dev ./scripts/setup/step-4a-deploy-web-to-s3.sh dev

@@ -34,3 +34,9 @@ variable "routes" {
     authorization     = optional(string, "JWT")
   }))
 }
+
+variable "cors_allow_origins" {
+  type        = list(string)
+  description = "Allowed origins for CORS"
+  default     = ["http://localhost:5173"]
+}

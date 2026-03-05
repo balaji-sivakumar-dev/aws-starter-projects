@@ -175,4 +175,5 @@ module "api_gateway_http" {
   enable_jwt_authorizer = true
   jwt_issuer            = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth_cognito.user_pool_id}"
   jwt_audience          = [module.auth_cognito.user_pool_client_id]
+  cors_allow_origins    = distinct(["http://localhost:5173", module.s3_spa_hosting.site_url])
 }

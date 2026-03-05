@@ -1,13 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Step 2 (script): Terraform backend bootstrap (repeatable)
+# Step 2 (script): Terraform backend bootstrap + backend file (repeatable)
 # Run this file
 # chmod +x scripts/setup/step-2-bootstrap-terraform-backend.sh
 # AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
 
 
 # ====== Config (edit these if you want) ======
+ENV_NAME="${1:-dev}"
 REGION="${REGION:-ca-central-1}"
 PROJECT_PREFIX="${PROJECT_PREFIX:-journal}"
 LOCK_TABLE="${LOCK_TABLE:-${PROJECT_PREFIX}-tflock}"
@@ -77,10 +78,19 @@ else
   aws dynamodb wait table-exists --table-name "${LOCK_TABLE}" --region "${REGION}"
 fi
 
+TF_DIR="infra/terraform"
+BACKEND_FILE="${TF_DIR}/backend.${ENV_NAME}.tfbackend"
+
+mkdir -p "${TF_DIR}"
+
+cat > "${BACKEND_FILE}" <<EOF_BACKEND
+bucket         = "${STATE_BUCKET}"
+key            = "template-1/aws-journal/${ENV_NAME}/terraform.tfstate"
+region         = "${REGION}"
+dynamodb_table = "${LOCK_TABLE}"
+encrypt        = true
+EOF_BACKEND
+
 echo
 echo "✅ Bootstrap complete."
-echo
-echo "Next: create backend config file with:"
-echo "  bucket         = \"${STATE_BUCKET}\""
-echo "  dynamodb_table = \"${LOCK_TABLE}\""
-echo "  region         = \"${REGION}\""
+echo "✅ Wrote backend config: ${BACKEND_FILE}"
