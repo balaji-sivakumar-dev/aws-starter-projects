@@ -69,8 +69,8 @@ module "auth_cognito" {
 
   app_prefix     = var.app_prefix
   env            = var.env
-  callback_urls  = var.callback_urls
-  logout_urls    = var.logout_urls
+  callback_urls  = distinct(concat(var.callback_urls, var.web_enable_cloudfront ? ["${module.s3_spa_hosting.site_url}/callback"] : []))
+  logout_urls    = distinct(concat(var.logout_urls, var.web_enable_cloudfront ? ["${module.s3_spa_hosting.site_url}/"] : []))
   domain_prefix  = local.cognito_domain_prefix
 }
 

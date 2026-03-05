@@ -5,17 +5,10 @@ This project is a new reusable template for Template 1.
 Status: Template 1 implementation complete. CRUD validated in AWS dev on March 5, 2026; AI workflow pending Bedrock enablement.
 
 Docs index:
-- `docs/AWSAccount-Terraform-Setup.md` — CLI-first AWS + Terraform setup
-- `docs/Setup.md` — quick start
-- `docs/Runbook.md` — smoke tests and validation order
-- `docs/Template1-AWS-Setup-Checklist.md` — cost/safety checklist
+- `docs/Setup.md` — setup + runbook
 - `docs/Architecture.md` — platform/domain layout
-- `docs/API.md` — route contract
-- `docs/DataModel.md` — DynamoDB single-table model
-- `docs/Workflow.md` — AI workflow behavior
-- `docs/ExecutionPlan.md` — implementation plan summary
+- `docs/Specs.md` — API, data model, AI workflow
 - `docs/Implementation-Checklist.md` — implementation + testing checklist
-- `docs/archived/review_comments.md` — archived review notes
 
 ## Scripts (CLI-first)
 Run from repo root:
@@ -24,7 +17,7 @@ AWS_PROFILE=journal-dev ./scripts/setup/step-1-aws-configure.md
 AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
 AWS_PROFILE=journal-dev ./scripts/setup/step-2b-create-backend-file.sh dev
 AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
-AWS_PROFILE=journal-dev ./scripts/setup/step-4a-export-outputs-to-env.sh dev
+AWS_PROFILE=journal-dev ./scripts/setup/step-4a-deploy-web-to-s3.sh dev
 ```
 
 Destroy:

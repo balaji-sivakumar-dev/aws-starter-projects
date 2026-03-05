@@ -27,3 +27,8 @@ output "site_url" {
   value       = module.s3_spa_hosting.site_url
   description = "Site URL for the SPA"
 }
+
+output "web_cloudfront_distribution_id" {
+  value       = module.s3_spa_hosting.cloudfront_distribution_id
+  description = "CloudFront distribution ID for SPA (empty when disabled)"
+}

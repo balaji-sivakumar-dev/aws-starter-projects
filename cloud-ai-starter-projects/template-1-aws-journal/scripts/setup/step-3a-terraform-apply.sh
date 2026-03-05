@@ -15,6 +15,8 @@ TF_DIR="${TF_DIR:-infra/terraform}"
 VAR_FILE="${VAR_FILE:-${TF_DIR}/environments/${ENV_NAME}/${ENV_NAME}.tfvars}"
 REL_VAR_FILE="environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 BACKEND_FILE="${BACKEND_FILE:-${TF_DIR}/backend.${ENV_NAME}.tfbackend}"
+OUT_DIR="${OUT_DIR:-apps/web}"
+ENV_FILE="${ENV_FILE:-${OUT_DIR}/.env}"
 
 echo "== Terraform Apply =="
 echo "Environment : ${ENV_NAME}"
@@ -53,4 +55,25 @@ terraform apply -var-file="${REL_VAR_FILE}"
 popd >/dev/null
 
 echo
+echo "== Export outputs to ${ENV_FILE} =="
+mkdir -p "${OUT_DIR}"
+
+pushd "${TF_DIR}" >/dev/null
+API_BASE_URL="$(terraform output -raw api_base_url)"
+COGNITO_DOMAIN="$(terraform output -raw cognito_domain)"
+COGNITO_CLIENT_ID="$(terraform output -raw cognito_client_id)"
+SITE_URL="$(terraform output -raw site_url)"
+popd >/dev/null
+
+cat > "${ENV_FILE}" <<EOF_ENV
+VITE_API_BASE_URL=${API_BASE_URL}
+VITE_COGNITO_DOMAIN=${COGNITO_DOMAIN}
+VITE_COGNITO_CLIENT_ID=${COGNITO_CLIENT_ID}
+VITE_SITE_URL=${SITE_URL}
+EOF_ENV
+
+echo "✅ Wrote ${ENV_FILE}"
+
+echo
 echo "✅ Terraform apply complete for env: ${ENV_NAME}"
+echo "Next: deploy the web app to S3 with scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"

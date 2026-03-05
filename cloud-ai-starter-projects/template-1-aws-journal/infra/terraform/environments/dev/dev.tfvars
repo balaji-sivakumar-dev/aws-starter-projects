@@ -4,4 +4,4 @@ aws_region            = "ca-central-1"
 cognito_domain_prefix = "journal-dev-change-me"
 callback_urls         = ["http://localhost:5173/callback"]
 logout_urls           = ["http://localhost:5173/"]
-web_enable_cloudfront = false
+web_enable_cloudfront = true

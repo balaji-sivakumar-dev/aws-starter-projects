@@ -36,6 +36,8 @@ echo ">> Deleting all objects + versions in S3 bucket (this can take a bit if ma
 VERSIONS_JSON="$(aws s3api list-object-versions --bucket "${STATE_BUCKET}" --output json)"
 
 # Use python (available on mac) to safely build delete payload in chunks
+export STATE_BUCKET
+export VERSIONS_JSON
 python3 - <<'PY'
 import json, sys, subprocess, math, os
 
