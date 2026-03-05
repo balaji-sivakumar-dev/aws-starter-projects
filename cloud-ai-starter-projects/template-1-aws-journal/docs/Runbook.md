@@ -7,7 +7,7 @@
 ## Setup Order
 1. Follow `docs/AWSAccount-Terraform-Setup.md`.
 2. Run setup scripts in `scripts/setup/`.
-3. Configure `apps/web/.env` from Terraform outputs.
+3. Export Terraform outputs to `apps/web/.env` using `scripts/setup/step-4a-export-outputs-to-env.sh`.
 4. Start web app and run smoke checks.
 
 ## Smoke Checklist

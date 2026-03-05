@@ -16,6 +16,7 @@ AWS_PROFILE=journal-dev ./scripts/setup/step-1-aws-configure.md
 AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
 AWS_PROFILE=journal-dev ./scripts/setup/step-2b-create-backend-file.sh dev
 AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
+AWS_PROFILE=journal-dev ./scripts/setup/step-4a-export-outputs-to-env.sh dev
 ```
 
 Destroy:
