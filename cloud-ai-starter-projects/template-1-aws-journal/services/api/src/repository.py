@@ -6,18 +6,13 @@ from typing import Any, Dict, Optional, Tuple
 
 import boto3
 import logging
-from botocore.exceptions import ClientError
-from botocore.config import Config
-from boto3.dynamodb.types import TypeSerializer
 from boto3.dynamodb.conditions import Key
 
 from errors import ApiError
 from models import now_iso
 
 _TABLE = None
-_SERIALIZER = TypeSerializer()
 logger = logging.getLogger(__name__)
-_DDB_CLIENT = boto3.client("dynamodb", config=Config(parameter_validation=False))
 
 
 def table():
@@ -84,28 +79,20 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
     }
 
     try:
-        _DDB_CLIENT.transact_write_items(
-            TransactItems=[
-                {
-                    "Put": {
-                        "TableName": table().name,
-                        "Item": _marshal(entry_item),
-                        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-                    }
-                },
-                {
-                    "Put": {
-                        "TableName": table().name,
-                        "Item": _marshal(lookup_item),
-                        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-                    }
-                },
-            ],
-            ReturnCancellationReasons=True,
+        table().put_item(
+            Item=entry_item,
+            ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
         )
-    except ClientError as exc:
-        reasons = exc.response.get("CancellationReasons")
-        logger.error("TransactWriteItems failed reasons=%s", reasons)
+        table().put_item(
+            Item=lookup_item,
+            ConditionExpression="attribute_not_exists(PK) AND attribute_not_exists(SK)",
+        )
+    except Exception:
+        logger.exception("Failed to create journal entry items")
+        try:
+            table().delete_item(Key={"PK": entry_item["PK"], "SK": entry_item["SK"]})
+        except Exception:
+            logger.exception("Failed to rollback journal entry create")
         raise
 
     return entry_item
@@ -209,6 +196,3 @@ def _get_entry_for_user(user_id: str, entry_id: str) -> Dict[str, Any]:
         raise ApiError(404, "NOT_FOUND", "entry not found")
     return entry
 
-
-def _marshal(item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    return {key: _SERIALIZER.serialize(value) for key, value in item.items()}
