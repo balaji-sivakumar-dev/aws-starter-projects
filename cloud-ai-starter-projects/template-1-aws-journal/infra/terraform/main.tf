@@ -152,7 +152,7 @@ module "lambda_api" {
       policy_statements = [
         {
           sid       = "JournalTableAccess"
-          actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query"]
+          actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query", "dynamodb:TransactWriteItems"]
           resources = [module.dynamodb.table_arn]
         },
         {

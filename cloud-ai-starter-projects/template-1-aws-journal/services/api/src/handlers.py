@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import traceback
 from typing import Any, Dict
 
 import boto3
@@ -9,6 +11,8 @@ from models import to_entry_response, to_limit, validate_create_payload, validat
 from repository import create_entry, get_entry, list_entries, mark_ai_queued, soft_delete_entry, update_entry
 
 sfn = boto3.client("stepfunctions")
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
@@ -100,7 +104,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     except ApiError as err:
         return error_response(err, request_id)
-    except Exception:  # noqa: BLE001
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Unhandled error request_id=%s error=%s", request_id, exc)
+        logger.error("Traceback: %s", traceback.format_exc())
         return error_response(ApiError(500, "INTERNAL_ERROR", "internal server error"), request_id)
 
 
