@@ -63,7 +63,7 @@ Choose unique names:
 
 ```bash
 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION=us-east-1
+REGION=ca-central-1
 STATE_BUCKET="journal-tfstate-${ACCOUNT_ID}-${REGION}"
 LOCK_TABLE="journal-tflock"
 
@@ -98,7 +98,7 @@ cd cloud-ai-starter-projects/template-1-aws-journal/infra/terraform
 Update dev vars:
 - `environments/dev/dev.tfvars`
   - `cognito_domain_prefix` must be globally unique
-  - `aws_region` should match Bedrock-enabled region
+  - `aws_region` should match Bedrock-enabled region (use `ca-central-1` for this project)
 
 ## 5) Terraform init/plan/apply
 
@@ -120,6 +120,13 @@ Edit `backend.dev.tfbackend` values (`bucket`, `region`, `dynamodb_table`, `key`
 terraform init -reconfigure -backend-config=backend.dev.tfbackend
 terraform plan -var-file=environments/dev/dev.tfvars
 terraform apply -var-file=environments/dev/dev.tfvars
+```
+
+CLI-first scripts (recommended):
+```bash
+AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
+AWS_PROFILE=journal-dev ./scripts/setup/step-2b-create-backend-file.sh dev
+AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
 ```
 
 ## 6) Capture outputs for web app
@@ -153,7 +160,7 @@ npm run dev
 
 ## 8) Validate Bedrock access (CLI preferred)
 ```bash
-aws bedrock list-foundation-models --region us-east-1 --output table
+aws bedrock list-foundation-models --region ca-central-1 --output table
 ```
 
 If model invocation fails but model is listed, verify model access is enabled in Console.

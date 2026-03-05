@@ -17,7 +17,7 @@ Base path: API Gateway HTTP API default stage.
 - `DELETE /entries/{entryId}` (soft delete)
 - `POST /entries/{entryId}/ai` (enqueue workflow)
 
-## Current Payloads (Iteration 3)
+## Payloads
 ### Create Entry
 Request:
 ```json
