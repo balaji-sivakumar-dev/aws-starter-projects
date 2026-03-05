@@ -7,6 +7,7 @@ from typing import Any, Dict, Optional, Tuple
 import boto3
 import logging
 from botocore.exceptions import ClientError
+from botocore.config import Config
 from boto3.dynamodb.types import TypeSerializer
 from boto3.dynamodb.conditions import Key
 
@@ -16,6 +17,7 @@ from models import now_iso
 _TABLE = None
 _SERIALIZER = TypeSerializer()
 logger = logging.getLogger(__name__)
+_DDB_CLIENT = boto3.client("dynamodb", config=Config(parameter_validation=False))
 
 
 def table():
@@ -82,7 +84,7 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
     }
 
     try:
-        table().meta.client.transact_write_items(
+        _DDB_CLIENT.transact_write_items(
             TransactItems=[
                 {
                     "Put": {
