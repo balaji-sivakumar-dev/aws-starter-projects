@@ -5,6 +5,8 @@ import uuid
 from typing import Any, Dict, Optional, Tuple
 
 import boto3
+import logging
+from botocore.exceptions import ClientError
 from boto3.dynamodb.types import TypeSerializer
 from boto3.dynamodb.conditions import Key
 
@@ -13,6 +15,7 @@ from models import now_iso
 
 _TABLE = None
 _SERIALIZER = TypeSerializer()
+logger = logging.getLogger(__name__)
 
 
 def table():
@@ -78,24 +81,30 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
         "createdAt": timestamp,
     }
 
-    table().meta.client.transact_write_items(
-        TransactItems=[
-            {
-                "Put": {
-                    "TableName": table().name,
-                    "Item": _marshal(entry_item),
-                    "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-                }
-            },
-            {
-                "Put": {
-                    "TableName": table().name,
-                    "Item": _marshal(lookup_item),
-                    "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
-                }
-            },
-        ]
-    )
+    try:
+        table().meta.client.transact_write_items(
+            TransactItems=[
+                {
+                    "Put": {
+                        "TableName": table().name,
+                        "Item": _marshal(entry_item),
+                        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+                    }
+                },
+                {
+                    "Put": {
+                        "TableName": table().name,
+                        "Item": _marshal(lookup_item),
+                        "ConditionExpression": "attribute_not_exists(PK) AND attribute_not_exists(SK)",
+                    }
+                },
+            ],
+            ReturnCancellationReasons=True,
+        )
+    except ClientError as exc:
+        reasons = exc.response.get("CancellationReasons")
+        logger.error("TransactWriteItems failed reasons=%s", reasons)
+        raise
 
     return entry_item
 
