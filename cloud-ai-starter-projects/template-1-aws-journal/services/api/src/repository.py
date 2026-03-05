@@ -5,12 +5,14 @@ import uuid
 from typing import Any, Dict, Optional, Tuple
 
 import boto3
+from boto3.dynamodb.types import TypeSerializer
 from boto3.dynamodb.conditions import Key
 
 from errors import ApiError
 from models import now_iso
 
 _TABLE = None
+_SERIALIZER = TypeSerializer()
 
 
 def table():
@@ -199,14 +201,4 @@ def _get_entry_for_user(user_id: str, entry_id: str) -> Dict[str, Any]:
 
 
 def _marshal(item: Dict[str, Any]) -> Dict[str, Dict[str, str]]:
-    marshaled: Dict[str, Dict[str, str]] = {}
-    for key, value in item.items():
-        if value is None:
-            marshaled[key] = {"NULL": True}
-        elif isinstance(value, str):
-            marshaled[key] = {"S": value}
-        elif isinstance(value, list):
-            marshaled[key] = {"L": [{"S": str(v)} for v in value]}
-        else:
-            marshaled[key] = {"S": str(value)}
-    return marshaled
+    return {key: _SERIALIZER.serialize(value) for key, value in item.items()}
