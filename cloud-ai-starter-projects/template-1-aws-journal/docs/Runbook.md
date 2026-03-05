@@ -6,7 +6,7 @@
 
 ## Setup Order
 1. Follow `docs/AWSAccount-Terraform-Setup.md`.
-2. Deploy Terraform.
+2. Run setup scripts in `scripts/setup/`.
 3. Configure `apps/web/.env` from Terraform outputs.
 4. Start web app and run smoke checks.
 

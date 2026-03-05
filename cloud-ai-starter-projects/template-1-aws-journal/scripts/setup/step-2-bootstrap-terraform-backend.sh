@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Step 2 (script): Terraform backend bootstrap (repeatable)
-# Run this file 
+# Run this file
 # chmod +x scripts/setup/step-2-bootstrap-terraform-backend.sh
-# AWS_PROFILE=journal-dev scripts/setup/step-2-bootstrap-terraform-backend.sh
+# AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh
 
 
 # ====== Config (edit these if you want) ======
@@ -84,4 +84,3 @@ echo "Next: create backend config file with:"
 echo "  bucket         = \"${STATE_BUCKET}\""
 echo "  dynamodb_table = \"${LOCK_TABLE}\""
 echo "  region         = \"${REGION}\""
-

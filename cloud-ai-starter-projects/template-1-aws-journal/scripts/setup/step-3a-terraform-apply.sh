@@ -1,18 +1,19 @@
 #!/bin/bash
-# Step 3C — Terraform init/plan/apply (repeatable)
+# Step 3A — Terraform init/plan/apply (repeatable)
 
 set -euo pipefail
 
 # Usage:
-#   AWS_PROFILE=journal-dev ./scripts/setup/step-3c-terraform-apply.sh dev
+#   AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
 #
 # Assumes you run from repo root.
-# chmod +x scripts/setup/step-3c-terraform-apply.sh
+# chmod +x scripts/setup/step-3a-terraform-apply.sh
 
 ENV_NAME="${1:-dev}"
 
 TF_DIR="${TF_DIR:-infra/terraform}"
 VAR_FILE="${VAR_FILE:-${TF_DIR}/environments/${ENV_NAME}/${ENV_NAME}.tfvars}"
+REL_VAR_FILE="environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 BACKEND_FILE="${BACKEND_FILE:-${TF_DIR}/backend.${ENV_NAME}.tfbackend}"
 
 echo "== Terraform Apply =="
@@ -44,10 +45,10 @@ echo ">> terraform init (with backend config)"
 terraform init -reconfigure -backend-config="$(basename "${BACKEND_FILE}")"
 
 echo ">> terraform plan"
-terraform plan -var-file="$(basename "${VAR_FILE}")"
+terraform plan -var-file="${REL_VAR_FILE}"
 
 echo ">> terraform apply"
-terraform apply -var-file="$(basename "${VAR_FILE}")"
+terraform apply -var-file="${REL_VAR_FILE}"
 
 popd >/dev/null
 

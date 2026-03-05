@@ -15,7 +15,7 @@ TF_DIR="infra/terraform"
 TFVARS_FILE="${TF_DIR}/environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 
 if [ -z "${REGION}" ] && [ -f "${TFVARS_FILE}" ]; then
-  REGION="$(awk -F"=" \047/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/"/ ,"", $2); gsub(/[[:space:]]/,"", $2); print $2}\047 "${TFVARS_FILE}")"
+  REGION="$(awk -F= '/^[[:space:]]*aws_region[[:space:]]*=/{gsub(/"/,"",$2); gsub(/[[:space:]]/,"",$2); print $2}' "${TFVARS_FILE}")"
 fi
 
 if [ -z "${REGION}" ]; then

@@ -1,20 +1,21 @@
 #!/bin/bash
-# Step 3A — Destroy all Terraform-created resources (recommended “cleanup”)
+# Step 1A — Destroy all Terraform-created resources (recommended “cleanup”)
 
 set -euo pipefail
 
 # Usage:
-#   AWS_PROFILE=journal-dev ./scripts/destroy/step-3a-terraform-destroy.sh dev
+#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1a-terraform-destroy.sh dev
 #
 # Assumes you run from repo root.
-# chmod +x scripts/destroy/step-3a-terraform-destroy.sh
-# AWS_PROFILE=journal-dev ./scripts/destroy/step-3a-terraform-destroy.sh dev
+# chmod +x scripts/destroy/step-1a-terraform-destroy.sh
+# AWS_PROFILE=journal-dev ./scripts/destroy/step-1a-terraform-destroy.sh dev
 
 
 ENV_NAME="${1:-dev}"
 
 TF_DIR="${TF_DIR:-infra/terraform}"
 VAR_FILE="${VAR_FILE:-${TF_DIR}/environments/${ENV_NAME}/${ENV_NAME}.tfvars}"
+REL_VAR_FILE="environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 BACKEND_FILE="${BACKEND_FILE:-${TF_DIR}/backend.${ENV_NAME}.tfbackend}"
 
 echo "== Terraform Destroy =="
@@ -46,7 +47,7 @@ echo ">> terraform init (to ensure backend is configured)"
 terraform init -reconfigure -backend-config="$(basename "${BACKEND_FILE}")"
 
 echo ">> terraform destroy"
-terraform destroy -var-file="$(basename "${VAR_FILE}")" -auto-approve
+terraform destroy -var-file="${REL_VAR_FILE}" -auto-approve
 
 popd >/dev/null
 

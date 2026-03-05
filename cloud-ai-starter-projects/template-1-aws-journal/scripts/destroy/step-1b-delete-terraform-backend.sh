@@ -1,12 +1,13 @@
+#!/bin/bash
+# Step 1B — Delete backend too (optional “nuke everything”)
 
-
-# Step 3B — Delete backend too (optional “nuke everything”)
+set -euo pipefail
 
 # ⚠️ Use this only if you want to delete the state bucket and lock table.
 # This will remove your Terraform state history.
 
-# chmod +x scripts/destroy/step-3b-delete-terraform-backend.sh
-# AWS_PROFILE=journal-dev ./scripts/destroy/step-3b-delete-terraform-backend.sh
+# chmod +x scripts/destroy/step-1b-delete-terraform-backend.sh
+# AWS_PROFILE=journal-dev ./scripts/destroy/step-1b-delete-terraform-backend.sh
 
 
 REGION="${REGION:-ca-central-1}"

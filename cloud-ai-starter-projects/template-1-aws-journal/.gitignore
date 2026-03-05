@@ -5,6 +5,7 @@
 *.tfstate.*
 backend.*.tfbackend
 crash.log
+.build/
 
 # Node
 node_modules/
