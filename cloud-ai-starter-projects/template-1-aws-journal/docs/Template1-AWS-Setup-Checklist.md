@@ -68,12 +68,10 @@
 -   [ ] Run `scripts/setup/step-2-bootstrap-terraform-backend.sh` to create bucket + lock table
 -   [ ] Run `scripts/setup/step-2b-create-backend-file.sh dev` to write backend.dev.tfbackend
 
-### Configure Backend
+### Configure Backend (manual alternative)
 
--   [ ] Copy backend.s3.tfbackend.example → backend.dev.tfbackend
--   [ ] Update bucket name
--   [ ] Update region
--   [ ] Update DynamoDB lock table name
+-   [ ] Copy backend.s3.tfbackend.example → backend.dev.tfbackend (if not using script)
+-   [ ] Update bucket name, region, DynamoDB lock table name
 
 ------------------------------------------------------------------------
 
@@ -91,11 +89,7 @@
 
 ### Capture Outputs
 
--   [ ] terraform output
--   [ ] Save api_base_url
--   [ ] Save cognito_domain
--   [ ] Save cognito_client_id
--   [ ] Save site_url
+-   [ ] Run `scripts/setup/step-4a-export-outputs-to-env.sh dev`
 
 ------------------------------------------------------------------------
 
@@ -140,12 +134,11 @@
 
 ### Destroy Infrastructure
 
--   [ ] terraform destroy -var-file=environments/dev/dev.tfvars
+-   [ ] Run `scripts/destroy/step-1a-terraform-destroy.sh dev`
 
 ### Optional (True Zero Mode)
 
--   [ ] Delete Terraform state S3 bucket
--   [ ] Delete DynamoDB lock table
+-   [ ] Run `scripts/destroy/step-1b-delete-terraform-backend.sh` (nukes backend)
 
 ------------------------------------------------------------------------
 

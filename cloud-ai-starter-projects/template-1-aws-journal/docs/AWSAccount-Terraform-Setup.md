@@ -138,6 +138,11 @@ terraform output -raw cognito_client_id
 terraform output -raw site_url
 ```
 
+CLI helper:
+```bash
+AWS_PROFILE=journal-dev ./scripts/setup/step-4a-export-outputs-to-env.sh dev
+```
+
 ## 7) Configure and run web app locally
 
 ```bash
@@ -169,6 +174,11 @@ If model invocation fails but model is listed, verify model access is enabled in
 ```bash
 cd ../infra/terraform
 terraform destroy -var-file=environments/dev/dev.tfvars
+```
+
+CLI helper:
+```bash
+AWS_PROFILE=journal-dev ./scripts/destroy/step-1a-terraform-destroy.sh dev
 ```
 
 If using remote backend, keep state bucket/lock table for future runs.
