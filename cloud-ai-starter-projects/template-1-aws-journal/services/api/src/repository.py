@@ -67,7 +67,6 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
         "createdAt": timestamp,
         "updatedAt": timestamp,
         "aiStatus": "NOT_REQUESTED",
-        "tags": [],
     }
 
     lookup_item = {
