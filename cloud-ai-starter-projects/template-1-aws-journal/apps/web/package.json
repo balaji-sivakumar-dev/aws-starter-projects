@@ -5,7 +5,7 @@
   "type": "module",
   "description": "React SPA for Template 1 journal starter",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --open",
     "build": "vite build",
     "preview": "vite preview"
   },
