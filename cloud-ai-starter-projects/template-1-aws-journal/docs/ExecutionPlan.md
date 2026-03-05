@@ -29,6 +29,10 @@
 6. Documentation and runbook finalization. (completed)
 7. Detailed AWS account + Terraform setup guide (CLI-first). (completed)
 
+## Validation Status (as of March 5, 2026)
+- CRUD flow validated in AWS dev: login, create, list, view detail, update, delete.
+- AI trigger workflow pending Bedrock model access enablement.
+
 ## Commit Cadence
 - Commits were created after each valid iteration.
 - Changes remain additive within `cloud-ai-starter-projects/template-1-aws-journal/`.

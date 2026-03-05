@@ -2,7 +2,7 @@
 
 This project is a new reusable template for Template 1.
 
-Status: Template 1 implementation complete, including CLI-first setup guides and helper scripts.
+Status: Template 1 implementation complete. CRUD validated in AWS dev on March 5, 2026; AI workflow pending Bedrock enablement.
 
 Docs index:
 - `docs/AWSAccount-Terraform-Setup.md` — CLI-first AWS + Terraform setup
@@ -14,6 +14,7 @@ Docs index:
 - `docs/DataModel.md` — DynamoDB single-table model
 - `docs/Workflow.md` — AI workflow behavior
 - `docs/ExecutionPlan.md` — implementation plan summary
+- `docs/Implementation-Checklist.md` — implementation + testing checklist
 - `docs/archived/review_comments.md` — archived review notes
 
 ## Scripts (CLI-first)
