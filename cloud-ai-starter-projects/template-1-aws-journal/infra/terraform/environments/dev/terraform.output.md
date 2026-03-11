@@ -1,0 +1,6 @@
+api_base_url = "https://47bt76xb80.execute-api.ca-central-1.amazonaws.com"
+cognito_client_id = "190gtqugaietne8bjbnl4gvtmr"
+cognito_domain = "journal-dev-change-me.auth.ca-central-1.amazoncognito.com"
+region = "ca-central-1"
+site_url = "http://journal-dev-web-ca-central-1-138300868816.s3-website-ca-central-1.amazonaws.com"
+web_bucket_name = "journal-dev-web-ca-central-1-138300868816"

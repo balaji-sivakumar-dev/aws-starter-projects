@@ -1,0 +1,20 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+backend.*.tfbackend
+crash.log
+.build/
+
+# Node
+node_modules/
+build/
+dist/
+.env
+!.env.example
+
+# Python
+__pycache__/
+.pytest_cache/
+.venv/

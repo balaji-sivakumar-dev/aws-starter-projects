@@ -1,0 +1,11 @@
+{
+  "name": "template-2-journal-workflows",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/processor.js",
+  "dependencies": {
+    "firebase-admin": "^13.0.1",
+    "google-auth-library": "^9.15.1"
+  }
+}
