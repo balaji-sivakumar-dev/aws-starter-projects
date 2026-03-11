@@ -46,9 +46,10 @@
 - [x] React UI loads at `http://localhost:3000` and Nginx `/api/` proxy works
 
 ### #5 — Integration tests (pytest)
-- [ ] `services/api/tests/test_entries.py` — CRUD happy path against dynamodb-local
-- [ ] `services/api/tests/test_auth.py` — Local bypass + bad token (400/401 cases)
-- [ ] `services/api/tests/conftest.py` — Pytest fixtures: spin up test DDB table
+- [x] `services/api/tests/test_entries.py` — CRUD happy path (28 tests, moto mock, 1.6s)
+- [x] `services/api/tests/test_auth.py` — Local bypass + user isolation + 400/401/404 cases
+- [x] `services/api/tests/conftest.py` — moto `mock_aws` fixture; table created before TestClient
+- [x] `services/api/requirements-dev.txt` — pytest + moto[dynamodb]
 
 ---
 

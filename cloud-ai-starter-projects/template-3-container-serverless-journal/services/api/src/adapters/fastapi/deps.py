@@ -7,7 +7,10 @@ from fastapi import Header, HTTPException
 
 from ...core import auth as core_auth
 
-APP_ENV = os.getenv("APP_ENV", "local")
+# Environments that bypass JWT verification and use the X-User-Id header.
+# "local" → Docker Compose dev mode.
+# "test"  → pytest / CI (no real DynamoDB or Cognito).
+_LOCAL_ENVS = frozenset({"local", "test"})
 
 
 def _unauthorized(msg: str = "missing valid token") -> HTTPException:
@@ -21,7 +24,8 @@ async def get_current_user(
     authorization: Optional[str] = Header(default=None),
     x_user_id: Optional[str] = Header(default=None, alias="x-user-id"),
 ) -> str:
-    if APP_ENV == "local":
+    # Read at request time so tests can set APP_ENV before importing the app.
+    if os.getenv("APP_ENV", "local") in _LOCAL_ENVS:
         return core_auth.resolve_user_local(x_user_id)
 
     if not authorization or not authorization.startswith("Bearer "):
