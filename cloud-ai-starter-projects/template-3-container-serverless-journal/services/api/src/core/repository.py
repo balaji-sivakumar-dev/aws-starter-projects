@@ -1,3 +1,8 @@
+"""
+DynamoDB repository — pure data access, no web framework dependencies.
+Used by both the FastAPI adapter and the Lambda adapter.
+"""
+
 import base64
 import json
 import logging
@@ -16,18 +21,20 @@ TABLE_NAME = os.getenv("JOURNAL_TABLE_NAME", "journal")
 DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT", "")
 
 
-def _dynamodb_resource():
-    kwargs: Dict[str, Any] = {"region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1")}
+def _resource():
+    kwargs: Dict[str, Any] = {
+        "region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    }
     if DYNAMODB_ENDPOINT:
         kwargs["endpoint_url"] = DYNAMODB_ENDPOINT
     return boto3.resource("dynamodb", **kwargs)
 
 
 def _table():
-    return _dynamodb_resource().Table(TABLE_NAME)
+    return _resource().Table(TABLE_NAME)
 
 
-# ── Key helpers ──────────────────────────────────────────────────────────────
+# ── Key helpers ───────────────────────────────────────────────────────────────
 
 def user_pk(user_id: str) -> str:
     return f"USER#{user_id}"
@@ -62,18 +69,18 @@ def to_entry(item: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-# ── Local setup ───────────────────────────────────────────────────────────────
+# ── Local dev: auto-create table ──────────────────────────────────────────────
 
 def ensure_table() -> None:
-    """Create the DynamoDB table if it doesn't exist. Only used in local mode."""
-    ddb = _dynamodb_resource()
+    """Create the DynamoDB table if missing. Only called in local mode."""
+    ddb = _resource()
     try:
         ddb.Table(TABLE_NAME).load()
-        logger.info("DynamoDB table '%s' already exists.", TABLE_NAME)
+        logger.info("DynamoDB table '%s' exists.", TABLE_NAME)
     except ClientError as exc:
         if exc.response["Error"]["Code"] != "ResourceNotFoundException":
             raise
-        logger.info("Creating DynamoDB table '%s'...", TABLE_NAME)
+        logger.info("Creating DynamoDB table '%s'…", TABLE_NAME)
         ddb.create_table(
             TableName=TABLE_NAME,
             AttributeDefinitions=[
@@ -90,7 +97,7 @@ def ensure_table() -> None:
         logger.info("DynamoDB table '%s' created.", TABLE_NAME)
 
 
-# ── CRUD operations ───────────────────────────────────────────────────────────
+# ── CRUD ──────────────────────────────────────────────────────────────────────
 
 def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
     table = _table()
@@ -110,7 +117,6 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
         "aiStatus": "NOT_REQUESTED",
         "tags": [],
     }
-
     lookup: Dict[str, Any] = {
         "PK": user_pk(user_id),
         "SK": lookup_sk(entry_id),
@@ -119,7 +125,6 @@ def create_entry(user_id: str, title: str, body: str) -> Dict[str, Any]:
         "entrySk": item["SK"],
         "createdAt": ts,
     }
-
     table.put_item(Item=item)
     table.put_item(Item=lookup)
     return item
@@ -135,9 +140,7 @@ def resolve_entry(user_id: str, entry_id: str) -> Optional[Dict[str, Any]]:
     item = table.get_item(
         Key={"PK": user_pk(user_id), "SK": lookup["entrySk"]}
     ).get("Item")
-    if not item or item.get("deletedAt"):
-        return None
-    return item
+    return item if item and not item.get("deletedAt") else None
 
 
 def list_entries(
@@ -145,7 +148,8 @@ def list_entries(
 ) -> Tuple[List[Dict[str, Any]], Optional[str]]:
     table = _table()
     params: Dict[str, Any] = {
-        "KeyConditionExpression": Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
+        "KeyConditionExpression": Key("PK").eq(user_pk(user_id))
+        & Key("SK").begins_with("ENTRY#"),
         "Limit": limit,
         "ScanIndexForward": False,
     }
@@ -178,28 +182,27 @@ def update_entry(
     if not item:
         return None
 
-    update_parts = ["updatedAt = :u"]
-    expr_names: Dict[str, str] = {}
-    expr_values: Dict[str, Any] = {":u": now_iso()}
+    parts = ["updatedAt = :u"]
+    names: Dict[str, str] = {}
+    values: Dict[str, Any] = {":u": now_iso()}
 
     if title is not None:
-        expr_names["#title"] = "title"
-        expr_values[":title"] = title
-        update_parts.append("#title = :title")
+        names["#title"] = "title"
+        values[":title"] = title
+        parts.append("#title = :title")
     if body is not None:
-        expr_names["#body"] = "body"
-        expr_values[":body"] = body
-        update_parts.append("#body = :body")
+        names["#body"] = "body"
+        values[":body"] = body
+        parts.append("#body = :body")
 
     args: Dict[str, Any] = {
         "Key": {"PK": item["PK"], "SK": item["SK"]},
-        "UpdateExpression": "SET " + ", ".join(update_parts),
-        "ExpressionAttributeValues": expr_values,
+        "UpdateExpression": "SET " + ", ".join(parts),
+        "ExpressionAttributeValues": values,
         "ReturnValues": "ALL_NEW",
     }
-    if expr_names:
-        args["ExpressionAttributeNames"] = expr_names
-
+    if names:
+        args["ExpressionAttributeNames"] = names
     return table.update_item(**args)["Attributes"]
 
 
