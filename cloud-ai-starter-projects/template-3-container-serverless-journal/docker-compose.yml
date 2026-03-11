@@ -1,0 +1,59 @@
+services:
+
+  # ── DynamoDB local ──────────────────────────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: t3-dynamodb
+    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
+    volumes:
+      - dynamodb-data:/data
+    ports:
+      - "8000:8000"          # exposed for GUI tools (NoSQLWorkbench etc.)
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/shell/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── Python FastAPI ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: t3-api
+    environment:
+      APP_ENV: local
+      JOURNAL_TABLE_NAME: journal
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "8080:8080"          # exposed so you can hit the API directly / swagger
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+
+  # ── React + Nginx ───────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api      # Nginx proxies /api/* → api:8080
+        VITE_AUTH_MODE: local
+        VITE_LOCAL_USER_ID: dev-user
+    container_name: t3-web
+    ports:
+      - "3000:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  dynamodb-data:

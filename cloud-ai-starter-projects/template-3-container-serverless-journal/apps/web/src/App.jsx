@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { handleCallback, isAuthed, login, logout } from "./auth/auth";
-import { missingConfig } from "./config";
+import { isLocalMode, missingConfig } from "./config";
 import EntryDetail from "./components/EntryDetail";
 import EntryForm from "./components/EntryForm";
 import EntryList from "./components/EntryList";
@@ -15,37 +15,45 @@ export default function App() {
 
   useEffect(() => {
     (async () => {
+      // Handle Cognito callback redirect (no-op in local mode)
       if (window.location.pathname === "/callback") {
         try {
           await handleCallback();
         } catch (err) {
           setAuthError(err.message || "Login callback failed");
+          return;
         }
       }
+
       if (isAuthed()) {
         await app.bootstrap();
       }
     })();
   }, []);
 
+  // ── Missing config ──────────────────────────────────────────────────────────
   if (missing.length) {
     return (
       <main className="layout">
         <div className="panel">
           <h1>Template 3 Journal</h1>
-          <p>Missing configuration:</p>
-          <ul>{missing.map((m) => <li key={m}>{m}</li>)}</ul>
+          <p>Missing required configuration:</p>
+          <ul>{missing.map((m) => <li key={m}><code>{m}</code></li>)}</ul>
+          {isLocalMode() && (
+            <p>Running in <strong>local mode</strong>. Set <code>VITE_API_BASE_URL</code> to the API address.</p>
+          )}
         </div>
       </main>
     );
   }
 
+  // ── Login screen (Cognito mode only) ────────────────────────────────────────
   if (!isAuthed()) {
     return (
       <main className="layout">
         <div className="panel">
           <h1>Template 3 Journal</h1>
-          <p>Sign in with Cognito Hosted UI.</p>
+          <p>Sign in with your Cognito account to continue.</p>
           {authError ? <p className="error">{authError}</p> : null}
           <button onClick={login}>Login</button>
         </div>
@@ -53,15 +61,21 @@ export default function App() {
     );
   }
 
+  // ── Main app ────────────────────────────────────────────────────────────────
   return (
     <main className="layout">
       <header className="panel row between">
-        <h1>Template 3 Journal</h1>
-        <button className="secondary" onClick={() => app.setMode("create")}>New Entry</button>
+        <h1>
+          Template 3 Journal
+          {isLocalMode() && <span style={{ fontSize: "0.7em", marginLeft: "0.75rem", color: "#888" }}>local</span>}
+        </h1>
+        <button className="secondary" onClick={() => app.setMode("create")}>
+          New Entry
+        </button>
       </header>
 
       {app.error ? <div className="panel error">{app.error}</div> : null}
-      {app.loading ? <div className="panel">Loading...</div> : null}
+      {app.loading ? <div className="panel">Loading…</div> : null}
 
       <section className="grid two">
         <div>
@@ -77,22 +91,20 @@ export default function App() {
         </div>
 
         <div>
-          {app.mode === "create" ? (
+          {app.mode === "create" && (
             <EntryForm submitLabel="Create" onSubmit={app.saveCreate} onCancel={() => app.setMode("detail")} />
-          ) : null}
-
-          {app.mode === "edit" ? (
+          )}
+          {app.mode === "edit" && (
             <EntryForm initial={app.selected} submitLabel="Save" onSubmit={app.saveEdit} onCancel={() => app.setMode("detail")} />
-          ) : null}
-
-          {app.mode === "detail" ? (
+          )}
+          {app.mode === "detail" && (
             <EntryDetail
               entry={app.selected}
               onEdit={() => app.setMode("edit")}
               onRefresh={app.refresh}
               onTriggerAi={app.queueAi}
             />
-          ) : null}
+          )}
         </div>
       </section>
     </main>
