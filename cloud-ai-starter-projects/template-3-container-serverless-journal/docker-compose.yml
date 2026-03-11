@@ -4,16 +4,20 @@ services:
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     container_name: t3-dynamodb
-    command: "-jar DynamoDBLocal.jar -sharedDb -dbPath /data"
-    volumes:
-      - dynamodb-data:/data
+    # -inMemory: no SQLite file needed — avoids volume permission issues.
+    # The API auto-creates the table on startup so data loss on restart is fine
+    # for local dev.  Switch to -dbPath /data (+ a writable volume) if you
+    # want persistence between docker compose restarts.
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
     ports:
       - "8000:8000"          # exposed for GUI tools (NoSQLWorkbench etc.)
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8000/shell/ || exit 1"]
+      # dynamodb-local image has no curl/wget — use bash TCP built-in
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8000 && echo -e 'GET / HTTP/1.0\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'HTTP'"]
       interval: 5s
       timeout: 3s
       retries: 10
+      start_period: 5s
 
   # ── Python FastAPI ──────────────────────────────────────────────────────────
   api:
@@ -33,11 +37,7 @@ services:
     depends_on:
       dynamodb-local:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8080/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 6
+    restart: on-failure
 
   # ── React + Nginx ───────────────────────────────────────────────────────────
   web:
@@ -52,8 +52,4 @@ services:
     ports:
       - "3000:80"
     depends_on:
-      api:
-        condition: service_healthy
-
-volumes:
-  dynamodb-data:
+      - api

@@ -11,9 +11,12 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+import time
+
 import boto3
 from boto3.dynamodb.conditions import Key
-from botocore.exceptions import ClientError
+from botocore.config import Config
+from botocore.exceptions import BotoCoreError, ClientError
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +24,14 @@ TABLE_NAME = os.getenv("JOURNAL_TABLE_NAME", "journal")
 DYNAMODB_ENDPOINT = os.getenv("DYNAMODB_ENDPOINT", "")
 
 
+# Fast-fail config so our own retry loops react quickly (no internal boto3 retries).
+_BOTO_CONFIG = Config(connect_timeout=5, read_timeout=10, retries={"max_attempts": 1})
+
+
 def _resource():
     kwargs: Dict[str, Any] = {
-        "region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+        "region_name": os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
+        "config": _BOTO_CONFIG,
     }
     if DYNAMODB_ENDPOINT:
         kwargs["endpoint_url"] = DYNAMODB_ENDPOINT
@@ -71,30 +79,49 @@ def to_entry(item: Dict[str, Any]) -> Dict[str, Any]:
 
 # ── Local dev: auto-create table ──────────────────────────────────────────────
 
-def ensure_table() -> None:
-    """Create the DynamoDB table if missing. Only called in local mode."""
-    ddb = _resource()
-    try:
-        ddb.Table(TABLE_NAME).load()
-        logger.info("DynamoDB table '%s' exists.", TABLE_NAME)
-    except ClientError as exc:
-        if exc.response["Error"]["Code"] != "ResourceNotFoundException":
+def ensure_table(retries: int = 12, delay: float = 3.0) -> None:
+    """Create the DynamoDB table if missing. Only called in local mode.
+
+    Uses ``create_table`` directly and catches ``ResourceInUseException`` when
+    the table already exists — this avoids a ``DescribeTable`` round-trip that
+    can time out while DynamoDB Local is still warming up.  The outer retry
+    loop handles the case where the TCP port is open but the API isn't
+    ready yet.
+    """
+    for attempt in range(1, retries + 1):
+        try:
+            ddb = _resource()
+            ddb.create_table(
+                TableName=TABLE_NAME,
+                AttributeDefinitions=[
+                    {"AttributeName": "PK", "AttributeType": "S"},
+                    {"AttributeName": "SK", "AttributeType": "S"},
+                ],
+                KeySchema=[
+                    {"AttributeName": "PK", "KeyType": "HASH"},
+                    {"AttributeName": "SK", "KeyType": "RANGE"},
+                ],
+                BillingMode="PAY_PER_REQUEST",
+            )
+            # DynamoDB Local creates tables synchronously — no need to wait.
+            logger.info("DynamoDB table '%s' created.", TABLE_NAME)
+            return
+        except ClientError as exc:
+            code = exc.response["Error"]["Code"]
+            if code == "ResourceInUseException":
+                logger.info("DynamoDB table '%s' already exists.", TABLE_NAME)
+                return
+            # Unexpected DynamoDB error — propagate immediately.
             raise
-        logger.info("Creating DynamoDB table '%s'…", TABLE_NAME)
-        ddb.create_table(
-            TableName=TABLE_NAME,
-            AttributeDefinitions=[
-                {"AttributeName": "PK", "AttributeType": "S"},
-                {"AttributeName": "SK", "AttributeType": "S"},
-            ],
-            KeySchema=[
-                {"AttributeName": "PK", "KeyType": "HASH"},
-                {"AttributeName": "SK", "KeyType": "RANGE"},
-            ],
-            BillingMode="PAY_PER_REQUEST",
-        )
-        ddb.Table(TABLE_NAME).wait_until_exists()
-        logger.info("DynamoDB table '%s' created.", TABLE_NAME)
+        except BotoCoreError as exc:
+            logger.warning(
+                "DynamoDB not ready for ensure_table (%d/%d): %s",
+                attempt, retries, exc,
+            )
+            if attempt < retries:
+                time.sleep(delay)
+
+    logger.error("Could not ensure DynamoDB table after %d attempts — continuing.", retries)
 
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────

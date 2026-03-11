@@ -33,22 +33,43 @@ async def lifespan(app: FastAPI):
     yield
 
 
-def _wait_for_dynamo(retries: int = 10, delay: float = 1.0) -> None:
-    import boto3
+def _wait_for_dynamo(retries: int = 15, delay: float = 2.0) -> None:
+    """
+    Poll until DynamoDB local is accepting requests.
 
-    endpoint = os.getenv("DYNAMODB_ENDPOINT", "")
+    Uses a raw HTTP POST (DynamoDB ListTables wire format) because boto3's
+    default HTTP client can hang indefinitely on the first connection
+    to dynamodb-local while it warms up. Any HTTP response (including a 400
+    auth error) confirms the service is ready — the actual table creation
+    that follows will use proper credentials.
+    """
+    import urllib.error
+    import urllib.request
+
+    endpoint = os.getenv("DYNAMODB_ENDPOINT", "http://dynamodb-local:8000")
+
     for attempt in range(1, retries + 1):
         try:
-            boto3.client(
-                "dynamodb",
-                endpoint_url=endpoint or None,
-                region_name=os.getenv("AWS_DEFAULT_REGION", "us-east-1"),
-            ).list_tables()
+            req = urllib.request.Request(
+                endpoint,
+                method="POST",
+                data=b"{}",
+                headers={
+                    "Content-Type": "application/x-amz-json-1.0",
+                    "X-Amz-Target": "DynamoDB_20120810.ListTables",
+                },
+            )
+            urllib.request.urlopen(req, timeout=3)
             logger.info("DynamoDB is reachable.")
+            return
+        except urllib.error.HTTPError as exc:
+            # Any HTTP response (incl. 400 auth error) = DynamoDB is up
+            logger.info("DynamoDB is reachable (HTTP %d).", exc.code)
             return
         except Exception as exc:
             logger.warning("DynamoDB not ready (%d/%d): %s", attempt, retries, exc)
             time.sleep(delay)
+
     logger.error("DynamoDB did not become ready — continuing anyway.")
 
 

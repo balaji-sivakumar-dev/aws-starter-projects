@@ -39,11 +39,11 @@
 ## Phase 2 — Local Testing & Validation
 
 ### #4 — Smoke tests
-- [ ] `docker compose up --build` completes without errors
-- [ ] `GET /health` returns `{"status": "ok"}`
-- [ ] `GET /me` returns `{"userId": "dev-user"}` (local auth bypass)
-- [ ] Create, list, get, update, delete a journal entry end-to-end
-- [ ] React UI loads at `http://localhost:3000` and can perform all CRUD ops
+- [x] `docker compose up --build` completes without errors
+- [x] `GET /health` returns `{"status": "ok"}`
+- [x] `GET /me` returns `{"userId": "dev-user"}` (local auth bypass)
+- [x] Create, list, get, update, delete a journal entry end-to-end
+- [x] React UI loads at `http://localhost:3000` and Nginx `/api/` proxy works
 
 ### #5 — Integration tests (pytest)
 - [ ] `services/api/tests/test_entries.py` — CRUD happy path against dynamodb-local
@@ -165,6 +165,9 @@
 
 > Add new items here as they come up.
 
+- [x] Switch DynamoDB Local to `-inMemory` mode — avoids SQLite volume permission issue (table auto-created on startup)
+- [x] Add boto3 timeout config (`Config(connect_timeout=5, read_timeout=10, max_attempts=1)`) to `repository._resource()`
+- [x] Rewrite `ensure_table()` to use `create_table()` + `ResourceInUseException` catch (skips slow `DescribeTable`); added retry loop for DynamoDB warm-up race
 - [ ] Add Ollama service to docker-compose.yml for zero-config local LLM
 - [ ] Add pagination UI controls to React entry list
 - [ ] Add loading skeleton / spinner to entry detail
