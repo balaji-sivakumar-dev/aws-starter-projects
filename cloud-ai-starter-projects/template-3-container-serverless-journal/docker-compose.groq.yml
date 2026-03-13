@@ -1,0 +1,17 @@
+# Docker Compose overlay — Groq cloud LLM (fast inference, generous free tier).
+#
+# Usage:
+#   export GROQ_API_KEY=gsk_...
+#   docker compose -f docker-compose.yml -f docker-compose.groq.yml up --build
+#
+# Get a free API key at https://console.groq.com
+# Available models: llama-3.3-70b-versatile (default), llama-3.1-8b-instant, mixtral-8x7b-32768
+#
+# GROQ_API_KEY must be set in your shell (or a .env file) — it is never hardcoded here.
+
+services:
+  api:
+    environment:
+      LLM_PROVIDER: groq
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY is required — export it before running}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}

@@ -1,7 +1,7 @@
 # Docker Compose overlay — adds Ollama for local LLM testing.
 #
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
+#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
 #
 # First startup downloads the model (~2 GB) — this can take several minutes.
 # Subsequent starts reuse the cached model from the ollama-data volume.

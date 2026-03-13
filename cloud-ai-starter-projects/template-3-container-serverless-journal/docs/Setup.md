@@ -88,51 +88,73 @@ Two AI features are available once a provider is configured:
 | Per-entry summary + tags | `POST /entries/{id}/ai` |
 | Period insights (weekly / monthly / yearly) | `POST /insights/summaries` |
 
-**Which compose command to use**
+**How overlay files work**
 
-`docker compose up` only reads `docker-compose.yml`. The Ollama overlay is a separate file that must be merged in explicitly:
+`docker compose up` only reads `docker-compose.yml`. Each LLM provider has its own overlay file that is merged in with `-f`. Passing two `-f` flags merges the files — the overlay adds or overrides only what it declares, leaving everything else unchanged.
 
-| Goal | Command |
-|------|---------|
-| Base stack only (no LLM) | `docker compose up --build` |
-| Base stack + Ollama | `docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build` |
-| Stop base stack only | `docker compose down --remove-orphans` |
-| Stop everything incl. Ollama | `docker compose -f docker-compose.yml -f docker-compose.llm.yml down --remove-orphans` |
+```
+docker-compose.yml          ← always required (base stack)
+docker-compose.ollama.yml   ← adds Ollama containers + injects env into api
+docker-compose.groq.yml     ← injects Groq env into api (no extra containers)
+docker-compose.openai.yml   ← injects OpenAI env into api (no extra containers)
+```
+
+**Quick reference**
+
+```bash
+# No LLM
+docker compose up --build
+
+# Ollama (local, no API key needed — downloads ~2 GB model on first run)
+docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
+
+# Groq (cloud, free tier — get key at https://console.groq.com)
+export GROQ_API_KEY=gsk_...
+docker compose -f docker-compose.yml -f docker-compose.groq.yml up --build
+
+# OpenAI
+export OPENAI_API_KEY=sk-...
+docker compose -f docker-compose.yml -f docker-compose.openai.yml up --build
+```
+
+Stop commands must use the same `-f` set used to start, so Compose knows which containers belong to the stack:
+
+```bash
+# Stop base stack
+docker compose down --remove-orphans
+
+# Stop base + Ollama
+docker compose -f docker-compose.yml -f docker-compose.ollama.yml down --remove-orphans
+```
 
 > Always use `--remove-orphans` with `down` to avoid stale containers causing name conflicts on the next start.
 
-**Ollama (local, fully containerised — recommended for first test)**
+**Ollama details**
 
-Downloads `llama3.2` (~2 GB) on first run; subsequent starts use the cached volume.
+The Ollama overlay adds two extra containers:
+- `t3-ollama` — Ollama server (port 11434, reachable from host too: `ollama run llama3.2`)
+- `t3-ollama-pull` — one-shot container that pulls `llama3.2` into a persistent volume on first run
+
+To switch models, set `OLLAMA_MODEL` before starting:
+```bash
+OLLAMA_MODEL=llama3.1 docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
+```
+
+**Groq / OpenAI details**
+
+These overlays only inject environment variables — no extra containers are added. API keys are read from your shell environment and never written into the compose files.
 
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
+# Override the default model
+GROQ_MODEL=llama-3.1-8b-instant docker compose -f docker-compose.yml -f docker-compose.groq.yml up --build
+OPENAI_MODEL=gpt-4o              docker compose -f docker-compose.yml -f docker-compose.openai.yml up --build
 ```
 
-The overlay adds:
-- `t3-ollama` — Ollama server (port 11434)
-- `t3-ollama-pull` — one-shot container that pulls `llama3.2`
-- `LLM_PROVIDER=ollama` wired into the api service automatically
-
-**Groq (cloud, free tier)**
-
-Set env vars in `docker-compose.yml` under the `api` service, then restart the api container.
-
-```yaml
-LLM_PROVIDER: groq
-GROQ_API_KEY: gsk_...         # get from https://console.groq.com
-GROQ_MODEL: llama-3.3-70b-versatile
-```
-
+OpenAI-compatible endpoints (Azure, Together AI, vLLM, etc.) can be used by also setting `OPENAI_BASE_URL`:
 ```bash
-docker compose up --build api
-```
-
-**OpenAI**
-```yaml
-LLM_PROVIDER: openai
-OPENAI_API_KEY: sk-...
-OPENAI_MODEL: gpt-4o-mini
+export OPENAI_API_KEY=...
+export OPENAI_BASE_URL=https://api.together.xyz/v1
+docker compose -f docker-compose.yml -f docker-compose.openai.yml up --build
 ```
 
 ### Inspect DynamoDB
