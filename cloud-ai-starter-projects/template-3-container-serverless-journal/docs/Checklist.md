@@ -163,6 +163,28 @@
 
 ---
 
+## Phase 3 (continued) — AI Insights Layer
+
+### #22 — Insights backend
+- [x] `src/core/insights.py` — Period date-range helpers + generate/list/get/delete/regenerate handlers
+- [x] `src/core/repository.py` — `get_entries_in_range()` (SK `between` query), full PERIOD_SUMMARY CRUD
+- [x] `src/llm/interface.py` — `analyze_period()` abstract method + `build_period_prompt()` + `parse_period_response()`
+- [x] All three providers updated: `ollama_provider.py`, `groq_provider.py`, `openai_provider.py` — each implements `analyze_period()`
+- [x] `src/adapters/fastapi/insights_routes.py` — REST routes: list/generate/get/delete/regenerate summaries
+- [x] `src/adapters/fastapi/app.py` — Insights router included
+
+### #23 — Insights frontend
+- [x] `apps/web/src/api/insights.js` — API client (list, generate, get, delete, regenerate)
+- [x] `apps/web/src/state/useInsights.js` — State hook (load, select, generate, remove, regenerate)
+- [x] `apps/web/src/components/InsightsPanel.jsx` — Full UI: GenerateForm + SummaryList + SummaryDetail
+- [x] `apps/web/src/App.jsx` — Tab navigation (Journal | Insights)
+- [x] `apps/web/src/styles.css` — Tab + select styles
+
+### #24 — Insights integration tests
+- [x] `tests/test_insights.py` — 19 tests: generate (weekly/monthly/yearly), text-only fallback, 404/400/502 errors, list, get, delete, regenerate, user isolation
+
+---
+
 ## Enhancements / Bugs
 
 > Add new items here as they come up.

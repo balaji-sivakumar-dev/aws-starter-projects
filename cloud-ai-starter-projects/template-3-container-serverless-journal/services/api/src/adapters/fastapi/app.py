@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ...core import auth as core_auth
 from ...core import repository
+from .insights_routes import router as insights_router
 from .routes import router
 
 logging.basicConfig(
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(router)
+    app.include_router(insights_router)
     return app
 
 

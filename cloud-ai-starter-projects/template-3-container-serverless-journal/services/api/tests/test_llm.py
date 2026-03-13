@@ -37,11 +37,17 @@ class _StubProvider(LLMProvider):
     def enrich(self, title: str, body: str) -> Dict[str, Any]:
         return self.RESULT
 
+    def analyze_period(self, entries, period_label):
+        return {"narrative": "", "themes": [], "mood": "", "highlights": [], "reflection": ""}
+
 
 class _FailingProvider(LLMProvider):
     """Always raises — used to test the error path."""
 
     def enrich(self, title: str, body: str) -> Dict[str, Any]:
+        raise RuntimeError("provider unavailable")
+
+    def analyze_period(self, entries, period_label):
         raise RuntimeError("provider unavailable")
 
 

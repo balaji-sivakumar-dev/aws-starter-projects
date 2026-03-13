@@ -15,7 +15,7 @@ Setup:
 
 import logging
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from ..interface import LLMProvider
 
@@ -41,17 +41,24 @@ class OpenAIProvider(LLMProvider):
             base_url or "default",
         )
 
-    def enrich(self, title: str, body: str) -> Dict[str, Any]:
-        prompt = self.build_prompt(title, body)
-        logger.info("Calling OpenAI model '%s'…", self.model)
-
+    def _complete(self, prompt: str, max_tokens: int = 512) -> str:
         completion = self.client.chat.completions.create(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=512,
-            response_format={"type": "json_object"},  # enforce JSON output
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"},
         )
         raw = completion.choices[0].message.content or ""
         logger.debug("OpenAI raw response: %s", raw)
-        return self.parse_response(raw)
+        return raw
+
+    def enrich(self, title: str, body: str) -> Dict[str, Any]:
+        logger.info("OpenAI enrich: model=%s", self.model)
+        return self.parse_response(self._complete(self.build_prompt(title, body)))
+
+    def analyze_period(self, entries: List[Dict[str, Any]], period_label: str) -> Dict[str, Any]:
+        logger.info("OpenAI analyze_period: model=%s period=%s entries=%d", self.model, period_label, len(entries))
+        return self.parse_period_response(
+            self._complete(self.build_period_prompt(entries, period_label), max_tokens=1024)
+        )

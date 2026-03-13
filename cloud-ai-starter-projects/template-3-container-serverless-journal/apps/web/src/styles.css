@@ -21,4 +21,10 @@ input, textarea { width: 100%; margin-top: 4px; padding: 8px; border: 1px solid 
 .entry-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid #eceff3; }
 .entry-list li.selected { background: #f1f6ff; }
 .error { color: #a31515; }
+.tags { color: #555; }
+.meta { font-size: 0.8em; color: #666; }
+.tabs { display: flex; gap: 4px; }
+.tab { background: #fff; color: #2f6fed; border: 1px solid #c5cad3; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+.tab.active { background: #2f6fed; color: #fff; border-color: #2f6fed; }
+select { width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #c5cad3; border-radius: 6px; }
 @media (max-width: 900px) { .grid.two { grid-template-columns: 1fr; } }

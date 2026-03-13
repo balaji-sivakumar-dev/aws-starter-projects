@@ -14,7 +14,7 @@ In Docker Compose, add the ollama service to docker-compose.yml and set:
 
 import logging
 import os
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from ..interface import LLMProvider
 
@@ -33,10 +33,7 @@ class OllamaProvider(LLMProvider):
         self.client = ollama.Client(host=host)
         logger.info("OllamaProvider initialised (host=%s, model=%s)", host, self.model)
 
-    def enrich(self, title: str, body: str) -> Dict[str, Any]:
-        prompt = self.build_prompt(title, body)
-        logger.info("Calling Ollama model '%s'…", self.model)
-
+    def _chat(self, prompt: str) -> str:
         response = self.client.chat(
             model=self.model,
             messages=[{"role": "user", "content": prompt}],
@@ -44,4 +41,12 @@ class OllamaProvider(LLMProvider):
         )
         raw = response["message"]["content"]
         logger.debug("Ollama raw response: %s", raw)
-        return self.parse_response(raw)
+        return raw
+
+    def enrich(self, title: str, body: str) -> Dict[str, Any]:
+        logger.info("Ollama enrich: model=%s", self.model)
+        return self.parse_response(self._chat(self.build_prompt(title, body)))
+
+    def analyze_period(self, entries: List[Dict[str, Any]], period_label: str) -> Dict[str, Any]:
+        logger.info("Ollama analyze_period: model=%s period=%s entries=%d", self.model, period_label, len(entries))
+        return self.parse_period_response(self._chat(self.build_period_prompt(entries, period_label)))
