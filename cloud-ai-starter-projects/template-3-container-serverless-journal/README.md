@@ -1,6 +1,6 @@
-# Template 3 — Containerised Journal Starter Kit
+# Template 3 — Containerised Journal
 
-Full-stack journal app: **Python FastAPI** + **React** + **DynamoDB** — everything runs as Docker containers locally, deployable to AWS (ECS/Fargate or Lambda) via Terraform.
+Full-stack journal app with AI enrichment: **Python FastAPI** + **React** + **DynamoDB** — runs entirely as Docker containers locally, deployable to AWS (ECS/Fargate or Lambda).
 
 ## Quick start
 
@@ -10,32 +10,12 @@ docker compose up --build
 # API     → http://localhost:8080/docs
 ```
 
-→ **[Full local setup guide](local-setup.md)**
-
-## Architecture
-
-| Layer | Local | AWS |
-|-------|-------|-----|
-| Web | Nginx container (port 3000) | S3 + CloudFront |
-| API | FastAPI container (port 8080) | ECS/Fargate **or** Lambda |
-| DB | `amazon/dynamodb-local` | DynamoDB on-demand |
-| Auth | `X-User-Id` header bypass | Cognito PKCE |
-| AI | Ollama / Groq / OpenAI (swappable via `LLM_PROVIDER`) | Bedrock / Step Functions |
-
-## API deployment modes
-
-The Python API is structured to support three deployment modes without changing business logic:
-
-| Mode | Entrypoint | When to use |
-|------|-----------|-------------|
-| Docker container | `src.main:app` (uvicorn) | Local dev, ECS/Fargate |
-| Lambda container (Mangum) | `src.lambda_mangum.handler` | Lambda with full FastAPI stack |
-| Lambda direct (no framework) | `src.lambda_handler.handler` | Lambda with minimal cold start |
+No login required locally — all requests run as `dev-user`.
 
 ## Docs
 
-- [Local Setup](local-setup.md)
-- [Implementation Plan](implementation_plan.md)
-- [Architecture](docs/Architecture.md)
-- [API Contract](docs/API.md)
-- [Execution Plan](docs/ExecutionPlan.md)
+| Doc | Description |
+|-----|-------------|
+| [Architecture](docs/Architecture.md) | System design, data model, API contract, deployment modes |
+| [Setup](docs/Setup.md) | Local dev, running tests, AWS deployment guide |
+| [Checklist](docs/Checklist.md) | Implementation progress and planned work |

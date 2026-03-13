@@ -1,4 +1,4 @@
-# Template 3 — Implementation Plan
+# Checklist — Template 3
 
 > Tracks all work items as GitHub-style issues. Mark `[x]` when done. Add new items at the bottom of each section.
 
