@@ -50,13 +50,60 @@ curl -s -X POST http://localhost:8080/entries \
 curl -s http://localhost:8080/entries -H "X-User-Id: dev-user" | jq
 ```
 
+### Seed sample data (optional)
+
+Load 20 pre-written journal entries (Oct 2025 – Mar 2026, covering work, family, and travel) — useful for testing AI insights without having to write entries manually.
+
+Requires the venv created in the [Run tests](#run-tests) section, or any Python environment with `boto3` installed.
+
+```bash
+# Stack must be running first
+docker compose up -d
+
+# Run the seed script (targets http://localhost:8000 by default)
+services/api/.venv/bin/python3 scripts/seed_data.py
+```
+
+To seed a different user or table:
+```bash
+USER_ID=alice JOURNAL_TABLE_NAME=journal services/api/.venv/bin/python3 scripts/seed_data.py
+```
+
+To seed into AWS DynamoDB instead of local:
+```bash
+DYNAMODB_ENDPOINT="" AWS_DEFAULT_REGION=us-east-1 \
+  services/api/.venv/bin/python3 scripts/seed_data.py
+```
+
+> DynamoDB is in-memory — data is lost when `docker compose down` is run. Re-run the seed script after each restart if needed.
+
+---
+
 ### LLM / AI enrichment (optional)
 
-Trigger AI summary + tag generation: `POST /entries/{id}/ai`
+Two AI features are available once a provider is configured:
+
+| Feature | Endpoint |
+|---------|----------|
+| Per-entry summary + tags | `POST /entries/{id}/ai` |
+| Period insights (weekly / monthly / yearly) | `POST /insights/summaries` |
+
+**Which compose command to use**
+
+`docker compose up` only reads `docker-compose.yml`. The Ollama overlay is a separate file that must be merged in explicitly:
+
+| Goal | Command |
+|------|---------|
+| Base stack only (no LLM) | `docker compose up --build` |
+| Base stack + Ollama | `docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build` |
+| Stop base stack only | `docker compose down --remove-orphans` |
+| Stop everything incl. Ollama | `docker compose -f docker-compose.yml -f docker-compose.llm.yml down --remove-orphans` |
+
+> Always use `--remove-orphans` with `down` to avoid stale containers causing name conflicts on the next start.
 
 **Ollama (local, fully containerised — recommended for first test)**
 
-Use the provided overlay file. Downloads `llama3.2` (~2 GB) on first run; subsequent starts use the cached volume.
+Downloads `llama3.2` (~2 GB) on first run; subsequent starts use the cached volume.
 
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
@@ -69,12 +116,16 @@ The overlay adds:
 
 **Groq (cloud, free tier)**
 
-Set env vars in `docker-compose.yml` under the `api` service, then `docker compose up --build api`.
+Set env vars in `docker-compose.yml` under the `api` service, then restart the api container.
 
 ```yaml
 LLM_PROVIDER: groq
 GROQ_API_KEY: gsk_...         # get from https://console.groq.com
 GROQ_MODEL: llama-3.3-70b-versatile
+```
+
+```bash
+docker compose up --build api
 ```
 
 **OpenAI**
@@ -99,8 +150,11 @@ aws dynamodb scan --table-name journal \
 ### Stop / clean up
 
 ```bash
-docker compose down       # stop containers (data lost — DynamoDB is in-memory)
-docker compose up --build # full rebuild after code changes
+# Stop and remove all containers (data lost — DynamoDB is in-memory)
+docker compose down --remove-orphans
+
+# Full rebuild after code changes
+docker compose up --build
 ```
 
 ---
@@ -114,7 +168,7 @@ cd services/api
 python3.11 -m venv .venv
 .venv/bin/pip install -r requirements.txt -r requirements-dev.txt
 .venv/bin/pytest tests/ -v
-# 28 tests, ~1.6 s
+# 56 tests, ~3 s
 ```
 
 ---
