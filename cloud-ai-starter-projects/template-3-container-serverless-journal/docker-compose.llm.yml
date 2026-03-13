@@ -1,0 +1,55 @@
+# Docker Compose overlay — adds Ollama for local LLM testing.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
+#
+# First startup downloads the model (~2 GB) — this can take several minutes.
+# Subsequent starts reuse the cached model from the ollama-data volume.
+#
+# To change the model, set OLLAMA_MODEL in the api service below and
+# update the ollama-pull command accordingly.
+
+services:
+
+  # ── Ollama server ────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: t3-ollama
+    ports:
+      - "11434:11434"         # exposed so you can also run: ollama run llama3.2
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      # ollama list returns exit 0 when the server is ready
+      test: ["CMD", "ollama", "list"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  # ── One-shot model pull ───────────────────────────────────────────────────────
+  # Runs once after ollama is healthy, downloads llama3.2 into the shared volume.
+  # The api service waits for this to complete before starting.
+  ollama-pull:
+    image: ollama/ollama:latest
+    container_name: t3-ollama-pull
+    entrypoint: ["ollama", "pull", "llama3.2"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  # ── API — add LLM env vars and wait for model to be ready ────────────────────
+  api:
+    environment:
+      LLM_PROVIDER: ollama
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODEL: llama3.2
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+
+volumes:
+  ollama-data:

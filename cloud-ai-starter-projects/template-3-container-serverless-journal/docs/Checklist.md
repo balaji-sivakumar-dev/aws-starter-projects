@@ -97,15 +97,14 @@
 - [x] `src/core/handlers.py#trigger_ai` — Synchronous AI call wired to LLM factory
 
 ### #12 — Ollama local testing
-- [ ] Add `ollama` service to `docker-compose.yml` (image: `ollama/ollama`)
-- [ ] Pull model inside container: `llama3.2` (3B, fast) or `mistral` (7B)
-- [ ] Set `LLM_PROVIDER=ollama`, `OLLAMA_HOST=http://ollama:11434` in api service
-- [ ] Test `POST /entries/{id}/ai` end-to-end: verify `summary` + `tags` written to DynamoDB
-- [ ] Test via React UI "Trigger AI" button
+- [x] Added `docker-compose.llm.yml` overlay: `ollama` + `ollama-pull` (auto-downloads `llama3.2`) + api env wiring
+- [x] Model auto-pulled on first startup via `ollama-pull` one-shot container; cached in `ollama-data` volume
+- [x] `LLM_PROVIDER=ollama`, `OLLAMA_HOST=http://ollama:11434` wired in overlay
+- [x] `POST /entries/{id}/ai` end-to-end verified: `summary` + `tags` written to DynamoDB (`aiStatus=DONE`)
 
 ### #13 — Groq cloud testing
 - [ ] Obtain free Groq API key from https://console.groq.com
-- [ ] Set `LLM_PROVIDER=groq`, `GROQ_API_KEY=gsk_...`
+- [ ] Set `LLM_PROVIDER=groq`, `GROQ_API_KEY=gsk_...` in docker-compose.yml api env
 - [ ] Test same entry — compare output quality vs Ollama
 - [ ] Check Groq rate limits on free tier (6k RPM for LLaMA 3.3 70B)
 
@@ -115,9 +114,11 @@
 - [ ] Test error handling: invalid API key, model not found, network timeout
 
 ### #15 — LLM integration tests (pytest)
-- [ ] `tests/test_llm.py` — Mock provider via `factory.reset_provider()` + custom stub
-- [ ] Test `trigger_ai` handler writes correct fields to DynamoDB on success
-- [ ] Test error path: provider raises → `aiStatus=ERROR`, `aiError` populated
+- [x] `tests/test_llm.py` — stub provider via `factory._instance` injection (9 tests, 0.65s)
+- [x] Happy path: `aiStatus=DONE`, `summary`/`tags` persisted in DynamoDB
+- [x] Error path: provider raises → `aiStatus=ERROR`, `aiError` populated, 502 returned
+- [x] SKIPPED path: no `LLM_PROVIDER` → 202 with `aiStatus=SKIPPED`
+- [x] User isolation: cannot enrich another user's entry → 404
 
 ---
 
@@ -169,7 +170,7 @@
 - [x] Switch DynamoDB Local to `-inMemory` mode — avoids SQLite volume permission issue (table auto-created on startup)
 - [x] Add boto3 timeout config (`Config(connect_timeout=5, read_timeout=10, max_attempts=1)`) to `repository._resource()`
 - [x] Rewrite `ensure_table()` to use `create_table()` + `ResourceInUseException` catch (skips slow `DescribeTable`); added retry loop for DynamoDB warm-up race
-- [ ] Add Ollama service to docker-compose.yml for zero-config local LLM
+- [x] Add Ollama service to docker-compose.llm.yml for zero-config local LLM
 - [ ] Add pagination UI controls to React entry list
 - [ ] Add loading skeleton / spinner to entry detail
 - [ ] Health check endpoint should report DynamoDB connectivity

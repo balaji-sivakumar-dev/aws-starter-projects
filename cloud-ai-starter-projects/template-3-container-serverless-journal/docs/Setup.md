@@ -54,16 +54,23 @@ curl -s http://localhost:8080/entries -H "X-User-Id: dev-user" | jq
 
 Trigger AI summary + tag generation: `POST /entries/{id}/ai`
 
-Set environment variables in `docker-compose.yml` under the `api` service, then `docker compose up --build api`.
+**Ollama (local, fully containerised — recommended for first test)**
 
-**Ollama (local, free)**
-```yaml
-LLM_PROVIDER: ollama
-OLLAMA_HOST: http://host.docker.internal:11434
-OLLAMA_MODEL: llama3.2        # run: ollama pull llama3.2
+Use the provided overlay file. Downloads `llama3.2` (~2 GB) on first run; subsequent starts use the cached volume.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.llm.yml up --build
 ```
 
+The overlay adds:
+- `t3-ollama` — Ollama server (port 11434)
+- `t3-ollama-pull` — one-shot container that pulls `llama3.2`
+- `LLM_PROVIDER=ollama` wired into the api service automatically
+
 **Groq (cloud, free tier)**
+
+Set env vars in `docker-compose.yml` under the `api` service, then `docker compose up --build api`.
+
 ```yaml
 LLM_PROVIDER: groq
 GROQ_API_KEY: gsk_...         # get from https://console.groq.com
