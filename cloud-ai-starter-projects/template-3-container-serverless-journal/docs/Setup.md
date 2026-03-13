@@ -140,6 +140,33 @@ To switch models, set `OLLAMA_MODEL` before starting:
 OLLAMA_MODEL=llama3.1 docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
 ```
 
+**`ollama run` (host install) vs the Docker overlay**
+
+If you already have the [Ollama app](https://ollama.com) installed on your Mac, you have two options:
+
+| | Docker overlay (`docker-compose.ollama.yml`) | Host Ollama (`ollama run`) |
+|---|---|---|
+| **Requires** | Docker only — nothing else installed | Ollama app installed on your Mac |
+| **Where it runs** | Ollama server inside a Docker container | Ollama server on your Mac directly |
+| **Model storage** | `ollama-data` Docker named volume | `~/.ollama` on your Mac |
+| **Network path** | Container → container (`http://ollama:11434`) | Container → host (`http://host.docker.internal:11434`) |
+| **First-run download** | Automatic via `ollama-pull` one-shot container | You run `ollama pull llama3.2` yourself |
+| **Best for** | Teams / reproducible setup (zero host install) | You already have Ollama + models downloaded |
+
+To use your **host Ollama** instead of the overlay (skips the ~2 GB download if you already have the model):
+
+```bash
+# 1. Make sure Ollama is running on your Mac (open the app, or: ollama serve)
+# 2. Pull the model if you haven't already
+ollama pull llama3.2
+
+# 3. Start the base stack only, pointing the API at your host Ollama
+LLM_PROVIDER=ollama OLLAMA_HOST=http://host.docker.internal:11434 \
+  docker compose up --build
+```
+
+`host.docker.internal` is a special DNS name Docker provides so containers can reach services running on the host machine.
+
 **Groq / OpenAI details**
 
 These overlays only inject environment variables — no extra containers are added. API keys are read from your shell environment and never written into the compose files.
