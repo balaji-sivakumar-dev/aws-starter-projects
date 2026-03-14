@@ -26,7 +26,7 @@ resource "aws_iam_role_policy_attachment" "basic" {
 
 data "aws_iam_policy_document" "inline" {
   statement {
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:Query"]
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"]
     resources = [var.journal_table_arn]
   }
 
@@ -57,6 +57,7 @@ resource "aws_lambda_function" "this" {
     variables = {
       JOURNAL_TABLE_NAME = var.journal_table_name
       WORKFLOW_ARN       = var.workflow_arn
+      AI_ENABLED         = var.ai_enabled
     }
   }
 }

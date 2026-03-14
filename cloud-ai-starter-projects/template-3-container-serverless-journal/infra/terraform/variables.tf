@@ -65,3 +65,9 @@ variable "cors_allow_origins" {
   description = "CORS allowed origins for the API Gateway. API GW v2 only accepts exact URLs or \"*\" (no wildcards). Security is enforced by JWT authorizer, not CORS."
   default     = ["*"]
 }
+
+variable "ai_enabled" {
+  type        = string
+  description = "Enable AI enrichment (true/false). Set to true only when an LLM provider is configured."
+  default     = "false"
+}

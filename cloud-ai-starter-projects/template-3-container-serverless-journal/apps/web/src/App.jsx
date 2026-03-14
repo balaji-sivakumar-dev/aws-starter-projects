@@ -9,9 +9,13 @@ import InsightsPanel from "./components/InsightsPanel";
 import { useInsights } from "./state/useInsights";
 import { useJournal } from "./state/useJournal";
 
-function initials(userId) {
-  if (!userId) return "?";
-  return userId.split(/[\s._@-]+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2);
+function initials(email, userId) {
+  const str = email || userId;
+  if (!str) return "?";
+  if (str.includes("@")) {
+    return str.split("@")[0].slice(0, 2).toUpperCase();
+  }
+  return str.split(/[\s._@-]+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
 }
 
 export default function App() {
@@ -103,8 +107,8 @@ export default function App() {
 
         <div className="sidebar-footer">
           <div className="sidebar-user">
-            <span className="user-avatar">{initials(app.me?.userId)}</span>
-            <span className="user-name">{app.me?.userId || "—"}</span>
+            <span className="user-avatar">{initials(app.me?.email, app.me?.userId)}</span>
+            <span className="user-name">{app.me?.email || app.me?.username || app.me?.userId || "—"}</span>
           </div>
           <button className="btn-logout" onClick={logout}>Sign out</button>
         </div>

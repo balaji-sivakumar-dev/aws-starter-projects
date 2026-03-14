@@ -14,6 +14,11 @@ locals {
     update_entry = { route_key = "PUT /entries/{entryId}", authorization = "JWT" }
     delete_entry = { route_key = "DELETE /entries/{entryId}", authorization = "JWT" }
     enqueue_ai = { route_key = "POST /entries/{entryId}/ai", authorization = "JWT" }
+    list_summaries = { route_key = "GET /insights/summaries", authorization = "JWT" }
+    create_summary = { route_key = "POST /insights/summaries", authorization = "JWT" }
+    get_summary = { route_key = "GET /insights/summaries/{summaryId}", authorization = "JWT" }
+    delete_summary = { route_key = "DELETE /insights/summaries/{summaryId}", authorization = "JWT" }
+    regenerate_summary = { route_key = "POST /insights/summaries/{summaryId}/regenerate", authorization = "JWT" }
   }
 
   # Hybrid mode keeps contract stable by splitting ownership of routes.
@@ -56,6 +61,7 @@ module "compute_lambda" {
   journal_table_arn = module.db.table_arn
   journal_table_name = module.db.table_name
   workflow_arn      = module.workflow.state_machine_arn
+  ai_enabled        = var.ai_enabled
 }
 
 module "ai_gateway" {
