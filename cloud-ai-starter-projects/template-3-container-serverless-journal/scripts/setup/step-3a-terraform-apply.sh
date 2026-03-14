@@ -98,17 +98,18 @@ if [ -n "${SITE_URL}" ]; then
 
   CURRENT_CALLBACK="$(grep -E '^callback_urls' "${VAR_FILE}" | sed 's/.*=[[:space:]]*//' || echo "")"
 
-  # Only patch if still pointing at localhost or missing entirely
-  if [[ -z "${CURRENT_CALLBACK}" || "${CURRENT_CALLBACK}" == *"localhost"* ]]; then
-    echo ">> Patching Cognito callback URLs with CloudFront URL: ${SITE_URL}"
+  # Only patch if CloudFront URL not yet in the list
+  if [[ -z "${CURRENT_CALLBACK}" || "${CURRENT_CALLBACK}" != *"${SITE_URL}"* ]]; then
+    echo ">> Patching Cognito callback URLs (localhost + CloudFront): ${SITE_URL}"
 
-    # Remove existing lines (if any) then append updated values
+    # Remove existing lines (if any) then append both localhost + CloudFront
     sed -i.bak '/^callback_urls[[:space:]]*=/d' "${VAR_FILE}"
     sed -i.bak '/^logout_urls[[:space:]]*=/d'   "${VAR_FILE}"
     rm -f "${VAR_FILE}.bak"
 
-    printf 'callback_urls = ["%s"]\n' "${CALLBACK_URL}" >> "${VAR_FILE}"
-    printf 'logout_urls   = ["%s"]\n' "${LOGOUT_URL}"   >> "${VAR_FILE}"
+    # Both URLs allowed — frontend uses window.location.origin so it picks the right one automatically
+    printf 'callback_urls = ["http://localhost:5173/callback", "%s"]\n' "${CALLBACK_URL}" >> "${VAR_FILE}"
+    printf 'logout_urls   = ["http://localhost:5173/", "%s"]\n'         "${LOGOUT_URL}"   >> "${VAR_FILE}"
 
     echo "   Saved to ${VAR_FILE}"
     echo ">> terraform apply (pass 2 — update Cognito callback URLs)"
