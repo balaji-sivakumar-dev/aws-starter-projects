@@ -22,5 +22,9 @@ dist/
 !*.tfvars.example
 .terraform.lock.hcl
 
+# Local test scripts with real credentials (copy from *.example, never commit)
+*.local
+scripts/test_groq_local.sh
+
 # macOS
 .DS_Store
