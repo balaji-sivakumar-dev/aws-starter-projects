@@ -91,9 +91,30 @@ dynamodb_table = "${LOCK_TABLE}"
 encrypt        = true
 EOF_BACKEND
 
+# ── Auto-create tfvars from example if not present ───────────────────────────
+TFVARS_DIR="${TF_DIR}/environments/${ENV_NAME}"
+TFVARS_FILE="${TFVARS_DIR}/${ENV_NAME}.tfvars"
+TFVARS_EXAMPLE="${TF_DIR}/environments/dev/dev.tfvars.example"
+
+if [ ! -f "${TFVARS_FILE}" ]; then
+  if [ -f "${TFVARS_EXAMPLE}" ]; then
+    mkdir -p "${TFVARS_DIR}"
+    cp "${TFVARS_EXAMPLE}" "${TFVARS_FILE}"
+    # Patch env name and region into the copied file
+    sed -i.bak "s|^env *=.*|env                   = \"${ENV_NAME}\"|" "${TFVARS_FILE}"
+    sed -i.bak "s|^aws_region *=.*|aws_region            = \"${REGION}\"|" "${TFVARS_FILE}"
+    rm -f "${TFVARS_FILE}.bak"
+    echo "✅ Created ${TFVARS_FILE} (from example, region=${REGION})"
+  else
+    echo "WARN: example tfvars not found at ${TFVARS_EXAMPLE} — skipping auto-create"
+  fi
+else
+  echo "   tfvars already exists: ${TFVARS_FILE}"
+fi
+
 echo
 echo "✅ Bootstrap complete."
 echo "✅ Wrote backend config: ${BACKEND_FILE}"
 echo
-echo "Next: copy and fill in the tfvars, then run step-3a or step-3b."
-echo "   cp infra/terraform/environments/dev/dev.tfvars.example infra/terraform/environments/${ENV_NAME}/${ENV_NAME}.tfvars"
+echo "Next: run step-3a to apply Terraform (cognito_domain_prefix will be auto-generated)."
+echo "   AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh ${ENV_NAME}"
