@@ -44,18 +44,18 @@ if [ ! -f "${BACKEND_FILE}" ]; then
   exit 1
 fi
 
-# ── Auto-generate cognito_domain_prefix if still placeholder ──────────────────
-ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-COGNITO_PREFIX_CURRENT="$(grep -E '^cognito_domain_prefix' "${VAR_FILE}" | sed 's/.*=\s*"\(.*\)".*/\1/' || echo "")"
+# ── Auto-generate cognito_domain_prefix if empty ──────────────────────────────
+COGNITO_PREFIX_CURRENT="$(grep -E '^cognito_domain_prefix' "${VAR_FILE}" | sed 's/.*=\s*"\([^"]*\)".*/\1/' || echo "")"
 
 if [[ -z "${COGNITO_PREFIX_CURRENT}" || "${COGNITO_PREFIX_CURRENT}" == *"change-me"* ]]; then
-  ACCOUNT_SUFFIX="${ACCOUNT_ID: -8}"
-  GENERATED_PREFIX="${PROJECT_PREFIX:-journal}-${ENV_NAME}-${ACCOUNT_SUFFIX}"
+  # openssl rand -hex 6 → 12 lowercase hex chars (cryptographically random, globally unique)
+  RAND_SUFFIX="$(openssl rand -hex 6)"
+  GENERATED_PREFIX="${PROJECT_PREFIX:-journal}-${ENV_NAME}-${RAND_SUFFIX}"
   echo ">> Auto-generating cognito_domain_prefix: ${GENERATED_PREFIX}"
-  # Patch tfvars in-place (macOS + Linux compatible) — replaces the whole line
+  # Patch tfvars in-place — replaces the whole cognito_domain_prefix line
   sed -i.bak "s|^cognito_domain_prefix *=.*|cognito_domain_prefix = \"${GENERATED_PREFIX}\"|" "${VAR_FILE}"
   rm -f "${VAR_FILE}.bak"
-  echo "   Updated ${VAR_FILE}"
+  echo "   Saved to ${VAR_FILE} (will reuse on re-runs)"
 fi
 
 # ── Detect compute_mode from tfvars ──────────────────────────────────────────

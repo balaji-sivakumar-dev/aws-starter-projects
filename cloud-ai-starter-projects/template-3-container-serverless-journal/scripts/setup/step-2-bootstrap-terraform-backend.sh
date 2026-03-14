@@ -10,7 +10,7 @@
 set -euo pipefail
 
 ENV_NAME="${1:-dev}"
-REGION="${REGION:-us-east-1}"
+REGION="${REGION:-ca-central-1}"
 PROJECT_PREFIX="${PROJECT_PREFIX:-journal}"
 LOCK_TABLE="${LOCK_TABLE:-${PROJECT_PREFIX}-tflock}"
 
