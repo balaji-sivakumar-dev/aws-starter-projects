@@ -73,7 +73,7 @@ if [ "${COMPUTE_MODE}" = "container" ] || [ "${COMPUTE_MODE}" = "hybrid" ]; then
   fi
 fi
 
-# ── Terraform ─────────────────────────────────────────────────────────────────
+# ── Terraform pass 1 ──────────────────────────────────────────────────────────
 pushd "${TF_DIR}" >/dev/null
 
 echo ">> terraform init"
@@ -82,10 +82,43 @@ terraform init -reconfigure -backend-config="$(basename "${BACKEND_FILE}")"
 echo ">> terraform plan"
 terraform plan -var-file="${REL_VAR_FILE}"
 
-echo ">> terraform apply"
+echo ">> terraform apply (pass 1)"
 terraform apply -var-file="${REL_VAR_FILE}"
 
+# Read site_url so we can patch Cognito callback URLs
+SITE_URL="$(terraform output -raw site_url 2>/dev/null || echo "")"
+
 popd >/dev/null
+
+# ── Patch callback_urls / logout_urls in tfvars with real CloudFront URL ──────
+# Cognito requires exact URL match — the default (localhost) won't work after deploy.
+if [ -n "${SITE_URL}" ]; then
+  CALLBACK_URL="${SITE_URL}/callback"
+  LOGOUT_URL="${SITE_URL}/"
+
+  CURRENT_CALLBACK="$(grep -E '^callback_urls' "${VAR_FILE}" | sed 's/.*=[[:space:]]*//' || echo "")"
+
+  # Only patch if still pointing at localhost or missing entirely
+  if [[ -z "${CURRENT_CALLBACK}" || "${CURRENT_CALLBACK}" == *"localhost"* ]]; then
+    echo ">> Patching Cognito callback URLs with CloudFront URL: ${SITE_URL}"
+
+    # Remove existing lines (if any) then append updated values
+    sed -i.bak '/^callback_urls[[:space:]]*=/d' "${VAR_FILE}"
+    sed -i.bak '/^logout_urls[[:space:]]*=/d'   "${VAR_FILE}"
+    rm -f "${VAR_FILE}.bak"
+
+    printf 'callback_urls = ["%s"]\n' "${CALLBACK_URL}" >> "${VAR_FILE}"
+    printf 'logout_urls   = ["%s"]\n' "${LOGOUT_URL}"   >> "${VAR_FILE}"
+
+    echo "   Saved to ${VAR_FILE}"
+    echo ">> terraform apply (pass 2 — update Cognito callback URLs)"
+    pushd "${TF_DIR}" >/dev/null
+    terraform apply -var-file="${REL_VAR_FILE}" -auto-approve
+    popd >/dev/null
+  else
+    echo "   Cognito callback URLs already set — skipping pass 2"
+  fi
+fi
 
 # ── Export outputs to apps/web/.env ──────────────────────────────────────────
 echo
