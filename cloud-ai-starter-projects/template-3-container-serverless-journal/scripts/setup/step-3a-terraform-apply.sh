@@ -58,6 +58,17 @@ if [[ -z "${COGNITO_PREFIX_CURRENT}" || "${COGNITO_PREFIX_CURRENT}" == *"change-
   echo "   Saved to ${VAR_FILE} (will reuse on re-runs)"
 fi
 
+# ── Clear Lambda zip caches ───────────────────────────────────────────────────
+# archive_file data sources cache the zip on disk. Without clearing them, a
+# change to handler.py may not be picked up by Terraform if the file timestamp
+# doesn't match. Always delete before apply so code is always re-packaged.
+echo ">> Clearing Lambda zip caches..."
+API_ZIP="${TF_DIR}/modules/compute_lambda/.build/api.zip"
+AI_ZIP="${TF_DIR}/modules/ai_gateway/.build/ai-gateway.zip"
+[ -f "${API_ZIP}" ] && rm -f "${API_ZIP}" && echo "   Removed ${API_ZIP}" || true
+[ -f "${AI_ZIP}"  ] && rm -f "${AI_ZIP}"  && echo "   Removed ${AI_ZIP}"  || true
+echo
+
 # ── Detect compute_mode from tfvars ──────────────────────────────────────────
 COMPUTE_MODE="$(grep -E '^compute_mode' "${VAR_FILE}" | sed 's/.*=[[:space:]]*"\([^"]*\)".*/\1/' || echo "serverless")"
 echo "Compute mode: ${COMPUTE_MODE}"
@@ -108,16 +119,25 @@ if [ -n "${SITE_URL}" ]; then
     rm -f "${VAR_FILE}.bak"
 
     # Both URLs allowed — frontend uses window.location.origin so it picks the right one automatically
+    # Ensure there is a trailing newline before appending so the new lines don't
+    # merge with the last comment line of the file (which may lack a newline).
+    [[ -s "${VAR_FILE}" && "$(tail -c1 "${VAR_FILE}" | wc -l)" -eq 0 ]] && echo "" >> "${VAR_FILE}"
     printf 'callback_urls = ["http://localhost:5173/callback", "%s"]\n' "${CALLBACK_URL}" >> "${VAR_FILE}"
     printf 'logout_urls   = ["http://localhost:5173/", "%s"]\n'         "${LOGOUT_URL}"   >> "${VAR_FILE}"
 
     echo "   Saved to ${VAR_FILE}"
     echo ">> terraform apply (pass 2 — update Cognito callback URLs)"
+    # Use a targeted apply so Terraform is forced to reconcile just the Cognito
+    # client. A full apply can miss this update because the state recorded during
+    # pass 1 still shows the old (localhost-only) callback_urls value.
     pushd "${TF_DIR}" >/dev/null
-    terraform apply -var-file="${REL_VAR_FILE}" -auto-approve
+    terraform apply -var-file="${REL_VAR_FILE}" \
+      -target=module.auth.aws_cognito_user_pool_client.this \
+      -auto-approve
     popd >/dev/null
   else
     echo "   Cognito callback URLs already set — skipping pass 2"
+    echo "   (re-run step-3a to force update, or run: terraform apply -target=module.auth.aws_cognito_user_pool_client.this)"
   fi
 fi
 

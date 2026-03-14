@@ -76,7 +76,6 @@ module "ai_gateway" {
   journal_table_name = module.db.table_name
   bedrock_model_id  = var.bedrock_model_id
   llm_provider      = var.llm_provider
-  groq_api_key      = var.groq_api_key
   groq_model_id     = var.groq_model_id
 }
 

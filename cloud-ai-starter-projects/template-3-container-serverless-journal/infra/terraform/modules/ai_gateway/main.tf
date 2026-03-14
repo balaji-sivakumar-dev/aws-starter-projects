@@ -1,3 +1,11 @@
+# Read Groq API key from SSM at apply time (SecureString, never stored in tfvars).
+# Store it first with: scripts/setup/step-2b-store-secrets.sh
+data "aws_ssm_parameter" "groq_key" {
+  count           = var.llm_provider == "groq" ? 1 : 0
+  name            = "/journal/${var.env}/groq_api_key"
+  with_decryption = true
+}
+
 data "archive_file" "zip" {
   type        = "zip"
   source_dir  = var.source_dir
@@ -35,13 +43,21 @@ resource "aws_iam_role_policy" "inline" {
     Statement = [
       {
         Effect = "Allow"
-        Action = ["dynamodb:GetItem", "dynamodb:UpdateItem"]
-        Resource = [var.journal_table_arn]
+        Action = ["dynamodb:GetItem", "dynamodb:UpdateItem", "dynamodb:Query"]
+        Resource = [
+          var.journal_table_arn,
+          "${var.journal_table_arn}/index/*"
+        ]
       },
       {
         Effect = "Allow"
         Action = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
         Resource = ["*"]
+      },
+      {
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameter"]
+        Resource = ["arn:aws:ssm:*:*:parameter/journal/${var.env}/*"]
       }
     ]
   })
@@ -62,11 +78,12 @@ resource "aws_lambda_function" "this" {
     variables = {
       JOURNAL_TABLE_NAME = var.journal_table_name
       LLM_PROVIDER       = var.llm_provider
-      GROQ_API_KEY       = var.groq_api_key
+      GROQ_API_KEY       = var.llm_provider == "groq" ? data.aws_ssm_parameter.groq_key[0].value : ""
       GROQ_MODEL_ID      = var.groq_model_id
       BEDROCK_MODEL_ID   = var.bedrock_model_id
       MAX_INPUT_CHARS    = "8000"
       MAX_OUTPUT_TOKENS  = "256"
+      MAX_SUMMARY_TOKENS = "512"
     }
   }
 }

@@ -12,7 +12,7 @@ python scripts/seed_data.py
 DYNAMODB_ENDPOINT=http://localhost:8000 python scripts/seed_data.py
 
 # AWS (uses your default AWS profile / env credentials):
-DYNAMODB_ENDPOINT="" AWS_DEFAULT_REGION=us-east-1 python scripts/seed_data.py
+DYNAMODB_ENDPOINT="" AWS_DEFAULT_REGION=ca-canada-1 python scripts/seed_data.py
 
 # Custom user or table:
 USER_ID=alice JOURNAL_TABLE_NAME=journal-prod python scripts/seed_data.py

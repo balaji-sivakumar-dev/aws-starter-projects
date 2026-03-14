@@ -1,3 +1,8 @@
+output "journal_table_name" {
+  value       = module.db.table_name
+  description = "DynamoDB journal table name"
+}
+
 output "api_base_url" {
   value       = module.api_edge.api_endpoint
   description = "Stable API base URL"

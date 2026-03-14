@@ -10,11 +10,6 @@ variable "llm_provider" {
   type    = string
   default = "groq"
 }
-variable "groq_api_key" {
-  type      = string
-  default   = ""
-  sensitive = true
-}
 variable "groq_model_id" {
   type    = string
   default = "llama-3.1-8b-instant"

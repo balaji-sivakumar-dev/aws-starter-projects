@@ -64,6 +64,8 @@ src/
 
 Auth: `X-User-Id: <id>` header in local mode; `Authorization: Bearer <jwt>` in AWS mode.
 
+**Journal entries**
+
 | Method | Path | Description |
 |--------|------|-------------|
 | GET    | `/health` | Health check (no auth) |
@@ -73,7 +75,17 @@ Auth: `X-User-Id: <id>` header in local mode; `Authorization: Bearer <jwt>` in A
 | GET    | `/entries/{id}` | Get single entry |
 | PUT    | `/entries/{id}` | Update title/body |
 | DELETE | `/entries/{id}` | Soft delete |
-| POST   | `/entries/{id}/ai` | Trigger AI enrichment (summary + tags) |
+| POST   | `/entries/{id}/ai` | Trigger AI enrichment (async via Step Functions on AWS) |
+
+**Insights (period summaries)**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/insights/summaries` | List summaries for the user |
+| POST   | `/insights/summaries` | Generate a new period summary (weekly / monthly / yearly) |
+| GET    | `/insights/summaries/{id}` | Get a single summary |
+| DELETE | `/insights/summaries/{id}` | Delete a summary |
+| POST   | `/insights/summaries/{id}/regenerate` | Regenerate an existing summary |
 
 Error shape: `{ "code": string, "message": string }` + HTTP status code.
 
@@ -85,14 +97,21 @@ Error shape: `{ "code": string, "message": string }` + HTTP status code.
 |-----------|----|----|
 | Journal entry | `USER#<userId>` | `ENTRY#<createdAt>#<entryId>` |
 | Entry lookup  | `USER#<userId>` | `ENTRYID#<entryId>` |
+| Period summary | `USER#<userId>` | `PERIOD_SUMMARY#<createdAt>#<summaryId>` |
 
 The lookup item lets `GET /entries/{id}` resolve without knowing `createdAt`. Deleted entries are soft-deleted (`deletedAt` timestamp set).
+
+**Period summary fields:** `summaryId`, `period` (weekly/monthly/yearly), `startDate`, `endDate`, `entryCount`, `narrative`, `themes` (list), `mood`, `aiStatus` (QUEUED / DONE / ERROR / NOT_CONFIGURED), `createdAt`.
+
+**GSI:** `userId-createdAt-index` on `userId` + `createdAt` — used by the AI Lambda to fetch entries in a date range for period summary generation.
 
 ---
 
 ## AI enrichment
 
-`POST /entries/{id}/ai` calls the configured LLM provider synchronously and writes `summary`, `tags`, and `aiStatus` back to DynamoDB.
+### Local mode (Docker)
+
+`POST /entries/{id}/ai` calls the configured LLM provider **synchronously** and writes `summary`, `tags`, and `aiStatus` back to DynamoDB.
 
 Provider is selected by `LLM_PROVIDER` env var — no code changes needed to switch:
 
@@ -103,6 +122,27 @@ Provider is selected by `LLM_PROVIDER` env var — no code changes needed to swi
 | `openai` | `OPENAI_API_KEY` | Also works with compatible endpoints via `OPENAI_BASE_URL` |
 | _(unset)_ | — | Returns `aiStatus: SKIPPED` stub |
 
+### AWS mode (Step Functions + AI Gateway Lambda)
+
+On AWS, AI enrichment is **asynchronous** via Step Functions:
+
+```
+API Lambda
+  └── POST /entries/{id}/ai  → sets aiStatus=QUEUED → starts Step Functions execution
+  └── POST /insights/summaries → sets aiStatus=QUEUED → starts Step Functions execution
+
+Step Functions state machine (process_entry_ai.asl.json)
+  └── ValidateInput (Choice)
+        ├── entryId present  → InvokeAIGateway → enrich_entry
+        └── summaryId present → InvokeAIGateway → generate_summary
+
+AI Gateway Lambda (ai_gateway.py)
+  ├── enrich_entry   → fetches entry → calls LLM → writes summary + tags + aiStatus=DONE
+  └── generate_summary → queries entries by date range → calls LLM → writes narrative + themes + mood
+```
+
+The Groq API key is stored in **SSM Parameter Store** (`/journal/<env>/groq_api_key`) and fetched at deploy time — never stored in tfvars or code.
+
 ---
 
 ## Auth modes
@@ -111,3 +151,20 @@ Provider is selected by `LLM_PROVIDER` env var — no code changes needed to swi
 |-----------|----------------|
 | `local` / `test` | `X-User-Id` header → user ID; defaults to `dev-user` |
 | anything else | `Authorization: Bearer <jwt>` → validated against Cognito JWKS (RS256) |
+
+### Cognito user pool (AWS)
+
+- **Flow:** Authorization Code + PKCE (no client secret)
+- **Scopes:** `openid email profile`
+- **Standard attributes collected at sign-up:** `email` (required), `given_name` (required)
+- **Optional attributes:** `family_name`
+- **id_token claims used by the frontend:** `email`, `given_name` — decoded client-side from `localStorage` without a separate JWKS call
+
+### Frontend UI
+
+The React app uses a **horizontal topnav** layout:
+- **Left:** Reflect brand logo
+- **Centre:** Home / Journal / Insights navigation tabs
+- **Right:** user email pill + Sign out button
+
+The Dashboard greeting uses `given_name` from the Cognito `id_token` if available; otherwise derives a first name from the email local-part (e.g. `john.doe@co.com` → `John`).

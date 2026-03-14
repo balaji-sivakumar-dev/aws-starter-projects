@@ -1,8 +1,10 @@
 import base64
 import calendar
 import datetime
+import decimal
 import json
 import os
+import traceback
 import uuid
 from typing import Any, Dict, Optional
 
@@ -27,6 +29,14 @@ def now_iso() -> str:
     return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
 
 
+class _Encoder(json.JSONEncoder):
+    """Handle Decimal (DynamoDB returns all numbers as Decimal)."""
+    def default(self, o: Any) -> Any:
+        if isinstance(o, decimal.Decimal):
+            return int(o) if o % 1 == 0 else float(o)
+        return super().default(o)
+
+
 def response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
     return {
         "statusCode": status,
@@ -36,7 +46,7 @@ def response(status: int, body: Dict[str, Any]) -> Dict[str, Any]:
             "Access-Control-Allow-Headers": "*",
             "Access-Control-Allow-Methods": "*",
         },
-        "body": json.dumps(body),
+        "body": json.dumps(body, cls=_Encoder),
     }
 
 
@@ -357,6 +367,9 @@ def handler(event, context):
             start, end = period_dates(period, year, month, week)
             entry_count = count_entries_in_range(user_id, start, end)
 
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            initial_ai_status = "QUEUED" if ai_enabled else "NOT_CONFIGURED"
+
             summary_id = str(uuid.uuid4())
             ts = now_iso()
             item = {
@@ -371,7 +384,7 @@ def handler(event, context):
                 "startDate": start,
                 "endDate": end,
                 "entryCount": entry_count,
-                "aiStatus": "NOT_CONFIGURED",
+                "aiStatus": initial_ai_status,
                 "themes": [],
                 "highlights": [],
                 "createdAt": ts,
@@ -382,6 +395,18 @@ def handler(event, context):
             if week:
                 item["week"] = week
             TABLE.put_item(Item=item)
+
+            if ai_enabled:
+                SFN.start_execution(
+                    stateMachineArn=os.environ["WORKFLOW_ARN"],
+                    input=json.dumps({
+                        "type": "summary",
+                        "userId": user_id,
+                        "summaryId": summary_id,
+                        "requestId": request_id,
+                    }),
+                )
+
             return response(201, {"item": to_summary(item), "requestId": request_id})
 
         summary_id = str(path_params.get("summaryId") or "").strip()
@@ -396,18 +421,31 @@ def handler(event, context):
             return response(200, {"deleted": True, "requestId": request_id})
 
         if method == "POST" and summary_id and path == f"/insights/summaries/{summary_id}/regenerate":
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            if not ai_enabled:
+                raise ApiError(503, "AI_NOT_CONFIGURED", "AI enrichment is not configured. Set AI_ENABLED=true and configure an LLM provider.")
             item = get_summary_item(user_id, summary_id)
             TABLE.update_item(
                 Key={"PK": item["PK"], "SK": item["SK"]},
-                UpdateExpression="SET aiStatus = :s, updatedAt = :u",
-                ExpressionAttributeValues={":s": "NOT_CONFIGURED", ":u": now_iso()},
+                UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
+                ExpressionAttributeValues={":s": "QUEUED", ":e": None, ":u": now_iso()},
+            )
+            exec_resp = SFN.start_execution(
+                stateMachineArn=os.environ["WORKFLOW_ARN"],
+                input=json.dumps({
+                    "type": "summary",
+                    "userId": user_id,
+                    "summaryId": summary_id,
+                    "requestId": request_id,
+                }),
             )
             updated = get_summary_item(user_id, summary_id)
-            return response(200, {"item": to_summary(updated), "requestId": request_id})
+            return response(202, {"item": to_summary(updated), "executionArn": exec_resp["executionArn"], "requestId": request_id})
 
         raise ApiError(404, "NOT_FOUND", "route not found")
 
     except ApiError as err:
         return error(err, request_id)
     except Exception:
+        print(f"UNHANDLED ERROR requestId={request_id}\n{traceback.format_exc()}")
         return error(ApiError(500, "INTERNAL_ERROR", "internal server error"), request_id)

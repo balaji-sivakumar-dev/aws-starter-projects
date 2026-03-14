@@ -113,3 +113,29 @@ export function isAuthed() {
   if (isLocalMode()) return true; // always signed-in locally
   return Boolean(accessToken());
 }
+
+/**
+ * Decode the stored id_token (without verifying signature) and return
+ * all claims. Cognito access tokens don't carry user attributes like
+ * email or given_name, but the id_token does.
+ *
+ * Returns null when not authenticated or in local mode.
+ */
+export function getIdTokenClaims() {
+  if (isLocalMode()) return null;
+  const raw = localStorage.getItem(TOKEN_KEY);
+  if (!raw) return null;
+  try {
+    const { id_token } = JSON.parse(raw);
+    if (!id_token) return null;
+    const payload = id_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(payload));
+  } catch {
+    return null;
+  }
+}
+
+/** Convenience: email from the id_token. */
+export function userEmail() {
+  return getIdTokenClaims()?.email || null;
+}

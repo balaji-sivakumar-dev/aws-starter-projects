@@ -319,17 +319,28 @@ cp infra/terraform/environments/dev/dev.tfvars.example \
 
 Runs `terraform init → plan → apply`, then writes `apps/web/.env` with the API URL and Cognito config.
 
+**Step 2B — Store secrets in SSM** (required for AI features)
+
+The Groq API key is stored in AWS SSM Parameter Store — never in tfvars or code.
+
+```bash
+./scripts/setup/step-2b-store-secrets.sh dev
+# Prompts for your Groq API key and stores it at /journal/dev/groq_api_key (SecureString)
+# Get a free key at: https://console.groq.com
+```
+
 **Step 3A (optional) — Enable AI enrichment**
 
 AI is **disabled by default**. To enable it, edit `dev.tfvars` and re-run step 3A:
 
 ```hcl
 # infra/terraform/environments/dev/dev.tfvars
-ai_enabled   = "true"
-llm_provider = "groq"                   # "groq" | "bedrock"
-groq_api_key = "gsk_xxxxxxxxxxxx"       # get a free key at https://console.groq.com
-groq_model_id = "llama-3.1-8b-instant" # or llama-3.3-70b-versatile for higher quality
+ai_enabled    = "true"
+llm_provider  = "groq"                   # "groq" | "bedrock"
+groq_model_id = "llama-3.1-8b-instant"  # or llama-3.3-70b-versatile for higher quality
 ```
+
+> Do **not** put the API key in tfvars — run `step-2b-store-secrets.sh` instead. Terraform reads it from SSM at apply time.
 
 Then apply:
 
@@ -337,7 +348,7 @@ Then apply:
 ./scripts/setup/step-3a-terraform-apply.sh dev
 ```
 
-This deploys the updated Lambda with Groq credentials as environment variables. No container rebuild needed — the AI Lambda is a ZIP package.
+This deploys the AI Gateway Lambda and Step Functions state machine. No container rebuild needed — the AI Lambda is a ZIP package.
 
 Two AI features are unlocked once enabled:
 
@@ -352,8 +363,6 @@ Two AI features are unlocked once enabled:
 |-------|-------|---------|
 | `llama-3.1-8b-instant` | Fast | Good — default |
 | `llama-3.3-70b-versatile` | Slower | Better for longer entries |
-
-> The Groq API key is stored as a Lambda environment variable. For production use, move it to AWS Secrets Manager and fetch it at runtime.
 
 ---
 
@@ -374,6 +383,21 @@ Then re-run step 3A:
 ```bash
 ./scripts/setup/step-3a-terraform-apply.sh dev
 ```
+
+**Step 3C — Deploy backend changes only** (iterative development)
+
+Use this instead of a full `step-3a` apply when you only change Lambda code, IAM, or the Step Functions state machine:
+
+```bash
+./scripts/setup/step-3c-deploy-backend.sh dev
+
+# Deploy only a subset:
+DEPLOY_SFN=false ./scripts/setup/step-3c-deploy-backend.sh dev   # skip Step Functions
+DEPLOY_AI=false  ./scripts/setup/step-3c-deploy-backend.sh dev   # skip AI Gateway Lambda
+DEPLOY_API=false ./scripts/setup/step-3c-deploy-backend.sh dev   # skip API Lambda
+```
+
+This clears the Lambda ZIP cache, then runs targeted `terraform apply` on only the selected components (does not touch Cognito, DynamoDB, API Gateway, CloudFront, or S3).
 
 **Step 4 — Deploy web app to S3**
 
@@ -423,14 +447,20 @@ Checks: S3 buckets, DynamoDB tables, Cognito pool, Lambda functions, App Runner 
 
 ### Seed data to AWS DynamoDB
 
-After deployment, run the seed script against the real table:
+After deployment, use the dedicated AWS seed script (handles profile + table name automatically):
+
+```bash
+AWS_PROFILE=journal-dev ./scripts/seed-aws.sh dev
+```
+
+Or run the seed script directly with explicit overrides:
 
 ```bash
 # Install boto3 if needed
 pip install boto3
 
 DYNAMODB_ENDPOINT="" \
-AWS_DEFAULT_REGION=us-east-1 \
+AWS_DEFAULT_REGION=ca-central-1 \
 JOURNAL_TABLE_NAME=journal-dev-journal \
   python3 scripts/seed_data.py
 ```

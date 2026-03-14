@@ -55,6 +55,30 @@ terraform destroy -var-file="${REL_VAR_FILE}" -auto-approve
 
 popd >/dev/null
 
+# ── Reset tfvars so the next rebuild generates fresh values ───────────────────
+# cognito_domain_prefix: AWS holds deleted Cognito domains for ~60 days so the
+#   old prefix cannot be reused. Clear it so step-3a auto-generates a new one.
+# callback_urls / logout_urls: CloudFront URL will be different on rebuild.
+#   Remove them so step-3a patches them with the new distribution URL.
+echo ">> Resetting tfvars for clean rebuild..."
+
+COGNITO_PLACEHOLDER="journal-${ENV_NAME}-change-me"
+
+sed -i.bak "s|^cognito_domain_prefix *=.*|cognito_domain_prefix = \"${COGNITO_PLACEHOLDER}\"|" "${VAR_FILE}"
+sed -i.bak '/^callback_urls[[:space:]]*=/d' "${VAR_FILE}"
+sed -i.bak '/^logout_urls[[:space:]]*=/d'   "${VAR_FILE}"
+rm -f "${VAR_FILE}.bak"
+
+echo "   cognito_domain_prefix → placeholder (step-3a will auto-generate a new one)"
+echo "   callback_urls + logout_urls removed  (step-3a will patch with new CloudFront URL)"
+
+# ── Clear Lambda zip caches ───────────────────────────────────────────────────
+echo ">> Clearing Lambda zip caches..."
+API_ZIP="${TF_DIR}/modules/compute_lambda/.build/api.zip"
+AI_ZIP="${TF_DIR}/modules/ai_gateway/.build/ai-gateway.zip"
+[ -f "${API_ZIP}" ] && rm -f "${API_ZIP}" && echo "   Removed ${API_ZIP}" || true
+[ -f "${AI_ZIP}"  ] && rm -f "${AI_ZIP}"  && echo "   Removed ${AI_ZIP}"  || true
+
 echo
 echo "✅ Terraform-managed resources destroyed for env: ${ENV_NAME}"
 echo
@@ -62,3 +86,8 @@ echo "Remaining manual steps (if applicable):"
 echo "  • ECR repository  → run step-1b-delete-ecr-repo.sh ${ENV_NAME}"
 echo "  • TF backend      → run step-1c-delete-terraform-backend.sh"
 echo "  • Verify          → run step-1d-verify-destroy.sh ${ENV_NAME}"
+echo
+echo "Ready to rebuild from scratch:"
+echo "  1. AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-2b-store-secrets.sh ${ENV_NAME}"
+echo "  2. AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-3a-terraform-apply.sh ${ENV_NAME}"
+echo "  3. AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"

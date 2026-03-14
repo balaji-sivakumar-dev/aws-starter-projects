@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { handleCallback, isAuthed, login, logout } from "./auth/auth";
+import { getIdTokenClaims, handleCallback, isAuthed, login, logout, userEmail } from "./auth/auth";
 import { isLocalMode, missingConfig } from "./config";
+import Dashboard from "./components/Dashboard";
 import EntryDetail from "./components/EntryDetail";
 import EntryForm from "./components/EntryForm";
 import EntryList from "./components/EntryList";
@@ -9,8 +10,7 @@ import InsightsPanel from "./components/InsightsPanel";
 import { useInsights } from "./state/useInsights";
 import { useJournal } from "./state/useJournal";
 
-function initials(email, userId) {
-  const str = email || userId;
+function initials(str) {
   if (!str) return "?";
   if (str.includes("@")) {
     return str.split("@")[0].slice(0, 2).toUpperCase();
@@ -21,9 +21,15 @@ function initials(email, userId) {
 export default function App() {
   const missing = useMemo(() => missingConfig(), []);
   const [authError, setAuthError] = useState("");
-  const [tab, setTab] = useState("journal");
+  const [tab, setTab] = useState("home");
   const app = useJournal();
   const insights = useInsights();
+
+  // id_token carries email + given_name; access token does not
+  const idClaims = getIdTokenClaims();
+  const email = idClaims?.email || app.me?.email || null;
+  const givenName = idClaims?.given_name || null;
+  const displayName = email || app.me?.username || "User";
 
   useEffect(() => {
     (async () => {
@@ -35,7 +41,7 @@ export default function App() {
     })();
   }, []);
 
-  // ── Missing config ──────────────────────────────────────────────────────────
+  // ── Missing config ────────────────────────────────────────────────────────
   if (missing.length) {
     return (
       <div className="auth-screen">
@@ -51,7 +57,7 @@ export default function App() {
     );
   }
 
-  // ── Login screen ─────────────────────────────────────────────────────────────
+  // ── Login screen ──────────────────────────────────────────────────────────
   if (!isAuthed()) {
     return (
       <div className="auth-screen">
@@ -66,76 +72,110 @@ export default function App() {
     );
   }
 
-  // ── Main app ────────────────────────────────────────────────────────────────
+  // ── Main app ──────────────────────────────────────────────────────────────
   return (
     <div className="app">
-      {/* ── Sidebar ── */}
-      <aside className="sidebar">
-        <div className="sidebar-brand">
+
+      {/* ── Top navigation bar ── */}
+      <header className="topnav">
+        <div className="topnav-brand">
           <span className="brand-logo">◆</span>
           <span className="brand-name">Reflect</span>
           {isLocalMode() && <span className="brand-badge">local</span>}
         </div>
 
-        <nav className="sidebar-nav">
-          <button className={`nav-item${tab === "journal" ? " active" : ""}`} onClick={() => setTab("journal")}>
+        <nav className="topnav-nav">
+          <button
+            className={`nav-item${tab === "home" ? " active" : ""}`}
+            onClick={() => setTab("home")}
+          >
+            <span className="nav-icon">🏠</span> Home
+          </button>
+          <button
+            className={`nav-item${tab === "journal" ? " active" : ""}`}
+            onClick={() => setTab("journal")}
+          >
             <span className="nav-icon">📝</span> Journal
           </button>
-          <button className={`nav-item${tab === "insights" ? " active" : ""}`} onClick={() => setTab("insights")}>
+          <button
+            className={`nav-item${tab === "insights" ? " active" : ""}`}
+            onClick={() => setTab("insights")}
+          >
             <span className="nav-icon">✦</span> Insights
           </button>
         </nav>
 
-        {tab === "journal" && (
-          <div className="sidebar-list-area">
-            <div className="sidebar-list-header">
-              <span className="sidebar-list-title">Entries</span>
-              <button className="btn-new" onClick={() => app.setMode("create")}>+ New</button>
-            </div>
-            {app.error && <div className="sidebar-error">{app.error}</div>}
-            <EntryList
-              items={app.entries}
-              loading={app.loading}
-              selectedId={app.selectedId}
-              onSelect={app.select}
-              onDelete={app.remove}
-              nextToken={app.nextToken}
-              onMore={app.more}
+        <div className="topnav-user">
+          <span className="user-avatar">{initials(email || app.me?.userId)}</span>
+          <span className="user-name">{displayName}</span>
+          <button className="btn-logout" onClick={logout}>Sign out</button>
+        </div>
+      </header>
+
+      {/* ── Content ── */}
+      <main className="content-area">
+
+        {tab === "home" && (
+          <div className="page-view">
+            <Dashboard
+              me={{ ...app.me, email, givenName }}
+              entries={app.entries}
+              summaries={insights.summaries}
+              onLoadInsights={insights.load}
+              onNewEntry={() => { setTab("journal"); app.setMode("create"); }}
+              onViewJournal={(entryId) => {
+                setTab("journal");
+                if (entryId) app.select(entryId);
+              }}
+              onViewInsights={() => setTab("insights")}
             />
           </div>
         )}
 
-        <div className="sidebar-footer">
-          <div className="sidebar-user">
-            <span className="user-avatar">{initials(app.me?.email, app.me?.userId)}</span>
-            <span className="user-name">{app.me?.email || app.me?.username || app.me?.userId || "—"}</span>
-          </div>
-          <button className="btn-logout" onClick={logout}>Sign out</button>
-        </div>
-      </aside>
-
-      {/* ── Content ── */}
-      <main className="content-area">
         {tab === "journal" && (
-          <>
-            {app.mode === "create" && (
-              <EntryForm submitLabel="Create Entry" onSubmit={app.saveCreate} onCancel={() => app.setMode("detail")} />
-            )}
-            {app.mode === "edit" && (
-              <EntryForm initial={app.selected} submitLabel="Save Changes" onSubmit={app.saveEdit} onCancel={() => app.setMode("detail")} />
-            )}
-            {app.mode === "detail" && (
-              <EntryDetail
-                entry={app.selected}
-                onEdit={() => app.setMode("edit")}
-                onRefresh={app.refresh}
-                onTriggerAi={app.queueAi}
+          <div className="journal-layout">
+            <aside className="journal-panel">
+              <div className="sidebar-list-header">
+                <span className="sidebar-list-title">Entries</span>
+                <button className="btn-new" onClick={() => app.setMode("create")}>+ New</button>
+              </div>
+              {app.error && <div className="sidebar-error">{app.error}</div>}
+              <EntryList
+                items={app.entries}
+                loading={app.loading}
+                selectedId={app.selectedId}
+                onSelect={app.select}
+                onDelete={app.remove}
+                nextToken={app.nextToken}
+                onMore={app.more}
               />
-            )}
-          </>
+            </aside>
+
+            <div className="journal-detail">
+              {app.mode === "create" && (
+                <EntryForm submitLabel="Create Entry" onSubmit={app.saveCreate} onCancel={() => app.setMode("detail")} />
+              )}
+              {app.mode === "edit" && (
+                <EntryForm initial={app.selected} submitLabel="Save Changes" onSubmit={app.saveEdit} onCancel={() => app.setMode("detail")} />
+              )}
+              {app.mode === "detail" && (
+                <EntryDetail
+                  entry={app.selected}
+                  onEdit={() => app.setMode("edit")}
+                  onRefresh={app.refresh}
+                  onTriggerAi={app.queueAi}
+                />
+              )}
+            </div>
+          </div>
         )}
 
-        {tab === "insights" && <InsightsPanel insights={insights} />}
+        {tab === "insights" && (
+          <div className="page-view">
+            <InsightsPanel insights={insights} />
+          </div>
+        )}
+
       </main>
     </div>
   );
