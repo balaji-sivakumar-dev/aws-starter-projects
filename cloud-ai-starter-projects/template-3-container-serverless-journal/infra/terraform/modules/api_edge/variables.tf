@@ -21,3 +21,9 @@ variable "container_routes" {
   }))
   default = {}
 }
+
+variable "cors_allow_origins" {
+  type        = list(string)
+  description = "Allowed CORS origins for the HTTP API"
+  default     = ["*"]
+}

@@ -59,3 +59,9 @@ variable "bedrock_model_id" {
   type    = string
   default = "amazon.nova-lite-v1:0"
 }
+
+variable "cors_allow_origins" {
+  type        = list(string)
+  description = "CORS allowed origins for the API Gateway (include CloudFront URL + localhost)"
+  default     = ["https://*.cloudfront.net", "http://localhost:5173"]
+}

@@ -105,6 +105,7 @@ module "api_edge" {
   env                  = var.env
   jwt_issuer           = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
   jwt_audience         = [module.auth.user_pool_client_id]
+  cors_allow_origins   = var.cors_allow_origins
 
   lambda_routes = local.use_lambda_api ? {
     for key, route in local.api_routes : key => {

@@ -8,6 +8,13 @@ locals {
 resource "aws_apigatewayv2_api" "this" {
   name          = "${var.app_prefix}-${var.env}-http-api"
   protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = var.cors_allow_origins
+    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers = ["Content-Type", "Authorization", "X-User-Id"]
+    max_age       = 300
+  }
 }
 
 resource "aws_apigatewayv2_stage" "default" {
