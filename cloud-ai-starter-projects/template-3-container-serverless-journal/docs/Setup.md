@@ -54,14 +54,31 @@ curl -s http://localhost:8080/entries -H "X-User-Id: dev-user" | jq
 
 Load 20 pre-written journal entries (Oct 2025 – Mar 2026, covering work, family, and travel) — useful for testing AI insights without having to write entries manually.
 
-Requires the venv created in the [Run tests](#run-tests) section, or any Python environment with `boto3` installed.
+**All commands run from the template-3 root directory** (same folder as `docker-compose.yml`).
+
+**One-time: create the venv and install dependencies**
+
+```bash
+# Create the venv inside services/api/ (only needed once)
+python3 -m venv services/api/.venv
+
+# Install dependencies
+services/api/.venv/bin/pip install -r services/api/requirements.txt
+```
+
+**Run the seed script**
 
 ```bash
 # Stack must be running first
 docker compose up -d
 
-# Run the seed script (targets http://localhost:8000 by default)
+# Option A — use the venv directly (no activation needed)
 services/api/.venv/bin/python3 scripts/seed_data.py
+
+# Option B — activate the venv first, then use plain python3
+source services/api/.venv/bin/activate
+python3 scripts/seed_data.py
+deactivate   # when done
 ```
 
 To seed a different user or table:
@@ -219,6 +236,14 @@ python3.11 -m venv .venv
 .venv/bin/pytest tests/ -v
 # 56 tests, ~3 s
 ```
+
+## Activate venv
+```bash
+cd cloud-ai-starter-projects/template-3-container-serverless-journal
+python3 -m venv venv
+source venv/bin/activate
+```
+
 
 ---
 
