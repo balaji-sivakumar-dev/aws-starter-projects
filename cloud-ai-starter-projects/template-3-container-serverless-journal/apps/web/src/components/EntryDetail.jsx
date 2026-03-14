@@ -1,12 +1,16 @@
+import { useState, useEffect } from "react";
+
 function aiStatusClass(status) {
-  if (status === "DONE") return "done";
+  if (status === "DONE" || status === "COMPLETE") return "done";
   if (status === "PROCESSING") return "processing";
-  if (status === "ERROR") return "error";
+  if (status === "ERROR" || status === "FAILED") return "error";
   if (status === "SKIPPED") return "skipped";
   return "pending";
 }
 
 export default function EntryDetail({ entry, onEdit, onRefresh, onTriggerAi }) {
+  const [errorDismissed, setErrorDismissed] = useState(false);
+  useEffect(() => { setErrorDismissed(false); }, [entry?.entryId]);
   if (!entry) {
     return (
       <div className="entry-detail-empty">
@@ -42,7 +46,16 @@ export default function EntryDetail({ entry, onEdit, onRefresh, onTriggerAi }) {
           )}
         </div>
 
-        {entry.aiError && <div className="ai-error-msg">Error: {entry.aiError}</div>}
+        {entry.aiError && !errorDismissed && (
+          <div className="ai-error-msg" style={{ display: "flex", alignItems: "flex-start", gap: "8px" }}>
+            <span style={{ flex: 1 }}>{entry.aiError}</span>
+            <button
+              onClick={() => setErrorDismissed(true)}
+              style={{ background: "none", border: "none", cursor: "pointer", fontSize: "1rem", lineHeight: 1, padding: "0 2px", color: "inherit", opacity: 0.7 }}
+              title="Dismiss"
+            >✕</button>
+          </div>
+        )}
 
         {entry.summary && (
           <>

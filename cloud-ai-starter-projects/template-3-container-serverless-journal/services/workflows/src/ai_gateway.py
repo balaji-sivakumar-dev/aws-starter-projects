@@ -32,7 +32,19 @@ def get_entry(user_id: str, entry_id: str):
     return entry
 
 
-def short_error(err: Exception) -> str:
+def friendly_error(err: Exception) -> str:
+    from botocore.exceptions import ClientError
+    if isinstance(err, ClientError):
+        code = err.response.get("Error", {}).get("Code", "")
+        if code == "ValidationException":
+            return "AI model not available in this region. Check Bedrock model access in your AWS console."
+        if code == "AccessDeniedException":
+            return "AI model access denied. Enable model access in the AWS Bedrock console."
+        if code == "ResourceNotFoundException":
+            return "AI model not found. Verify the model ID is correct."
+        if code == "ThrottlingException":
+            return "AI model rate limit reached. Please try again later."
+        return f"AI processing failed ({code}). Please try again."
     return str(err)[:180]
 
 
@@ -133,6 +145,6 @@ def handler(event, _context):
         TABLE.update_item(
             Key={"PK": entry["PK"], "SK": entry["SK"]},
             UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
-            ExpressionAttributeValues={":s": "FAILED", ":e": short_error(exc), ":u": now_iso()},
+            ExpressionAttributeValues={":s": "FAILED", ":e": friendly_error(exc), ":u": now_iso()},
         )
         raise
