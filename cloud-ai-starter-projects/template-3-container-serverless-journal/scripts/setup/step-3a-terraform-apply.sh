@@ -150,4 +150,5 @@ echo "✅ Terraform apply complete for env: ${ENV_NAME}"
 echo "   compute_mode: ${COMPUTE_MODE}"
 echo "   API endpoint: ${API_BASE_URL}"
 echo
-echo "Next: deploy the web app → ./scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"
+echo "Next: deploy the web app →"
+echo "   AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"
