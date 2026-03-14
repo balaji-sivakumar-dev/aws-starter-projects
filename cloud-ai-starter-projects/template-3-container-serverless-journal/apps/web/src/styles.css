@@ -6,25 +6,82 @@
 
 * { box-sizing: border-box; }
 body { margin: 0; }
+
+/* ── Navbar ──────────────────────────────────────────────────────────────── */
+.navbar {
+  background: #1a3a6b;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  height: 56px;
+  gap: 16px;
+}
+.navbar-brand {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.navbar-mode-badge {
+  font-size: 0.65em;
+  margin-left: 0.5rem;
+  color: #aac4f0;
+  font-weight: 400;
+}
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.navbar-user {
+  font-size: 0.82em;
+  color: #c5d8f5;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Tabs inside navbar */
+.navbar .tabs { display: flex; gap: 4px; }
+.navbar .tab { background: transparent; color: #c5d8f5; border: 1px solid #3d5a8a; border-radius: 6px; padding: 5px 14px; cursor: pointer; }
+.navbar .tab.active { background: #fff; color: #1a3a6b; border-color: #fff; }
+
+/* ── Layout & panels ─────────────────────────────────────────────────────── */
 .layout { max-width: 1200px; margin: 0 auto; padding: 16px; }
 .grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .panel { background: #fff; border: 1px solid #d9dde3; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.between { justify-content: space-between; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
 button { border: 1px solid #2f6fed; background: #2f6fed; color: #fff; border-radius: 6px; padding: 8px 12px; cursor: pointer; }
 button.secondary { background: #fff; color: #2f6fed; }
 button.danger { border-color: #cc2e2e; background: #cc2e2e; }
 button.link { display: flex; flex-direction: column; align-items: flex-start; border: 0; background: transparent; color: #202124; padding: 0; }
+button.sm { padding: 5px 10px; font-size: 0.85em; }
+button.secondary.sm { border-color: #3d5a8a; color: #c5d8f5; background: transparent; }
+button.secondary.sm:hover { background: rgba(255,255,255,0.1); }
+
+/* ── Forms ───────────────────────────────────────────────────────────────── */
 label { display: block; margin-bottom: 10px; }
 input, textarea { width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #c5cad3; border-radius: 6px; }
+select { width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #c5cad3; border-radius: 6px; }
+
+/* ── Entry list ──────────────────────────────────────────────────────────── */
 .entry-list { list-style: none; padding: 0; margin: 0; }
 .entry-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-top: 1px solid #eceff3; }
 .entry-list li.selected { background: #f1f6ff; }
+
+/* ── Misc ────────────────────────────────────────────────────────────────── */
 .error { color: #a31515; }
 .tags { color: #555; }
 .meta { font-size: 0.8em; color: #666; }
-.tabs { display: flex; gap: 4px; }
-.tab { background: #fff; color: #2f6fed; border: 1px solid #c5cad3; border-radius: 6px; padding: 6px 12px; cursor: pointer; }
-.tab.active { background: #2f6fed; color: #fff; border-color: #2f6fed; }
-select { width: 100%; margin-top: 4px; padding: 8px; border: 1px solid #c5cad3; border-radius: 6px; }
-@media (max-width: 900px) { .grid.two { grid-template-columns: 1fr; } }
+
+@media (max-width: 900px) {
+  .grid.two { grid-template-columns: 1fr; }
+  .navbar { padding: 0 12px; }
+  .navbar-user { display: none; }
+}

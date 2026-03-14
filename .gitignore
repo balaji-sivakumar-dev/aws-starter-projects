@@ -1,3 +1,6 @@
+# Claude Code memory (local AI context — not project source)
+.claude/
+
 # macOS / OS noise
 .DS_Store
 Thumbs.db
