@@ -6,7 +6,7 @@
 #
 # Usage:
 #   chmod +x scripts/setup/step-4a-deploy-web-to-s3.sh
-#   AWS_PROFILE=journal-dev ./scripts/setup/step-4a-deploy-web-to-s3.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/setup/step-4a-deploy-web-to-s3.sh dev
 
 set -euo pipefail
 

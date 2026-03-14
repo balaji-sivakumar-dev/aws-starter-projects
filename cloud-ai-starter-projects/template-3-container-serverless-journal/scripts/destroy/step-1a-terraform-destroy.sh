@@ -10,7 +10,7 @@
 #
 # Usage:
 #   chmod +x scripts/destroy/step-1a-terraform-destroy.sh
-#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1a-terraform-destroy.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1a-terraform-destroy.sh dev
 
 set -euo pipefail
 

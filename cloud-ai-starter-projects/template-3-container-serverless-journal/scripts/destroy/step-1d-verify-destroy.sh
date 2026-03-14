@@ -6,7 +6,7 @@
 #
 # Usage:
 #   chmod +x scripts/destroy/step-1d-verify-destroy.sh
-#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1d-verify-destroy.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1d-verify-destroy.sh dev
 
 set -euo pipefail
 

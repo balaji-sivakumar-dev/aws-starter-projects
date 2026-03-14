@@ -9,7 +9,7 @@
 #
 # Usage:
 #   chmod +x scripts/destroy/step-1b-delete-ecr-repo.sh
-#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1b-delete-ecr-repo.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/destroy/step-1b-delete-ecr-repo.sh dev
 
 set -euo pipefail
 

@@ -7,7 +7,7 @@
 #
 # Usage:
 #   chmod +x scripts/setup/step-3a-terraform-apply.sh
-#   AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
 
 set -euo pipefail
 

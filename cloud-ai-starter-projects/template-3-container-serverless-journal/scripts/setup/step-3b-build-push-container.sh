@@ -17,7 +17,7 @@
 #
 # Usage:
 #   chmod +x scripts/setup/step-3b-build-push-container.sh
-#   AWS_PROFILE=journal-dev ./scripts/setup/step-3b-build-push-container.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/setup/step-3b-build-push-container.sh dev
 #
 # Optional env vars:
 #   REGION            — AWS region (default: us-east-1)

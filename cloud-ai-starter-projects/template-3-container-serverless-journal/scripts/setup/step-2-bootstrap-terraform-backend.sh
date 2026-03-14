@@ -5,7 +5,7 @@
 #
 # Usage:
 #   chmod +x scripts/setup/step-2-bootstrap-terraform-backend.sh
-#   AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh [dev]
+#   AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh dev
 
 set -euo pipefail
 
