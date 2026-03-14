@@ -45,7 +45,7 @@ if [ ! -f "${BACKEND_FILE}" ]; then
 fi
 
 # ── Auto-generate cognito_domain_prefix if empty ──────────────────────────────
-COGNITO_PREFIX_CURRENT="$(grep -E '^cognito_domain_prefix' "${VAR_FILE}" | sed 's/.*=\s*"\([^"]*\)".*/\1/' || echo "")"
+COGNITO_PREFIX_CURRENT="$(grep -E '^cognito_domain_prefix' "${VAR_FILE}" | sed 's/.*=[[:space:]]*"\([^"]*\)".*/\1/' || echo "")"
 
 if [[ -z "${COGNITO_PREFIX_CURRENT}" || "${COGNITO_PREFIX_CURRENT}" == *"change-me"* ]]; then
   # openssl rand -hex 6 → 12 lowercase hex chars (cryptographically random, globally unique)
@@ -59,11 +59,11 @@ if [[ -z "${COGNITO_PREFIX_CURRENT}" || "${COGNITO_PREFIX_CURRENT}" == *"change-
 fi
 
 # ── Detect compute_mode from tfvars ──────────────────────────────────────────
-COMPUTE_MODE="$(grep -E '^compute_mode' "${VAR_FILE}" | sed 's/.*=\s*"\(.*\)".*/\1/' || echo "serverless")"
+COMPUTE_MODE="$(grep -E '^compute_mode' "${VAR_FILE}" | sed 's/.*=[[:space:]]*"\([^"]*\)".*/\1/' || echo "serverless")"
 echo "Compute mode: ${COMPUTE_MODE}"
 
 if [ "${COMPUTE_MODE}" = "container" ] || [ "${COMPUTE_MODE}" = "hybrid" ]; then
-  CONTAINER_URI="$(grep -E '^container_image_uri' "${VAR_FILE}" | sed 's/.*=\s*"\(.*\)".*/\1/' || echo "")"
+  CONTAINER_URI="$(grep -E '^container_image_uri' "${VAR_FILE}" | sed 's/.*=[[:space:]]*"\([^"]*\)".*/\1/' || echo "")"
   if [ -z "${CONTAINER_URI}" ]; then
     echo
     echo "WARN: compute_mode=${COMPUTE_MODE} but container_image_uri is empty in ${VAR_FILE}"

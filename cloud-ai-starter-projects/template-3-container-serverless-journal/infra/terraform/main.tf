@@ -18,13 +18,13 @@ locals {
 
   # Hybrid mode keeps contract stable by splitting ownership of routes.
   # Lambda handles core CRUD and container handles AI enqueue endpoint.
-  lambda_route_keys = var.compute_mode == "hybrid"
+  lambda_route_keys = (var.compute_mode == "hybrid"
     ? toset(["health", "me", "list_entries", "create_entry", "get_entry", "update_entry", "delete_entry"])
-    : (var.compute_mode == "serverless" ? toset(keys(local.api_routes)) : toset([]))
+    : (var.compute_mode == "serverless" ? toset(keys(local.api_routes)) : toset([])))
 
-  container_route_keys = var.compute_mode == "hybrid"
+  container_route_keys = (var.compute_mode == "hybrid"
     ? toset(["enqueue_ai"])
-    : (var.compute_mode == "container" ? toset(keys(local.api_routes)) : toset([]))
+    : (var.compute_mode == "container" ? toset(keys(local.api_routes)) : toset([])))
 }
 
 module "auth" {

@@ -12,8 +12,7 @@ terraform {
     }
   }
 
-  # Remote backend placeholder; local backend default for first run.
-  # backend "s3" {}
+  backend "s3" {}
 }
 
 provider "aws" {
