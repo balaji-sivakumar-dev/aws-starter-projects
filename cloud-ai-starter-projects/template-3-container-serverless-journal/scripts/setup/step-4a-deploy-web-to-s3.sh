@@ -41,7 +41,7 @@ SITE_URL="$(terraform output -raw site_url 2>/dev/null || echo "")"
 API_BASE_URL="$(terraform output -raw api_base_url 2>/dev/null || echo "")"
 COGNITO_DOMAIN="$(terraform output -raw cognito_domain 2>/dev/null || echo "")"
 COGNITO_CLIENT_ID="$(terraform output -raw cognito_client_id 2>/dev/null || echo "")"
-CF_DISTRIBUTION_ID="$(terraform output -raw web_cloudfront_distribution_id 2>/dev/null || echo "")"
+CF_DISTRIBUTION_ID="$(terraform output -raw cloudfront_distribution_id 2>/dev/null || echo "")"
 
 popd >/dev/null
 

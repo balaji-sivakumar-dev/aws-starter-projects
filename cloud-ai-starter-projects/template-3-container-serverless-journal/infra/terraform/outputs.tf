@@ -37,3 +37,8 @@ output "container_service_url" {
   value       = local.use_container_api ? module.compute_container[0].service_url : null
   description = "Container API URL when container mode is enabled"
 }
+
+output "cloudfront_distribution_id" {
+  value       = module.web_hosting.cloudfront_distribution_id
+  description = "CloudFront distribution ID for cache invalidation"
+}
