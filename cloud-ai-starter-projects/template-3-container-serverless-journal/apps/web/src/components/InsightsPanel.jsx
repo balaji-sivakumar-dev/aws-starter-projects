@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 const PERIODS = ["weekly", "monthly", "yearly"];
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 function GenerateForm({ onGenerate, loading }) {
   const now = new Date();
@@ -18,52 +19,68 @@ function GenerateForm({ onGenerate, loading }) {
   }
 
   return (
-    <form className="panel" onSubmit={handleSubmit}>
-      <h3>Generate Summary</h3>
-      <label>
-        Period
-        <select value={period} onChange={(e) => setPeriod(e.target.value)}>
-          {PERIODS.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-      </label>
-      <label>
-        Year
-        <input type="number" value={year} min={2000} max={2100} onChange={(e) => setYear(e.target.value)} />
-      </label>
-      {period === "monthly" && (
+    <div className="card">
+      <div className="section-title">Generate Summary</div>
+      <form onSubmit={handleSubmit}>
         <label>
-          Month (1–12)
-          <input type="number" value={month} min={1} max={12} onChange={(e) => setMonth(e.target.value)} />
+          Period
+          <select value={period} onChange={(e) => setPeriod(e.target.value)}>
+            {PERIODS.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+          </select>
         </label>
-      )}
-      {period === "weekly" && (
-        <label>
-          ISO Week
-          <input type="number" value={week} min={1} max={53} onChange={(e) => setWeek(e.target.value)} />
-        </label>
-      )}
-      <button type="submit" disabled={loading}>
-        {loading ? "Generating…" : "Generate"}
-      </button>
-    </form>
+        <div className="form-row">
+          <label>
+            Year
+            <input type="number" value={year} min={2000} max={2100} onChange={(e) => setYear(e.target.value)} />
+          </label>
+          {period === "monthly" && (
+            <label>
+              Month
+              <select value={month} onChange={(e) => setMonth(e.target.value)}>
+                {MONTHS.map((m, i) => <option key={i + 1} value={i + 1}>{m}</option>)}
+              </select>
+            </label>
+          )}
+          {period === "weekly" && (
+            <label>
+              ISO Week
+              <input type="number" value={week} min={1} max={53} onChange={(e) => setWeek(e.target.value)} />
+            </label>
+          )}
+        </div>
+        <button type="submit" className="btn-ai" disabled={loading} style={{ width: "100%", marginTop: "4px" }}>
+          {loading ? "Generating…" : "✦ Generate AI Summary"}
+        </button>
+      </form>
+    </div>
   );
 }
 
 function SummaryList({ summaries, selectedId, onSelect, onDelete, loading }) {
   if (!summaries.length) {
-    return <div className="panel"><p>No summaries yet. Generate one above.</p></div>;
+    return (
+      <div className="empty-state">
+        <div className="empty-state-icon">✦</div>
+        <div className="empty-state-text">No summaries yet.<br />Generate one above.</div>
+      </div>
+    );
   }
   return (
-    <div className="panel">
-      <h3>Summaries</h3>
-      <ul className="entry-list">
+    <div className="card">
+      <div className="section-title">Summaries</div>
+      <ul className="summary-list">
         {summaries.map((s) => (
-          <li key={s.summaryId} className={s.summaryId === selectedId ? "selected" : ""}>
-            <button className="link" onClick={() => onSelect(s)}>
-              <strong>{s.periodLabel}</strong>
-              <span className="meta">{s.period} · {s.aiStatus}</span>
-            </button>
-            <button className="danger" disabled={loading} onClick={() => onDelete(s.summaryId)}>
+          <li key={s.summaryId} className={`summary-item${s.summaryId === selectedId ? " selected" : ""}`} onClick={() => onSelect(s)}>
+            <div>
+              <div className="summary-item-label">{s.periodLabel}</div>
+              <div className="summary-item-meta">{s.period} · {s.aiStatus}</div>
+            </div>
+            <button
+              className="btn-ghost"
+              style={{ fontSize: "0.75rem", padding: "3px 8px", color: "var(--red)", borderColor: "var(--red-light)" }}
+              disabled={loading}
+              onClick={(e) => { e.stopPropagation(); onDelete(s.summaryId); }}
+            >
               Delete
             </button>
           </li>
@@ -75,58 +92,67 @@ function SummaryList({ summaries, selectedId, onSelect, onDelete, loading }) {
 
 function SummaryDetail({ summary, onRegenerate, loading }) {
   if (!summary) {
-    return <div className="panel"><p>Select a summary to view details.</p></div>;
+    return (
+      <div className="empty-state" style={{ marginTop: "40px" }}>
+        <div className="empty-state-icon">📊</div>
+        <div className="empty-state-text">Select a summary to view its insights</div>
+      </div>
+    );
   }
 
   return (
-    <div className="panel">
-      <div className="row between">
-        <h2>{summary.periodLabel}</h2>
-        <button className="secondary" disabled={loading} onClick={() => onRegenerate(summary.summaryId)}>
-          {loading ? "Regenerating…" : "Regenerate"}
+    <div className="card">
+      <div className="insight-card-header">
+        <h2 className="insight-period-title">{summary.periodLabel}</h2>
+        <button className="btn-ai" disabled={loading} onClick={() => onRegenerate(summary.summaryId)}>
+          {loading ? "…" : "↻ Regenerate"}
         </button>
       </div>
 
-      <p><strong>Period:</strong> {summary.period} · <strong>Status:</strong> {summary.aiStatus}</p>
-      <p><strong>Entries analysed:</strong> {summary.entryCount}</p>
-      <p><strong>Date range:</strong> {summary.startDate} → {summary.endDate}</p>
+      <div className="insight-meta-row">
+        <span>📅 {summary.startDate} → {summary.endDate}</span>
+        <span>📝 {summary.entryCount} entries</span>
+        <span>Status: {summary.aiStatus}</span>
+      </div>
 
       {summary.aiStatus === "ERROR" && (
-        <p className="error">AI error: {summary.aiError}</p>
-      )}
-
-      {summary.narrative && (
-        <>
-          <h3>Narrative</h3>
-          <p style={{ whiteSpace: "pre-wrap" }}>{summary.narrative}</p>
-        </>
+        <div className="error-text" style={{ marginBottom: "14px" }}>AI error: {summary.aiError}</div>
       )}
 
       {summary.mood && (
-        <p><strong>Overall mood:</strong> {summary.mood}</p>
+        <div className="insight-mood">🌡 Mood: {summary.mood}</div>
+      )}
+
+      {summary.narrative && (
+        <div className="insight-section">
+          <div className="insight-section-label">Narrative</div>
+          <div className="insight-narrative">{summary.narrative}</div>
+        </div>
       )}
 
       {summary.themes?.length > 0 && (
-        <>
-          <h3>Themes</h3>
-          <p className="tags">{summary.themes.join(" · ")}</p>
-        </>
+        <div className="insight-section">
+          <div className="insight-section-label">Themes</div>
+          <div className="insight-themes">
+            {summary.themes.map((t, i) => <span key={i} className="insight-theme">{t}</span>)}
+          </div>
+        </div>
       )}
 
       {summary.highlights?.length > 0 && (
-        <>
-          <h3>Highlights</h3>
-          <ul>
+        <div className="insight-section">
+          <div className="insight-section-label">Highlights</div>
+          <ul className="insight-highlights">
             {summary.highlights.map((h, i) => <li key={i}>{h}</li>)}
           </ul>
-        </>
+        </div>
       )}
 
       {summary.reflection && (
-        <>
-          <h3>Reflection</h3>
-          <p><em>{summary.reflection}</em></p>
-        </>
+        <div className="insight-section">
+          <div className="insight-section-label">Reflection</div>
+          <div className="insight-reflection">{summary.reflection}</div>
+        </div>
       )}
     </div>
   );
@@ -134,31 +160,21 @@ function SummaryDetail({ summary, onRegenerate, loading }) {
 
 export default function InsightsPanel({ insights }) {
   const { loading, error, summaries, selected, load, select, generate, remove, regenerate } = insights;
-
   useEffect(() => { load(); }, [load]);
 
   return (
-    <section className="grid two">
+    <div className="insights-layout">
       <div>
         <GenerateForm onGenerate={generate} loading={loading} />
-        <SummaryList
-          summaries={summaries}
-          selectedId={selected?.summaryId}
-          onSelect={select}
-          onDelete={remove}
-          loading={loading}
-        />
+        {error && <div className="error-text" style={{ marginBottom: "12px" }}>{error}</div>}
+        <SummaryList summaries={summaries} selectedId={selected?.summaryId} onSelect={select} onDelete={remove} loading={loading} />
       </div>
-      <div>
-        {error && <div className="panel error">{error}</div>}
-        <SummaryDetail summary={selected} onRegenerate={regenerate} loading={loading} />
-      </div>
-    </section>
+      <SummaryDetail summary={selected} onRegenerate={regenerate} loading={loading} />
+    </div>
   );
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-
 function getISOWeek(d) {
   const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
   date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
