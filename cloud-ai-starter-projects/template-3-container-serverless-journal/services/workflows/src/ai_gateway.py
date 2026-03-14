@@ -1,13 +1,20 @@
 import json
 import os
 import re
+import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Dict
 
 import boto3
 
 TABLE = boto3.resource("dynamodb").Table(os.environ["JOURNAL_TABLE_NAME"])
-BEDROCK = boto3.client("bedrock-runtime")
+
+LLM_PROVIDER    = os.getenv("LLM_PROVIDER", "groq")       # "groq" | "bedrock"
+GROQ_API_KEY    = os.getenv("GROQ_API_KEY", "")
+GROQ_MODEL_ID   = os.getenv("GROQ_MODEL_ID", "llama-3.1-8b-instant")
+BEDROCK_MODEL_ID = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-lite-v1:0")
+MAX_INPUT_CHARS  = int(os.getenv("MAX_INPUT_CHARS", "8000"))
+MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "256"))
 
 
 def now_iso() -> str:
@@ -79,6 +86,51 @@ def normalize_tags(values: Any) -> list[str]:
     return out
 
 
+def call_groq(prompt: str) -> str:
+    if not GROQ_API_KEY:
+        raise ValueError("GROQ_API_KEY is not configured")
+
+    payload = json.dumps({
+        "model": GROQ_MODEL_ID,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": MAX_OUTPUT_TOKENS,
+        "temperature": 0.2,
+    }).encode()
+
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    with urllib.request.urlopen(req, timeout=25) as resp:
+        body = json.loads(resp.read())
+
+    return body["choices"][0]["message"]["content"]
+
+
+def call_bedrock(prompt: str) -> str:
+    bedrock = boto3.client("bedrock-runtime")
+    resp = bedrock.converse(
+        modelId=BEDROCK_MODEL_ID,
+        messages=[{"role": "user", "content": [{"text": prompt}]}],
+        inferenceConfig={"maxTokens": MAX_OUTPUT_TOKENS, "temperature": 0.2},
+    )
+    return str((((resp.get("output") or {}).get("message") or {}).get("content") or [{}])[0].get("text") or "")
+
+
+def invoke_llm(prompt: str) -> str:
+    if LLM_PROVIDER == "groq":
+        return call_groq(prompt)
+    if LLM_PROVIDER == "bedrock":
+        return call_bedrock(prompt)
+    raise ValueError(f"Unknown LLM_PROVIDER: {LLM_PROVIDER!r}. Must be 'groq' or 'bedrock'.")
+
+
 def handler(event, _context):
     user_id = str(event.get("userId") or "").strip()
     entry_id = str(event.get("entryId") or "").strip()
@@ -94,12 +146,8 @@ def handler(event, _context):
     )
 
     try:
-        max_input_chars = int(os.getenv("MAX_INPUT_CHARS", "8000"))
-        max_output_tokens = int(os.getenv("MAX_OUTPUT_TOKENS", "256"))
-        model_id = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-lite-v1:0")
-
         body = str(entry.get("body") or "")
-        if len(body) > max_input_chars:
+        if len(body) > MAX_INPUT_CHARS:
             raise ValueError("entry body exceeds configured size")
 
         prompt = (
@@ -109,13 +157,7 @@ def handler(event, _context):
             f"body: {body}"
         )
 
-        resp = BEDROCK.converse(
-            modelId=model_id,
-            messages=[{"role": "user", "content": [{"text": prompt}]}],
-            inferenceConfig={"maxTokens": max_output_tokens, "temperature": 0.2},
-        )
-
-        text = str((((resp.get("output") or {}).get("message") or {}).get("content") or [{}])[0].get("text") or "")
+        text = invoke_llm(prompt)
         parsed = extract_json(text)
 
         summary = str(parsed.get("summary") or "").strip()[:240]

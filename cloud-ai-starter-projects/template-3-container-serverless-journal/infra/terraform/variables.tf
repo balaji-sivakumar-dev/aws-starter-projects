@@ -71,3 +71,22 @@ variable "ai_enabled" {
   description = "Enable AI enrichment (true/false). Set to true only when an LLM provider is configured."
   default     = "false"
 }
+
+variable "llm_provider" {
+  type        = string
+  description = "LLM provider to use for AI enrichment: 'groq' or 'bedrock'."
+  default     = "groq"
+}
+
+variable "groq_api_key" {
+  type        = string
+  description = "Groq API key. Required when llm_provider = 'groq'."
+  default     = ""
+  sensitive   = true
+}
+
+variable "groq_model_id" {
+  type        = string
+  description = "Groq model ID to use (e.g. llama-3.1-8b-instant, llama-3.3-70b-versatile)."
+  default     = "llama-3.1-8b-instant"
+}

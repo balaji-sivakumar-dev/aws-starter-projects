@@ -61,6 +61,9 @@ resource "aws_lambda_function" "this" {
   environment {
     variables = {
       JOURNAL_TABLE_NAME = var.journal_table_name
+      LLM_PROVIDER       = var.llm_provider
+      GROQ_API_KEY       = var.groq_api_key
+      GROQ_MODEL_ID      = var.groq_model_id
       BEDROCK_MODEL_ID   = var.bedrock_model_id
       MAX_INPUT_CHARS    = "8000"
       MAX_OUTPUT_TOKENS  = "256"
