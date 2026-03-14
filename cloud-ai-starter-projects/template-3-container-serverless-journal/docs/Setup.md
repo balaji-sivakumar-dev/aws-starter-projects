@@ -222,22 +222,150 @@ python3.11 -m venv .venv
 
 ---
 
-## AWS deployment (Phase 4 — planned)
+## AWS deployment
 
-The same API image deploys to ECS/Fargate or Lambda without changing business logic. Terraform modules are in `infra/terraform/`.
+Terraform modules are in `infra/terraform/`. Setup and destroy scripts are in `scripts/`.
 
-Target stack:
+**AWS stack**
 
 | Layer | AWS service |
 |-------|-------------|
-| Web   | S3 + CloudFront |
-| API   | ECS/Fargate (Docker) **or** Lambda (Mangum or direct handler) |
+| Web   | S3 + optional CloudFront |
+| API   | AWS Lambda **or** App Runner (Docker) — controlled by `compute_mode` |
 | DB    | DynamoDB on-demand |
-| Auth  | Cognito PKCE — set `APP_ENV=production` and `COGNITO_ISSUER` |
+| Auth  | Cognito (PKCE) |
+| AI    | Bedrock (Nova Lite default) via Step Functions + Lambda |
 
-Steps (when ready):
-1. `aws configure --profile template3-dev`
-2. Configure `infra/terraform/environments/dev/dev.tfvars`
-3. `terraform init && terraform apply -var-file=environments/dev/dev.tfvars`
-4. Build and push API image to ECR
-5. Set `VITE_AUTH_MODE=cognito` + Cognito env vars, rebuild the web image
+**Compute modes** (set in `dev.tfvars`):
+
+| `compute_mode` | API runtime | Use when |
+|----------------|-------------|----------|
+| `serverless`   | Lambda + API Gateway | Default — cheapest, no cold-start issues at low traffic |
+| `container`    | App Runner (ECR image) | Need container-specific deps, long-lived connections |
+| `hybrid`       | Lambda for CRUD, App Runner for AI | Gradual migration / A/B |
+
+---
+
+### Setup — step by step
+
+All scripts run from the **repo root**. Set `AWS_PROFILE=journal-dev` in your shell first (see step 1).
+
+**Step 1 — Configure AWS CLI** (one-time per machine)
+
+```bash
+# Follow the instructions in:
+cat scripts/setup/step-1-aws-configure.md
+```
+
+```bash
+aws configure --profile journal-dev
+export AWS_PROFILE=journal-dev
+aws sts get-caller-identity   # verify
+```
+
+**Step 2 — Bootstrap Terraform backend** (one-time per account)
+
+Creates the S3 state bucket and DynamoDB lock table, then writes `infra/terraform/backend.dev.tfbackend`.
+
+```bash
+./scripts/setup/step-2-bootstrap-terraform-backend.sh dev
+```
+
+Optional overrides:
+```bash
+REGION=eu-west-1 PROJECT_PREFIX=myapp ./scripts/setup/step-2-bootstrap-terraform-backend.sh dev
+```
+
+**Step 3 — Configure tfvars**
+
+```bash
+cp infra/terraform/environments/dev/dev.tfvars.example \
+   infra/terraform/environments/dev/dev.tfvars
+# Edit the file — at minimum set cognito_domain_prefix to something unique
+```
+
+**Step 3A — Terraform apply** (serverless mode — no container needed)
+
+```bash
+./scripts/setup/step-3a-terraform-apply.sh dev
+```
+
+Runs `terraform init → plan → apply`, then writes `apps/web/.env` with the API URL and Cognito config.
+
+**Step 3B — Build + push Docker image** (container / hybrid mode only)
+
+```bash
+./scripts/setup/step-3b-build-push-container.sh dev
+# Prints the full ECR image URI at the end
+```
+
+Then update `dev.tfvars`:
+```hcl
+compute_mode        = "container"   # or "hybrid"
+container_image_uri = "123456789.dkr.ecr.us-east-1.amazonaws.com/journal-dev-api:latest"
+```
+
+Then re-run step 3A:
+```bash
+./scripts/setup/step-3a-terraform-apply.sh dev
+```
+
+**Step 4 — Deploy web app to S3**
+
+```bash
+./scripts/setup/step-4a-deploy-web-to-s3.sh dev
+```
+
+Reads Terraform outputs, writes `apps/web/.env`, runs `npm build`, syncs to S3, and invalidates CloudFront.
+
+---
+
+### Tear down — step by step
+
+**Step 1A — Destroy Terraform resources**
+
+```bash
+./scripts/destroy/step-1a-terraform-destroy.sh dev
+```
+
+Destroys all Terraform-managed resources (Lambda, App Runner, DynamoDB, Cognito, S3 web bucket, API Gateway, IAM roles).
+
+**Step 1B — Delete ECR repository** (container / hybrid mode only)
+
+The ECR repo is managed outside Terraform. Delete it separately:
+
+```bash
+./scripts/destroy/step-1b-delete-ecr-repo.sh dev
+```
+
+**Step 1C — Delete Terraform backend** (optional — permanent state loss)
+
+```bash
+./scripts/destroy/step-1c-delete-terraform-backend.sh
+```
+
+Deletes the S3 state bucket and DynamoDB lock table. Requires typing `DELETE` to confirm.
+
+**Step 1D — Verify everything is gone**
+
+```bash
+./scripts/destroy/step-1d-verify-destroy.sh dev
+```
+
+Checks: S3 buckets, DynamoDB tables, Cognito pool, Lambda functions, App Runner service, ECR repo, CloudFront.
+
+---
+
+### Seed data to AWS DynamoDB
+
+After deployment, run the seed script against the real table:
+
+```bash
+# Install boto3 if needed
+pip install boto3
+
+DYNAMODB_ENDPOINT="" \
+AWS_DEFAULT_REGION=us-east-1 \
+JOURNAL_TABLE_NAME=journal-dev-journal \
+  python3 scripts/seed_data.py
+```
