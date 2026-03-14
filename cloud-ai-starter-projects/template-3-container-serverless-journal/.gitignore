@@ -1,17 +1,30 @@
-# Terraform
-**/.terraform/
-**/.terraform.lock.hcl
-*.tfstate
-*.tfstate.*
-
-# Node
-node_modules/
-build/
-dist/
-.env
-!.env.example
-
 # Python
 __pycache__/
-.pytest_cache/
+*.pyc
+*.pyo
 .venv/
+venv/
+.env
+
+# Node / React
+node_modules/
+dist/
+.env.local
+
+# Docker
+.env           # real secrets — never commit
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# Local test scripts with real credentials (copy from *.example, never commit)
+*.local
+scripts/test_groq_local.sh
+
+# macOS
+.DS_Store

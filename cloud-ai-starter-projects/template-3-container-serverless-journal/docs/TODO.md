@@ -1,19 +1,5 @@
-# Template 3 TODO (Manual Setup + Validation)
+Check two other items in parallel and capture the outcome and detailed analysis as a document in docs folder .
 
-## Infrastructure
-- [ ] Fill `dev.tfvars` and choose compute mode.
-- [ ] Terraform init/plan/apply succeeds.
-- [ ] Capture outputs for API and Cognito.
+1. If we want to use a RAG app and want to test locally as well as in cloud, how can we test it. for this journal APP, where a user can collect their ideas, do we need to store this in Rag so that user can ask quesitons about anything that was logged in the past for better insights ? 
+2. Like i mentioned t his will be a template app. if i want to build another app and use this as a bootstrap application, how can we configure this and what is the best approach. is that possible?
 
-## Container Mode
-- [ ] Build and push container image to ECR.
-- [ ] Set `container_image_uri` and re-apply Terraform.
-- [ ] Verify App Runner health and API edge integration.
-
-## Web
-- [ ] Configure `apps/web/.env` from Terraform outputs.
-- [ ] Run web app locally and verify auth flow.
-
-## Validation
-- [ ] Run full runbook smoke tests for selected mode.
-- [ ] If hybrid mode, test both lambda and container paths.

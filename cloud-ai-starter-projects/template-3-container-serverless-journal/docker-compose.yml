@@ -1,0 +1,55 @@
+services:
+
+  # ── DynamoDB local ──────────────────────────────────────────────────────────
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    container_name: t3-dynamodb
+    # -inMemory: no SQLite file needed — avoids volume permission issues.
+    # The API auto-creates the table on startup so data loss on restart is fine
+    # for local dev.  Switch to -dbPath /data (+ a writable volume) if you
+    # want persistence between docker compose restarts.
+    command: "-jar DynamoDBLocal.jar -inMemory -sharedDb"
+    ports:
+      - "8000:8000"          # exposed for GUI tools (NoSQLWorkbench etc.)
+    healthcheck:
+      # dynamodb-local image has no curl/wget — use bash TCP built-in
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8000 && echo -e 'GET / HTTP/1.0\\r\\n\\r\\n' >&3 && cat <&3 | grep -q 'HTTP'"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  # ── Python FastAPI ──────────────────────────────────────────────────────────
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    container_name: t3-api
+    environment:
+      APP_ENV: local
+      JOURNAL_TABLE_NAME: journal
+      DYNAMODB_ENDPOINT: http://dynamodb-local:8000
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      AWS_DEFAULT_REGION: us-east-1
+    ports:
+      - "8080:8080"          # exposed so you can hit the API directly / swagger
+    depends_on:
+      dynamodb-local:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── React + Nginx ───────────────────────────────────────────────────────────
+  web:
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: /api      # Nginx proxies /api/* → api:8080
+        VITE_AUTH_MODE: local
+        VITE_LOCAL_USER_ID: dev-user
+    container_name: t3-web
+    ports:
+      - "3000:80"
+    depends_on:
+      - api

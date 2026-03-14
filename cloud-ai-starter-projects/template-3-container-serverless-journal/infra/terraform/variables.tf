@@ -59,3 +59,27 @@ variable "bedrock_model_id" {
   type    = string
   default = "amazon.nova-lite-v1:0"
 }
+
+variable "cors_allow_origins" {
+  type        = list(string)
+  description = "CORS allowed origins for the API Gateway. API GW v2 only accepts exact URLs or \"*\" (no wildcards). Security is enforced by JWT authorizer, not CORS."
+  default     = ["*"]
+}
+
+variable "ai_enabled" {
+  type        = string
+  description = "Enable AI enrichment (true/false). Set to true only when an LLM provider is configured."
+  default     = "false"
+}
+
+variable "llm_provider" {
+  type        = string
+  description = "LLM provider to use for AI enrichment: 'groq' or 'bedrock'."
+  default     = "groq"
+}
+
+variable "groq_model_id" {
+  type        = string
+  description = "Groq model ID to use (e.g. llama-3.1-8b-instant, llama-3.3-70b-versatile)."
+  default     = "llama-3.1-8b-instant"
+}

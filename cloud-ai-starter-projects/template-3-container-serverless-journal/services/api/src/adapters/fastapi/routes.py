@@ -1,0 +1,135 @@
+"""
+FastAPI route handlers — thin layer that delegates all business logic to core/handlers.py.
+
+Pattern:
+  1. Parse / validate HTTP inputs (FastAPI does most of this via Pydantic)
+  2. Call the corresponding core handler
+  3. Catch AppError → HTTPException
+  4. Return response dict
+"""
+
+import uuid
+from typing import Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+
+from ...core import handlers
+from ...core.models import (
+    AppError,
+    CreateEntryRequest,
+    ListEntriesResponse,
+    SingleEntryResponse,
+    UpdateEntryRequest,
+)
+from .deps import get_current_user
+
+router = APIRouter()
+
+
+def _rid(request: Request) -> str:
+    return request.headers.get("x-request-id", str(uuid.uuid4()))
+
+
+def _http(err: AppError) -> HTTPException:
+    return HTTPException(
+        status_code=err.status,
+        detail={"code": err.code, "message": err.message},
+    )
+
+
+# ── Health ────────────────────────────────────────────────────────────────────
+
+@router.get("/health", tags=["ops"])
+def health():
+    return handlers.health()
+
+
+# ── Identity ──────────────────────────────────────────────────────────────────
+
+@router.get("/me", tags=["auth"])
+def me(request: Request, user_id: str = Depends(get_current_user)):
+    return {**handlers.me(user_id), "requestId": _rid(request)}
+
+
+# ── Entries ───────────────────────────────────────────────────────────────────
+
+@router.get("/entries", response_model=ListEntriesResponse, tags=["entries"])
+def list_entries(
+    request: Request,
+    limit: int = Query(default=20, ge=1, le=100),
+    nextToken: Optional[str] = Query(default=None),
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        items, next_tok = handlers.list_entries(user_id, limit, nextToken)
+    except AppError as exc:
+        raise _http(exc)
+    return {"items": items, "nextToken": next_tok, "requestId": _rid(request)}
+
+
+@router.post("/entries", response_model=SingleEntryResponse, status_code=201, tags=["entries"])
+def create_entry(
+    body: CreateEntryRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        item = handlers.create_entry(user_id, body.title, body.body)
+    except AppError as exc:
+        raise _http(exc)
+    return {"item": item, "requestId": _rid(request)}
+
+
+@router.get("/entries/{entry_id}", response_model=SingleEntryResponse, tags=["entries"])
+def get_entry(
+    entry_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        item = handlers.get_entry(user_id, entry_id)
+    except AppError as exc:
+        raise _http(exc)
+    return {"item": item, "requestId": _rid(request)}
+
+
+@router.put("/entries/{entry_id}", response_model=SingleEntryResponse, tags=["entries"])
+def update_entry(
+    entry_id: str,
+    body: UpdateEntryRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        item = handlers.update_entry(user_id, entry_id, body.title, body.body)
+    except AppError as exc:
+        raise _http(exc)
+    return {"item": item, "requestId": _rid(request)}
+
+
+@router.delete("/entries/{entry_id}", tags=["entries"])
+def delete_entry(
+    entry_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        handlers.delete_entry(user_id, entry_id)
+    except AppError as exc:
+        raise _http(exc)
+    return {"deleted": True, "requestId": _rid(request)}
+
+
+# ── AI ────────────────────────────────────────────────────────────────────────
+
+@router.post("/entries/{entry_id}/ai", status_code=202, tags=["ai"])
+def trigger_ai(
+    entry_id: str,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        result = handlers.trigger_ai(user_id, entry_id)
+    except AppError as exc:
+        raise _http(exc)
+    return {**result, "requestId": _rid(request)}

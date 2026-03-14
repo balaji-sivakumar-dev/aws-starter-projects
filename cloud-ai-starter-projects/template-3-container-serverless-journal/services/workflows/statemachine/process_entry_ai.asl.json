@@ -6,9 +6,19 @@
       "Type": "Choice",
       "Choices": [
         {
+          "Comment": "Entry AI enrichment",
           "And": [
             { "Variable": "$.userId", "IsPresent": true },
             { "Variable": "$.entryId", "IsPresent": true },
+            { "Variable": "$.requestId", "IsPresent": true }
+          ],
+          "Next": "InvokeAIGateway"
+        },
+        {
+          "Comment": "Period summary generation",
+          "And": [
+            { "Variable": "$.userId", "IsPresent": true },
+            { "Variable": "$.summaryId", "IsPresent": true },
             { "Variable": "$.requestId", "IsPresent": true }
           ],
           "Next": "InvokeAIGateway"

@@ -48,3 +48,29 @@ resource "aws_sfn_state_machine" "this" {
     log_destination        = "${aws_cloudwatch_log_group.this.arn}:*"
   }
 }
+
+resource "aws_iam_role_policy" "states_logs" {
+  name = "${var.app_prefix}-${var.env}-states-logs"
+  role = aws_iam_role.states.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogDelivery",
+          "logs:GetLogDelivery",
+          "logs:UpdateLogDelivery",
+          "logs:DeleteLogDelivery",
+          "logs:ListLogDeliveries",
+          "logs:PutLogEvents",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
+          "logs:DescribeLogGroups"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}

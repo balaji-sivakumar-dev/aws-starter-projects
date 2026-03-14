@@ -1,100 +1,182 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { handleCallback, isAuthed, login, logout } from "./auth/auth";
-import { missingConfig } from "./config";
+import { getIdTokenClaims, handleCallback, isAuthed, login, logout, userEmail } from "./auth/auth";
+import { isLocalMode, missingConfig } from "./config";
+import Dashboard from "./components/Dashboard";
 import EntryDetail from "./components/EntryDetail";
 import EntryForm from "./components/EntryForm";
 import EntryList from "./components/EntryList";
-import ProfileCard from "./components/ProfileCard";
+import InsightsPanel from "./components/InsightsPanel";
+import { useInsights } from "./state/useInsights";
 import { useJournal } from "./state/useJournal";
+
+function initials(str) {
+  if (!str) return "?";
+  if (str.includes("@")) {
+    return str.split("@")[0].slice(0, 2).toUpperCase();
+  }
+  return str.split(/[\s._@-]+/).map((w) => w[0]).join("").toUpperCase().slice(0, 2) || "?";
+}
 
 export default function App() {
   const missing = useMemo(() => missingConfig(), []);
   const [authError, setAuthError] = useState("");
+  const [tab, setTab] = useState("home");
   const app = useJournal();
+  const insights = useInsights();
+
+  // id_token carries email + given_name; access token does not
+  const idClaims = getIdTokenClaims();
+  const email = idClaims?.email || app.me?.email || null;
+  const givenName = idClaims?.given_name || null;
+  const displayName = email || app.me?.username || "User";
 
   useEffect(() => {
     (async () => {
       if (window.location.pathname === "/callback") {
-        try {
-          await handleCallback();
-        } catch (err) {
-          setAuthError(err.message || "Login callback failed");
-        }
+        try { await handleCallback(); }
+        catch (err) { setAuthError(err.message || "Login callback failed"); return; }
       }
-      if (isAuthed()) {
-        await app.bootstrap();
-      }
+      if (isAuthed()) await app.bootstrap();
     })();
   }, []);
 
+  // ── Missing config ────────────────────────────────────────────────────────
   if (missing.length) {
     return (
-      <main className="layout">
-        <div className="panel">
-          <h1>Template 3 Journal</h1>
-          <p>Missing configuration:</p>
-          <ul>{missing.map((m) => <li key={m}>{m}</li>)}</ul>
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-logo">◆</div>
+          <h1 className="auth-title">Reflect</h1>
+          <p className="auth-subtitle">Missing configuration:</p>
+          <ul style={{ textAlign: "left", marginTop: "8px" }}>
+            {missing.map((m) => <li key={m}><code>{m}</code></li>)}
+          </ul>
         </div>
-      </main>
+      </div>
     );
   }
 
+  // ── Login screen ──────────────────────────────────────────────────────────
   if (!isAuthed()) {
     return (
-      <main className="layout">
-        <div className="panel">
-          <h1>Template 3 Journal</h1>
-          <p>Sign in with Cognito Hosted UI.</p>
-          {authError ? <p className="error">{authError}</p> : null}
-          <button onClick={login}>Login</button>
+      <div className="auth-screen">
+        <div className="auth-card">
+          <div className="auth-logo">◆</div>
+          <h1 className="auth-title">Reflect</h1>
+          <p className="auth-subtitle">Your AI-powered journal</p>
+          {authError && <p className="auth-error">{authError}</p>}
+          <button className="btn-primary full-width" onClick={login}>Sign in</button>
         </div>
-      </main>
+      </div>
     );
   }
 
+  // ── Main app ──────────────────────────────────────────────────────────────
   return (
-    <main className="layout">
-      <header className="panel row between">
-        <h1>Template 3 Journal</h1>
-        <button className="secondary" onClick={() => app.setMode("create")}>New Entry</button>
+    <div className="app">
+
+      {/* ── Top navigation bar ── */}
+      <header className="topnav">
+        <div className="topnav-brand">
+          <span className="brand-logo">◆</span>
+          <span className="brand-name">Reflect</span>
+          {isLocalMode() && <span className="brand-badge">local</span>}
+        </div>
+
+        <nav className="topnav-nav">
+          <button
+            className={`nav-item${tab === "home" ? " active" : ""}`}
+            onClick={() => setTab("home")}
+          >
+            <span className="nav-icon">🏠</span> Home
+          </button>
+          <button
+            className={`nav-item${tab === "journal" ? " active" : ""}`}
+            onClick={() => setTab("journal")}
+          >
+            <span className="nav-icon">📝</span> Journal
+          </button>
+          <button
+            className={`nav-item${tab === "insights" ? " active" : ""}`}
+            onClick={() => setTab("insights")}
+          >
+            <span className="nav-icon">✦</span> Insights
+          </button>
+        </nav>
+
+        <div className="topnav-user">
+          <span className="user-avatar">{initials(email || app.me?.userId)}</span>
+          <span className="user-name">{displayName}</span>
+          <button className="btn-logout" onClick={logout}>Sign out</button>
+        </div>
       </header>
 
-      {app.error ? <div className="panel error">{app.error}</div> : null}
-      {app.loading ? <div className="panel">Loading...</div> : null}
+      {/* ── Content ── */}
+      <main className="content-area">
 
-      <section className="grid two">
-        <div>
-          <ProfileCard me={app.me} onLogout={logout} />
-          <EntryList
-            items={app.entries}
-            selectedId={app.selectedId}
-            onSelect={app.select}
-            onDelete={app.remove}
-            nextToken={app.nextToken}
-            onMore={app.more}
-          />
-        </div>
-
-        <div>
-          {app.mode === "create" ? (
-            <EntryForm submitLabel="Create" onSubmit={app.saveCreate} onCancel={() => app.setMode("detail")} />
-          ) : null}
-
-          {app.mode === "edit" ? (
-            <EntryForm initial={app.selected} submitLabel="Save" onSubmit={app.saveEdit} onCancel={() => app.setMode("detail")} />
-          ) : null}
-
-          {app.mode === "detail" ? (
-            <EntryDetail
-              entry={app.selected}
-              onEdit={() => app.setMode("edit")}
-              onRefresh={app.refresh}
-              onTriggerAi={app.queueAi}
+        {tab === "home" && (
+          <div className="page-view">
+            <Dashboard
+              me={{ ...app.me, email, givenName }}
+              entries={app.entries}
+              summaries={insights.summaries}
+              onLoadInsights={insights.load}
+              onNewEntry={() => { setTab("journal"); app.setMode("create"); }}
+              onViewJournal={(entryId) => {
+                setTab("journal");
+                if (entryId) app.select(entryId);
+              }}
+              onViewInsights={() => setTab("insights")}
             />
-          ) : null}
-        </div>
-      </section>
-    </main>
+          </div>
+        )}
+
+        {tab === "journal" && (
+          <div className="journal-layout">
+            <aside className="journal-panel">
+              <div className="sidebar-list-header">
+                <span className="sidebar-list-title">Entries</span>
+                <button className="btn-new" onClick={() => app.setMode("create")}>+ New</button>
+              </div>
+              {app.error && <div className="sidebar-error">{app.error}</div>}
+              <EntryList
+                items={app.entries}
+                loading={app.loading}
+                selectedId={app.selectedId}
+                onSelect={app.select}
+                onDelete={app.remove}
+                nextToken={app.nextToken}
+                onMore={app.more}
+              />
+            </aside>
+
+            <div className="journal-detail">
+              {app.mode === "create" && (
+                <EntryForm submitLabel="Create Entry" onSubmit={app.saveCreate} onCancel={() => app.setMode("detail")} />
+              )}
+              {app.mode === "edit" && (
+                <EntryForm initial={app.selected} submitLabel="Save Changes" onSubmit={app.saveEdit} onCancel={() => app.setMode("detail")} />
+              )}
+              {app.mode === "detail" && (
+                <EntryDetail
+                  entry={app.selected}
+                  onEdit={() => app.setMode("edit")}
+                  onRefresh={app.refresh}
+                  onTriggerAi={app.queueAi}
+                />
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === "insights" && (
+          <div className="page-view">
+            <InsightsPanel insights={insights} />
+          </div>
+        )}
+
+      </main>
+    </div>
   );
 }

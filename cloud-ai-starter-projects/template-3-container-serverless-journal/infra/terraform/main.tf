@@ -14,17 +14,22 @@ locals {
     update_entry = { route_key = "PUT /entries/{entryId}", authorization = "JWT" }
     delete_entry = { route_key = "DELETE /entries/{entryId}", authorization = "JWT" }
     enqueue_ai = { route_key = "POST /entries/{entryId}/ai", authorization = "JWT" }
+    list_summaries = { route_key = "GET /insights/summaries", authorization = "JWT" }
+    create_summary = { route_key = "POST /insights/summaries", authorization = "JWT" }
+    get_summary = { route_key = "GET /insights/summaries/{summaryId}", authorization = "JWT" }
+    delete_summary = { route_key = "DELETE /insights/summaries/{summaryId}", authorization = "JWT" }
+    regenerate_summary = { route_key = "POST /insights/summaries/{summaryId}/regenerate", authorization = "JWT" }
   }
 
   # Hybrid mode keeps contract stable by splitting ownership of routes.
   # Lambda handles core CRUD and container handles AI enqueue endpoint.
-  lambda_route_keys = var.compute_mode == "hybrid"
+  lambda_route_keys = (var.compute_mode == "hybrid"
     ? toset(["health", "me", "list_entries", "create_entry", "get_entry", "update_entry", "delete_entry"])
-    : (var.compute_mode == "serverless" ? toset(keys(local.api_routes)) : toset([]))
+    : (var.compute_mode == "serverless" ? toset(keys(local.api_routes)) : toset([])))
 
-  container_route_keys = var.compute_mode == "hybrid"
+  container_route_keys = (var.compute_mode == "hybrid"
     ? toset(["enqueue_ai"])
-    : (var.compute_mode == "container" ? toset(keys(local.api_routes)) : toset([]))
+    : (var.compute_mode == "container" ? toset(keys(local.api_routes)) : toset([])))
 }
 
 module "auth" {
@@ -56,6 +61,7 @@ module "compute_lambda" {
   journal_table_arn = module.db.table_arn
   journal_table_name = module.db.table_name
   workflow_arn      = module.workflow.state_machine_arn
+  ai_enabled        = var.ai_enabled
 }
 
 module "ai_gateway" {
@@ -69,6 +75,8 @@ module "ai_gateway" {
   journal_table_arn = module.db.table_arn
   journal_table_name = module.db.table_name
   bedrock_model_id  = var.bedrock_model_id
+  llm_provider      = var.llm_provider
+  groq_model_id     = var.groq_model_id
 }
 
 module "workflow" {
@@ -105,6 +113,7 @@ module "api_edge" {
   env                  = var.env
   jwt_issuer           = "https://cognito-idp.${var.aws_region}.amazonaws.com/${module.auth.user_pool_id}"
   jwt_audience         = [module.auth.user_pool_client_id]
+  cors_allow_origins   = var.cors_allow_origins
 
   lambda_routes = local.use_lambda_api ? {
     for key, route in local.api_routes : key => {

@@ -6,3 +6,11 @@ variable "runtime" { type = string }
 variable "journal_table_arn" { type = string }
 variable "journal_table_name" { type = string }
 variable "bedrock_model_id" { type = string }
+variable "llm_provider" {
+  type    = string
+  default = "groq"
+}
+variable "groq_model_id" {
+  type    = string
+  default = "llama-3.1-8b-instant"
+}
