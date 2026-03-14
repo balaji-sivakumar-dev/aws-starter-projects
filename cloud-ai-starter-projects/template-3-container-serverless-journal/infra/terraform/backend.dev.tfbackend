@@ -1,0 +1,5 @@
+bucket         = "journal-tfstate-138300868816-ca-central-1"
+key            = "template-3/container-serverless-journal/dev/terraform.tfstate"
+region         = "ca-central-1"
+dynamodb_table = "journal-tflock"
+encrypt        = true

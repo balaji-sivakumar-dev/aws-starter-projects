@@ -1,5 +1,13 @@
 # Architecture — Template 3 Containerised Journal
 
+## AWS Architecture Diagram
+
+![Reflect App AWS Architecture](Reflect%20APP%20AWS.drawio.png)
+
+> Source: [`Reflect APP AWS.drawio.xml`](Reflect%20APP%20AWS.drawio.xml) — open in [draw.io](https://app.diagrams.net) to edit. Update this diagram whenever new AWS services are added.
+
+---
+
 ## Overview
 
 Full-stack journal app with AI enrichment. Runs entirely as Docker containers locally; deploys to AWS without changing business logic.
