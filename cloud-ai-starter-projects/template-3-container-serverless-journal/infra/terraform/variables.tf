@@ -62,6 +62,6 @@ variable "bedrock_model_id" {
 
 variable "cors_allow_origins" {
   type        = list(string)
-  description = "CORS allowed origins for the API Gateway (include CloudFront URL + localhost)"
-  default     = ["https://*.cloudfront.net", "http://localhost:5173"]
+  description = "CORS allowed origins for the API Gateway. API GW v2 only accepts exact URLs or \"*\" (no wildcards). Security is enforced by JWT authorizer, not CORS."
+  default     = ["*"]
 }
