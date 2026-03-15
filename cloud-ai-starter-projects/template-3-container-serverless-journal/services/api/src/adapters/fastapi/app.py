@@ -11,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from ...core import auth as core_auth
 from ...core import repository
+from .admin_routes import router as admin_router
 from .insights_routes import router as insights_router
+from .rag_routes import router as rag_router
 from .routes import router
 
 logging.basicConfig(
@@ -110,6 +112,8 @@ def create_app() -> FastAPI:
 
     app.include_router(router)
     app.include_router(insights_router)
+    app.include_router(rag_router)
+    app.include_router(admin_router)
     return app
 
 

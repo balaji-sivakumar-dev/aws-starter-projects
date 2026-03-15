@@ -6,6 +6,8 @@ import Dashboard from "./components/Dashboard";
 import EntryDetail from "./components/EntryDetail";
 import EntryForm from "./components/EntryForm";
 import EntryList from "./components/EntryList";
+import AdminPanel from "./components/AdminPanel";
+import AskJournal from "./components/AskJournal";
 import InsightsPanel from "./components/InsightsPanel";
 import { useInsights } from "./state/useInsights";
 import { useJournal } from "./state/useJournal";
@@ -103,6 +105,18 @@ export default function App() {
           >
             <span className="nav-icon">✦</span> Insights
           </button>
+          <button
+            className={`nav-item${tab === "ask" ? " active" : ""}`}
+            onClick={() => setTab("ask")}
+          >
+            <span className="nav-icon">💬</span> Ask
+          </button>
+          <button
+            className={`nav-item${tab === "admin" ? " active" : ""}`}
+            onClick={() => setTab("admin")}
+          >
+            <span className="nav-icon">⚙</span> Admin
+          </button>
         </nav>
 
         <div className="topnav-user">
@@ -173,6 +187,18 @@ export default function App() {
         {tab === "insights" && (
           <div className="page-view">
             <InsightsPanel insights={insights} />
+          </div>
+        )}
+
+        {tab === "ask" && (
+          <div className="page-view">
+            <AskJournal />
+          </div>
+        )}
+
+        {tab === "admin" && (
+          <div className="page-view">
+            <AdminPanel />
           </div>
         )}
 
