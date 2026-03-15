@@ -46,6 +46,7 @@ Building each from scratch is wasteful. This template provides the **shared 80%*
 | [`docs/Scope.md`](docs/Scope.md) | Project scope, target apps, shared vs app-specific layers |
 | [`docs/Architecture-Analysis.md`](docs/Architecture-Analysis.md) | Deep analysis of Template 3, what to keep/change/add for the platform |
 | [`docs/RAG-Design.md`](docs/RAG-Design.md) | RAG pipeline design — embeddings, vector store, retrieval, and query flow |
+| [`docs/Scaling-Strategy.md`](docs/Scaling-Strategy.md) | Lambda vs Container vs Microservices — when to use each, evolution path, code organization |
 
 ---
 
