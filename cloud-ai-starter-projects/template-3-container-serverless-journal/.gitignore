@@ -22,6 +22,9 @@ dist/
 !*.tfvars.example
 .terraform.lock.hcl
 
+# Lambda build artifacts (regenerated on every deploy)
+**/.build/
+
 # Local test scripts with real credentials (copy from *.example, never commit)
 *.local
 scripts/test_groq_local.sh
