@@ -36,3 +36,21 @@ async def get_current_user(
         return core_auth.resolve_user_cognito(token)
     except ValueError as exc:
         raise _unauthorized(str(exc)) from exc
+
+
+async def get_current_user_email(
+    authorization: Optional[str] = Header(default=None),
+    x_user_email: Optional[str] = Header(default=None, alias="x-user-email"),
+) -> str:
+    """Returns the authenticated user's email (used for admin role check)."""
+    if os.getenv("APP_ENV", "local") in _LOCAL_ENVS:
+        return (x_user_email or "dev-user@local").strip().lower()
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise _unauthorized()
+
+    token = authorization.removeprefix("Bearer ").strip()
+    try:
+        return core_auth.resolve_email_cognito(token)
+    except ValueError as exc:
+        raise _unauthorized(str(exc)) from exc

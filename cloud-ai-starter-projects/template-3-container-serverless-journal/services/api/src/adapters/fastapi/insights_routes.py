@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from ...core import insights
 from ...core.models import AppError
+from ...core.rate_limiter import check_rate_limit
 from .deps import get_current_user
 
 router = APIRouter(prefix="/insights", tags=["insights"])
@@ -57,6 +58,7 @@ def generate_summary(
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
+    check_rate_limit(user_id, "insights_generate")
     try:
         item = insights.generate_summary(
             user_id=user_id,

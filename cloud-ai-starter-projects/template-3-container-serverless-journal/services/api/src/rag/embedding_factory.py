@@ -5,8 +5,9 @@ Reads EMBEDDING_PROVIDER from the environment and returns the appropriate provid
 Providers are imported lazily so unused SDK packages don't affect startup time.
 
 Supported values for EMBEDDING_PROVIDER:
-  ollama  →  OllamaEmbeddingProvider  (local, free — needs nomic-embed-text model)
-  titan   →  TitanEmbeddingProvider   (AWS Bedrock — needs IAM permissions)
+  ollama  →  OllamaEmbeddingProvider      (local, free — needs nomic-embed-text model)
+  titan   →  TitanEmbeddingProvider       (AWS Bedrock — IAM-only, $0.020/1M tokens)
+  openai  →  OpenAIEmbeddingProvider      (OpenAI API — needs OPENAI_API_KEY, $0.020/1M tokens)
 """
 
 import os
@@ -32,15 +33,19 @@ def get_embedding_provider() -> EmbeddingProvider:
         from .embedding import TitanEmbeddingProvider
         _instance = TitanEmbeddingProvider()
 
+    elif provider_name == "openai":
+        from .embedding import OpenAIEmbeddingProvider
+        _instance = OpenAIEmbeddingProvider()
+
     elif not provider_name:
         raise ValueError(
             "EMBEDDING_PROVIDER is not set. "
-            "Supported values: ollama | titan"
+            "Supported values: ollama | titan | openai"
         )
     else:
         raise ValueError(
             f"Unknown EMBEDDING_PROVIDER='{provider_name}'. "
-            "Supported values: ollama | titan"
+            "Supported values: ollama | titan | openai"
         )
 
     return _instance

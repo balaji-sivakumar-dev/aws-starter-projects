@@ -6,10 +6,14 @@ import json
 import os
 import traceback
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import boto3
 from boto3.dynamodb.conditions import Key
+
+from embeddings import embed_text
+from llm_provider import ask as llm_ask
+from vector_store import count_vectors, search_vectors, upsert_vector
 
 TABLE = boto3.resource("dynamodb").Table(os.environ["JOURNAL_TABLE_NAME"])
 SFN = boto3.client("stepfunctions")
@@ -231,6 +235,19 @@ def list_entries(user_id: str, limit: int, next_token: Optional[str]):
     return items, encoded
 
 
+def embed_sk(entry_id: str) -> str:
+    return f"VECTOR#{entry_id}"
+
+
+def list_all_entries(user_id: str) -> List[Dict[str, Any]]:
+    """Fetch all non-deleted entries for the user (for bulk embed)."""
+    result = TABLE.query(
+        KeyConditionExpression=Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
+        ScanIndexForward=False,
+    )
+    return [i for i in result.get("Items", []) if not i.get("deletedAt")]
+
+
 def get_summary_item(user_id: str, summary_id: str) -> Dict[str, Any]:
     item = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": summary_sk(summary_id)}).get("Item")
     if not item:
@@ -254,12 +271,18 @@ def handler(event, context):
 
         # ── /me ────────────────────────────────────────────────────────────────
         if method == "GET" and path == "/me":
-            email = str(claims.get("email") or "")
+            email = str(claims.get("email") or "").strip().lower()
             username = str(claims.get("cognito:username") or "")
+            admin_emails = {
+                e.strip().lower()
+                for e in os.environ.get("ADMIN_EMAILS", "").split(",")
+                if e.strip()
+            }
             return response(200, {
                 "userId": user_id,
                 "email": email,
                 "username": username,
+                "isAdmin": email in admin_emails,
                 "requestId": request_id,
             })
 
@@ -441,6 +464,93 @@ def handler(event, context):
             )
             updated = get_summary_item(user_id, summary_id)
             return response(202, {"item": to_summary(updated), "executionArn": exec_resp["executionArn"], "requestId": request_id})
+
+        # ── RAG ───────────────────────────────────────────────────────────────
+        # All RAG routes require AI_ENABLED=true (Bedrock access via IAM).
+        # Never exposed without JWT — API Gateway JWT authorizer enforced upstream.
+
+        if method == "GET" and path == "/rag/status":
+            embedded = count_vectors(user_id)
+            total = len(list_all_entries(user_id))
+            return response(200, {
+                "embeddedCount": embedded,
+                "totalEntries": total,
+                "requestId": request_id,
+            })
+
+        if method == "POST" and path == "/rag/embed-all":
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            if not ai_enabled:
+                raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
+            entries = list_all_entries(user_id)
+            embedded = 0
+            skipped = 0
+            for entry in entries:
+                try:
+                    text = f"{entry.get('title', '')}\n\n{entry.get('body', '')}"
+                    vector = embed_text(text)
+                    upsert_vector(
+                        user_id=user_id,
+                        entry_id=entry["entryId"],
+                        embedding=vector,
+                        title=entry.get("title", ""),
+                        body_snippet=entry.get("body", "")[:500],
+                        updated_at=now_iso(),
+                    )
+                    embedded += 1
+                except Exception:
+                    skipped += 1
+            return response(200, {
+                "embedded": embedded,
+                "skipped": skipped,
+                "total": len(entries),
+                "requestId": request_id,
+            })
+
+        if method == "POST" and path == "/rag/search":
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            if not ai_enabled:
+                raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
+            payload = parse_body(event)
+            query = str(payload.get("query") or "").strip()
+            if not query:
+                raise ApiError(400, "VALIDATION_ERROR", "query is required")
+            top_k = min(int(payload.get("topK") or 5), 10)
+            query_vec = embed_text(query)
+            results = search_vectors(user_id, query_vec, top_k)
+            return response(200, {"results": results, "requestId": request_id})
+
+        if method == "POST" and path == "/rag/ask":
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            if not ai_enabled:
+                raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
+            payload = parse_body(event)
+            question = str(payload.get("question") or "").strip()
+            if not question:
+                raise ApiError(400, "VALIDATION_ERROR", "question is required")
+
+            # Retrieve relevant context
+            query_vec = embed_text(question)
+            hits = search_vectors(user_id, query_vec, top_k=5)
+            context_parts = [
+                f"Entry: {h['title']}\n{h['bodySnippet']}" for h in hits
+            ]
+            context = "\n\n---\n\n".join(context_parts) if context_parts else "(no relevant entries found)"
+
+            # Call LLM via configured provider (bedrock or openai)
+            prompt = (
+                "You are a helpful journaling assistant. Answer the user's question "
+                "based only on the journal entries provided below. "
+                "If the entries don't contain relevant information, say so.\n\n"
+                f"Journal entries:\n{context}\n\n"
+                f"Question: {question}"
+            )
+            answer = llm_ask(prompt, max_tokens=1024)
+            return response(200, {
+                "answer": answer,
+                "sources": [{"entryId": h["entryId"], "title": h["title"], "score": h["score"]} for h in hits],
+                "requestId": request_id,
+            })
 
         raise ApiError(404, "NOT_FOUND", "route not found")
 

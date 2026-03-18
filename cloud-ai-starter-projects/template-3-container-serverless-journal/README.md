@@ -38,4 +38,6 @@ No login required locally — all requests run as `dev-user`.
 | [Architecture](docs/Architecture.md) | System design, data model, API contract, deployment modes |
 | [Setup](docs/Setup.md) | Local dev, seed data, LLM config, running tests, AWS deployment scripts |
 | [Testing-Local](docs/Testing-Local.md) | Step-by-step guide to run and test the full stack locally, including RAG |
-| [Checklist](docs/Checklist.md) | Implementation progress |
+| [AWS-Console-Setup](docs/AWS-Console-Setup.md) | Manual AWS console steps after Terraform deploy (allowlist, admin user, TTL, alarms) |
+| [AWS-Cost-Estimate](docs/AWS-Cost-Estimate.md) | Monthly cost breakdown by compute mode; what to keep running vs shut down after testing |
+| [Checklist](IMPLEMENTATION_CHECKLIST.md) | Implementation progress (requirements, issues, fixes) |

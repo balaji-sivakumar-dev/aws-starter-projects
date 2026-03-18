@@ -74,12 +74,43 @@ variable "ai_enabled" {
 
 variable "llm_provider" {
   type        = string
-  description = "LLM provider to use for AI enrichment: 'groq' or 'bedrock'."
-  default     = "groq"
+  description = "LLM provider: 'bedrock' (default, IAM-only) or 'openai' (needs OPENAI_API_KEY) or 'groq' (legacy)."
+  default     = "bedrock"
 }
 
 variable "groq_model_id" {
   type        = string
-  description = "Groq model ID to use (e.g. llama-3.1-8b-instant, llama-3.3-70b-versatile)."
+  description = "Groq model ID (only used if llm_provider=groq)."
   default     = "llama-3.1-8b-instant"
+}
+
+variable "openai_llm_model" {
+  type        = string
+  description = "OpenAI model for RAG /ask (used when llm_provider=openai). gpt-4o-mini is recommended."
+  default     = "gpt-4o-mini"
+}
+
+variable "embedding_provider" {
+  type        = string
+  description = "Embedding provider: 'bedrock' (Titan v2, default, IAM-only) or 'openai' (text-embedding-3-small)."
+  default     = "bedrock"
+}
+
+variable "openai_embed_model" {
+  type        = string
+  description = "OpenAI embedding model (used when embedding_provider=openai)."
+  default     = "text-embedding-3-small"
+}
+
+variable "openai_api_key" {
+  type        = string
+  description = "OpenAI API key. Leave empty when using bedrock providers. Store via step-2b-store-secrets.sh."
+  default     = ""
+  sensitive   = true
+}
+
+variable "admin_emails" {
+  type        = string
+  description = "Comma-separated admin email addresses. Populated automatically by step-2b-store-secrets.sh from .env.users (admin entries). See docs/AWS-Console-Setup.md."
+  default     = ""
 }

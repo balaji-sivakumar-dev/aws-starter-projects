@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .deps import get_current_user
+from ...core.rate_limiter import check_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,7 @@ def _get_rag_service():
 @router.post("/ask")
 async def ask_journal(req: AskRequest, user_id: str = Depends(get_current_user)):
     """Ask a question about your journal entries. Returns an AI-generated answer with source citations."""
+    check_rate_limit(user_id, "rag_ask")
     try:
         rag_service, _ = _get_rag_service()
         result = rag_service.ask(tenant_id=user_id, query=req.query, top_k=req.top_k)
@@ -90,6 +92,7 @@ async def embed_entry(req: EmbedRequest, user_id: str = Depends(get_current_user
 @router.post("/embed-all")
 async def embed_all_entries(user_id: str = Depends(get_current_user)):
     """Embed all journal entries for the current user. Used for initial setup or re-indexing."""
+    check_rate_limit(user_id, "embed_all")
     try:
         from ...core.repository import list_entries
 

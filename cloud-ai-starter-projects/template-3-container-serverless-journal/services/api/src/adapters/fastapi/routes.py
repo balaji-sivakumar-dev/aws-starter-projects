@@ -21,7 +21,7 @@ from ...core.models import (
     SingleEntryResponse,
     UpdateEntryRequest,
 )
-from .deps import get_current_user
+from .deps import get_current_user, get_current_user_email
 
 router = APIRouter()
 
@@ -47,8 +47,12 @@ def health():
 # ── Identity ──────────────────────────────────────────────────────────────────
 
 @router.get("/me", tags=["auth"])
-def me(request: Request, user_id: str = Depends(get_current_user)):
-    return {**handlers.me(user_id), "requestId": _rid(request)}
+def me(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+    email: str = Depends(get_current_user_email),
+):
+    return {**handlers.me(user_id, email), "requestId": _rid(request)}
 
 
 # ── Entries ───────────────────────────────────────────────────────────────────

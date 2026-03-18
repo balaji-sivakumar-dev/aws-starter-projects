@@ -34,6 +34,16 @@ data "aws_iam_policy_document" "inline" {
     actions   = ["states:StartExecution"]
     resources = [var.workflow_arn]
   }
+
+  # RAG: Bedrock Titan embeddings + LLM inference
+  # Access is IAM-controlled; no public endpoint exposed.
+  statement {
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/amazon.titan-embed-text-v2:0",
+      "arn:aws:bedrock:*::foundation-model/${var.bedrock_model_id}",
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "inline" {
@@ -55,9 +65,19 @@ resource "aws_lambda_function" "this" {
 
   environment {
     variables = {
-      JOURNAL_TABLE_NAME = var.journal_table_name
-      WORKFLOW_ARN       = var.workflow_arn
-      AI_ENABLED         = var.ai_enabled
+      JOURNAL_TABLE_NAME  = var.journal_table_name
+      WORKFLOW_ARN        = var.workflow_arn
+      AI_ENABLED          = var.ai_enabled
+      ADMIN_EMAILS        = var.admin_emails
+      # ── LLM provider: "bedrock" (default, no key needed) or "openai" ──────
+      LLM_PROVIDER        = var.llm_provider
+      BEDROCK_MODEL_ID    = var.bedrock_model_id
+      OPENAI_LLM_MODEL    = var.openai_llm_model
+      # ── Embedding provider: "bedrock" (default) or "openai" ──────────────
+      EMBEDDING_PROVIDER  = var.embedding_provider
+      OPENAI_EMBED_MODEL  = var.openai_embed_model
+      # OPENAI_API_KEY injected from SSM via separate aws_ssm_parameter lookup
+      OPENAI_API_KEY      = var.openai_api_key
     }
   }
 }

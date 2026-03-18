@@ -63,9 +63,11 @@ fi
 echo ">> Clearing Lambda zip caches..."
 API_ZIP="${TF_DIR}/modules/compute_lambda/.build/api.zip"
 AI_ZIP="${TF_DIR}/modules/ai_gateway/.build/ai-gateway.zip"
+PRE_SIGNUP_ZIP="${TF_DIR}/modules/auth/lambda/pre_signup.zip"
 
-[ -f "${API_ZIP}" ] && rm -f "${API_ZIP}" && echo "   Removed ${API_ZIP}"
-[ -f "${AI_ZIP}"  ] && rm -f "${AI_ZIP}"  && echo "   Removed ${AI_ZIP}"
+[ -f "${API_ZIP}"        ] && rm -f "${API_ZIP}"        && echo "   Removed ${API_ZIP}"
+[ -f "${AI_ZIP}"         ] && rm -f "${AI_ZIP}"         && echo "   Removed ${AI_ZIP}"
+[ -f "${PRE_SIGNUP_ZIP}" ] && rm -f "${PRE_SIGNUP_ZIP}" && echo "   Removed ${PRE_SIGNUP_ZIP}"
 echo
 
 # ── Terraform init ────────────────────────────────────────────────────────────

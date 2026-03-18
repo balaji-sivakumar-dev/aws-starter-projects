@@ -6,7 +6,8 @@ of the codebase never depends on a specific SDK.
 
 EMBEDDING_PROVIDER values:
   ollama  →  local Ollama server  (default model: nomic-embed-text)
-  titan   →  Amazon Titan Embeddings v2 via Bedrock
+  titan   →  Amazon Titan Embeddings v2 via Bedrock  ($0.020/1M tokens)
+  openai  →  OpenAI text-embedding-3-small           ($0.020/1M tokens, same cost)
 
 Usage:
     from src.rag.embedding_factory import get_embedding_provider
@@ -105,6 +106,37 @@ class TitanEmbeddingProvider(EmbeddingProvider):
 
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
         return [self.embed(text) for text in texts]
+
+    @property
+    def dimensions(self) -> int:
+        return self._dimensions
+
+
+class OpenAIEmbeddingProvider(EmbeddingProvider):
+    """Embedding via OpenAI text-embedding-3-small (or configurable model)."""
+
+    DEFAULT_MODEL = "text-embedding-3-small"
+
+    def __init__(self) -> None:
+        from openai import OpenAI  # lazy import
+
+        api_key = os.getenv("OPENAI_API_KEY", "")
+        if not api_key:
+            raise ValueError("OPENAI_API_KEY environment variable is required for OpenAI embedding provider")
+
+        self.model = os.getenv("OPENAI_EMBED_MODEL", self.DEFAULT_MODEL)
+        self.client = OpenAI(api_key=api_key)
+        # text-embedding-3-small → 1536 dims by default
+        self._dimensions = 1536
+        logger.info("OpenAIEmbeddingProvider initialised (model=%s)", self.model)
+
+    def embed(self, text: str) -> list[float]:
+        response = self.client.embeddings.create(model=self.model, input=text)
+        return response.data[0].embedding
+
+    def embed_batch(self, texts: list[str]) -> list[list[float]]:
+        response = self.client.embeddings.create(model=self.model, input=texts)
+        return [item.embedding for item in sorted(response.data, key=lambda x: x.index)]
 
     @property
     def dimensions(self) -> int:

@@ -16,6 +16,26 @@ Tracks all Requirements, Issues, and Fixes for the Reflect journal app.
 | REQ-004 | Audit logging | `[x]` | Implemented |
 | REQ-005 | Cognito auth | `[x]` | Implemented |
 
+### Group A — AWS Deployment
+
+| ID | Description | Status | Notes |
+|---|---|---|---|
+| REQ-006 | AWS Console Setup — manual steps not automatable via Terraform | `[x]` | `docs/AWS-Console-Setup.md` |
+| REQ-007 | AWS Cost Estimate — monthly cost + what to keep vs shut down after testing | `[x]` | `docs/AWS-Cost-Estimate.md` |
+
+### Group B — Security: User Access Control
+
+| ID | Description | Status | Notes |
+|---|---|---|---|
+| REQ-008 | Cognito allowlist — pre-signup Lambda rejects unknown emails; list stored in SSM | `[x]` | `infra/terraform/modules/auth/lambda/pre_signup.py` + Terraform wiring + Step 1 in `docs/AWS-Console-Setup.md` |
+| REQ-009 | Admin account setup — `GET /me` returns `isAdmin`; Admin tab hidden for non-admins | `[x]` | `core/handlers.py:me()` + `App.jsx` guard; Steps 2–3 in `docs/AWS-Console-Setup.md` |
+
+### Group C — Rate Limiting
+
+| ID | Description | Status | Notes |
+|---|---|---|---|
+| REQ-010 | Per-user daily rate limiting on `/rag/ask`, `/rag/embed-all`, `POST /insights/summaries` via DynamoDB atomic counter | `[x]` | `core/rate_limiter.py`; disabled in local/test mode; Step 7 in `docs/AWS-Console-Setup.md` |
+
 ---
 
 ## Issues

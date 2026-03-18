@@ -22,8 +22,19 @@ def health() -> Dict[str, str]:
 
 # ── Identity ──────────────────────────────────────────────────────────────────
 
-def me(user_id: str) -> Dict[str, str]:
-    return {"userId": user_id}
+def me(user_id: str, email: str = "") -> Dict[str, Any]:
+    import os
+    app_env = os.getenv("APP_ENV", "local")
+    if app_env in ("local", "test"):
+        is_admin = True
+    else:
+        admin_emails = {
+            e.strip().lower()
+            for e in os.getenv("ADMIN_EMAILS", "").split(",")
+            if e.strip()
+        }
+        is_admin = email.strip().lower() in admin_emails
+    return {"userId": user_id, "email": email, "isAdmin": is_admin}
 
 
 # ── Entries ───────────────────────────────────────────────────────────────────

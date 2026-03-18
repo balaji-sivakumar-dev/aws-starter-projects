@@ -32,6 +32,7 @@ export default function App() {
   const email = idClaims?.email || app.me?.email || null;
   const givenName = idClaims?.given_name || null;
   const displayName = email || app.me?.username || "User";
+  const isAdmin = app.me?.isAdmin ?? false;
 
   useEffect(() => {
     (async () => {
@@ -111,12 +112,14 @@ export default function App() {
           >
             <span className="nav-icon">💬</span> Ask
           </button>
-          <button
-            className={`nav-item${tab === "admin" ? " active" : ""}`}
-            onClick={() => setTab("admin")}
-          >
-            <span className="nav-icon">⚙</span> Admin
-          </button>
+          {isAdmin && (
+            <button
+              className={`nav-item${tab === "admin" ? " active" : ""}`}
+              onClick={() => setTab("admin")}
+            >
+              <span className="nav-icon">⚙</span> Admin
+            </button>
+          )}
         </nav>
 
         <div className="topnav-user">
