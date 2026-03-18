@@ -37,4 +37,5 @@ No login required locally — all requests run as `dev-user`.
 |-----|-------------|
 | [Architecture](docs/Architecture.md) | System design, data model, API contract, deployment modes |
 | [Setup](docs/Setup.md) | Local dev, seed data, LLM config, running tests, AWS deployment scripts |
+| [Testing-Local](docs/Testing-Local.md) | Step-by-step guide to run and test the full stack locally, including RAG |
 | [Checklist](docs/Checklist.md) | Implementation progress |

@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from .deps import get_current_user
@@ -42,21 +42,29 @@ def _get_rag_service():
 @router.post("/ask")
 async def ask_journal(req: AskRequest, user_id: str = Depends(get_current_user)):
     """Ask a question about your journal entries. Returns an AI-generated answer with source citations."""
-    rag_service, _ = _get_rag_service()
-    result = rag_service.ask(tenant_id=user_id, query=req.query, top_k=req.top_k)
-    return {
-        "answer": result.answer,
-        "sources": result.sources,
-        "query": result.query,
-    }
+    try:
+        rag_service, _ = _get_rag_service()
+        result = rag_service.ask(tenant_id=user_id, query=req.query, top_k=req.top_k)
+        return {
+            "answer": result.answer,
+            "sources": result.sources,
+            "query": result.query,
+        }
+    except Exception as e:
+        logger.error("RAG /ask failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
 
 
 @router.post("/search")
 async def search_journal(req: SearchRequest, user_id: str = Depends(get_current_user)):
     """Semantic search over journal entries (no LLM generation, just matching entries)."""
-    rag_service, _ = _get_rag_service()
-    sources = rag_service.search_only(tenant_id=user_id, query=req.query, top_k=req.top_k)
-    return {"results": sources, "query": req.query}
+    try:
+        rag_service, _ = _get_rag_service()
+        sources = rag_service.search_only(tenant_id=user_id, query=req.query, top_k=req.top_k)
+        return {"results": sources, "query": req.query}
+    except Exception as e:
+        logger.error("RAG /search failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
 
 
 @router.post("/embed")
@@ -67,7 +75,6 @@ async def embed_entry(req: EmbedRequest, user_id: str = Depends(get_current_user
     _, retriever = _get_rag_service()
     entry = resolve_entry(user_id, req.entry_id)
     if not entry:
-        from fastapi import HTTPException
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "entry not found"})
 
     retriever.embed_entry(
@@ -83,44 +90,52 @@ async def embed_entry(req: EmbedRequest, user_id: str = Depends(get_current_user
 @router.post("/embed-all")
 async def embed_all_entries(user_id: str = Depends(get_current_user)):
     """Embed all journal entries for the current user. Used for initial setup or re-indexing."""
-    from ...core.repository import list_entries
+    try:
+        from ...core.repository import list_entries
 
-    _, retriever = _get_rag_service()
+        _, retriever = _get_rag_service()
 
-    all_entries = []
-    next_token = None
-    while True:
-        result = list_entries(user_id, limit=100, next_token=next_token)
-        all_entries.extend(result["items"])
-        next_token = result.get("nextToken")
-        if not next_token:
-            break
+        all_entries = []
+        next_token = None
+        while True:
+            # list_entries returns a (items, next_token) tuple
+            items, next_token = list_entries(user_id, limit=100, next_token=next_token)
+            all_entries.extend(items)
+            if not next_token:
+                break
 
-    embedded_count = 0
-    for entry in all_entries:
-        try:
-            retriever.embed_entry(
-                tenant_id=user_id,
-                entry_id=entry["entryId"],
-                title=entry["title"],
-                body=entry["body"],
-                created_at=entry["createdAt"],
-            )
-            embedded_count += 1
-        except Exception as e:
-            logger.error("Failed to embed entry %s: %s", entry["entryId"], e)
+        embedded_count = 0
+        for entry in all_entries:
+            try:
+                retriever.embed_entry(
+                    tenant_id=user_id,
+                    entry_id=entry["entryId"],
+                    title=entry["title"],
+                    body=entry["body"],
+                    created_at=entry["createdAt"],
+                )
+                embedded_count += 1
+            except Exception as e:
+                logger.error("Failed to embed entry %s: %s", entry["entryId"], e)
 
-    return {
-        "status": "completed",
-        "totalEntries": len(all_entries),
-        "embedded": embedded_count,
-        "failed": len(all_entries) - embedded_count,
-    }
+        return {
+            "status": "completed",
+            "totalEntries": len(all_entries),
+            "embedded": embedded_count,
+            "failed": len(all_entries) - embedded_count,
+        }
+    except Exception as e:
+        logger.error("RAG /embed-all failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
 
 
 @router.get("/status")
 async def rag_status(user_id: str = Depends(get_current_user)):
     """Get embedding status for the current user."""
-    _, retriever = _get_rag_service()
-    count = retriever.count(tenant_id=user_id)
-    return {"totalVectors": count, "userId": user_id}
+    try:
+        _, retriever = _get_rag_service()
+        count = retriever.count(tenant_id=user_id)
+        return {"totalVectors": count, "userId": user_id}
+    except Exception as e:
+        logger.error("RAG /status failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e

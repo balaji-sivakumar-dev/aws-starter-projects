@@ -17,7 +17,7 @@ services:
 
   # ── ChromaDB vector store ────────────────────────────────────────────────────
   chromadb:
-    image: chromadb/chroma:latest
+    image: chromadb/chroma:0.6.3
     container_name: t3-chromadb
     ports:
       - "8001:8000"           # ChromaDB default port (exposed for debugging)
@@ -26,11 +26,11 @@ services:
     environment:
       ANONYMIZED_TELEMETRY: "false"
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/api/v1/heartbeat || exit 1"]
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
       interval: 5s
-      timeout: 3s
-      retries: 10
-      start_period: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
 
   # ── Pull embedding model into Ollama ─────────────────────────────────────────
   ollama-pull-embed:

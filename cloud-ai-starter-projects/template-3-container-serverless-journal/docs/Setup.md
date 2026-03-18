@@ -73,23 +73,24 @@ services/api/.venv/bin/pip install -r services/api/requirements.txt
 docker compose up -d
 
 # Option A — use the venv directly (no activation needed)
-services/api/.venv/bin/python3 scripts/seed_data.py
+services/api/.venv/bin/python3 scripts/seed_data/seed_data.py
 
 # Option B — activate the venv first, then use plain python3
 source services/api/.venv/bin/activate
-python3 scripts/seed_data.py
+python3 scripts/seed_data/seed_data.py
 deactivate   # when done
 ```
 
 To seed a different user or table:
 ```bash
-USER_ID=alice JOURNAL_TABLE_NAME=journal services/api/.venv/bin/python3 scripts/seed_data.py
+USER_ID=alice JOURNAL_TABLE_NAME=journal \
+  services/api/.venv/bin/python3 scripts/seed_data/seed_data.py
 ```
 
 To seed into AWS DynamoDB instead of local:
 ```bash
 DYNAMODB_ENDPOINT="" AWS_DEFAULT_REGION=us-east-1 \
-  services/api/.venv/bin/python3 scripts/seed_data.py
+  services/api/.venv/bin/python3 scripts/seed_data/seed_data.py
 ```
 
 > DynamoDB is in-memory — data is lost when `docker compose down` is run. Re-run the seed script after each restart if needed.
@@ -200,6 +201,51 @@ export OPENAI_API_KEY=...
 export OPENAI_BASE_URL=https://api.together.xyz/v1
 docker compose -f docker-compose.yml -f docker-compose.openai.yml up --build
 ```
+
+### RAG — "Ask Your Journal" (optional)
+
+RAG adds semantic search + AI-powered Q&A over your journal entries. It requires an LLM provider (Ollama recommended for local) plus the RAG overlay.
+
+**Start with RAG support**
+
+```bash
+# Ollama for both LLM + embeddings, plus ChromaDB for vector storage
+docker compose -f docker-compose.yml \
+               -f docker-compose.ollama.yml \
+               -f docker-compose.rag.yml \
+               up --build
+```
+
+This adds two extra containers:
+
+| Container | Role | Port |
+|-----------|------|------|
+| `t3-chromadb` | ChromaDB vector store | 8001 |
+| `t3-ollama-pull-embed` | One-shot: pulls `nomic-embed-text` embedding model | — |
+
+First startup downloads the embedding model (~275 MB) in addition to the LLM model.
+
+**Usage**
+
+1. Seed or create some journal entries
+2. Open http://localhost:3000 → click the **Ask** tab
+3. Click **"Index all entries"** to embed your entries into ChromaDB
+4. Ask questions like "What was I stressed about recently?" or "Find entries about family"
+
+Two modes are available:
+- **Conversational** — AI reads matching entries and generates a natural-language answer with source citations
+- **Search only** — returns matching entries ranked by semantic similarity (no LLM call)
+
+**Stop with RAG**
+
+```bash
+docker compose -f docker-compose.yml \
+               -f docker-compose.ollama.yml \
+               -f docker-compose.rag.yml \
+               down --remove-orphans
+```
+
+---
 
 ### Inspect DynamoDB
 
@@ -450,7 +496,7 @@ Checks: S3 buckets, DynamoDB tables, Cognito pool, Lambda functions, App Runner 
 After deployment, use the dedicated AWS seed script (handles profile + table name automatically):
 
 ```bash
-AWS_PROFILE=journal-dev ./scripts/seed-aws.sh dev
+AWS_PROFILE=journal-dev ./scripts/seed_data/seed-aws.sh dev
 ```
 
 Or run the seed script directly with explicit overrides:
@@ -462,5 +508,19 @@ pip install boto3
 DYNAMODB_ENDPOINT="" \
 AWS_DEFAULT_REGION=ca-central-1 \
 JOURNAL_TABLE_NAME=journal-dev-journal \
-  python3 scripts/seed_data.py
+  python3 scripts/seed_data/seed_data.py
 ```
+
+
+```bash
+
+
+docker compose -f docker-compose.yml -f docker-compose.ollama.yml -f docker-compose.rag.yml down
+docker compose -f docker-compose.yml -f docker-compose.ollama.yml -f docker-compose.rag.yml up --build
+services/api/.venv/bin/python3 scripts/seed_data/seed_data.py
+
+
+```
+
+
+

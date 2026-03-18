@@ -69,9 +69,7 @@ class RAGService:
 
     def _generate_answer(self, query: str, context: str) -> str:
         """Use the LLM to generate an answer from the retrieved context."""
-        from src.llm.factory import get_provider
-
-        provider = get_provider()
+        import os
 
         prompt = (
             "You are a personal journal assistant. The user is asking a question about "
@@ -84,13 +82,23 @@ class RAGService:
             "--- YOUR ANSWER ---"
         )
 
-        raw = provider._chat(prompt) if hasattr(provider, "_chat") else ""
+        raw = ""
+
+        # Try the configured LLM provider first
+        try:
+            from src.llm.factory import get_provider
+            provider = get_provider()
+            if hasattr(provider, "_chat"):
+                raw = provider._chat(prompt)
+        except Exception as e:
+            logger.warning("LLM provider failed, will try Ollama fallback: %s", e)
+
+        # Fallback: direct Ollama client
         if not raw:
-            # Fallback: try Ollama-style chat
             try:
                 import ollama
-                host = __import__("os").getenv("OLLAMA_HOST", "http://localhost:11434")
-                model = __import__("os").getenv("OLLAMA_MODEL", "llama3.2")
+                host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+                model = os.getenv("OLLAMA_MODEL", "llama3.2")
                 client = ollama.Client(host=host)
                 response = client.chat(
                     model=model,
@@ -99,7 +107,7 @@ class RAGService:
                 )
                 raw = response["message"]["content"]
             except Exception as e:
-                logger.error("RAG LLM generation failed: %s", e)
+                logger.error("RAG LLM generation failed (all methods): %s", e)
                 raw = ("Based on the journal entries I found, here are the relevant passages. "
                        "However, I couldn't generate a full answer — please check your LLM configuration.")
 

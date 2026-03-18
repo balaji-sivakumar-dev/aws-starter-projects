@@ -55,7 +55,14 @@ class OllamaEmbeddingProvider(EmbeddingProvider):
 
     def embed(self, text: str) -> list[float]:
         response = self.client.embed(model=self.model, input=text)
-        embeddings = response.get("embeddings") or response.get("embedding")
+        # ollama>=0.4 returns an EmbedResponse object with .embeddings attribute
+        # older versions return a dict with "embeddings" or "embedding" key
+        if hasattr(response, "embeddings"):
+            embeddings = response.embeddings
+        elif isinstance(response, dict):
+            embeddings = response.get("embeddings") or response.get("embedding")
+        else:
+            embeddings = response
         if isinstance(embeddings, list) and embeddings and isinstance(embeddings[0], list):
             return embeddings[0]
         return embeddings
