@@ -37,7 +37,8 @@ EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "bedrock").lower().str
 # Titan Text Embeddings v2 is available in us-east-1, us-west-2, eu-west-1 but NOT ca-central-1.
 _BEDROCK_CLIENT = None
 BEDROCK_EMBED_MODEL = "amazon.titan-embed-text-v2:0"
-BEDROCK_DIMENSIONS = 1536
+# Titan Text Embeddings V2 supports 256, 512, or 1024 only (not 1536 — that is V1).
+BEDROCK_DIMENSIONS = 1024
 BEDROCK_REGION = os.environ.get("BEDROCK_REGION", os.environ.get("AWS_REGION", "us-east-1"))
 
 # OpenAI

@@ -9,7 +9,7 @@ DynamoDB key schema for vector items:
   SK  = "VECTOR#<entry_id>"
 
 Stored fields:
-  embedding  — JSON list of 1536 floats (Decimal-free; stored as string)
+  embedding  — JSON list of 1024 floats (Decimal-free; stored as string)
   entryId    — the journal entry this vector represents
   title      — snippet for result display
   bodySnippet — first 500 chars of entry body
