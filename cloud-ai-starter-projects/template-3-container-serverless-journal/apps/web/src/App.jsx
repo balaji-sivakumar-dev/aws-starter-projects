@@ -127,7 +127,7 @@ export default function App() {
             </button>
           )}
           {/* Mobile-only: provider selector inside the menu */}
-          {provider.providers.length > 1 && (
+          {provider.providers.length >= 1 && (
             <div className="mobile-menu-provider">
               <ProviderSelector
                 providers={provider.providers}
@@ -145,7 +145,7 @@ export default function App() {
         </nav>
 
         {/* Provider selector — desktop topnav */}
-        {provider.providers.length > 1 && (
+        {provider.providers.length >= 1 && (
           <div className="topnav-provider desktop-only">
             <ProviderSelector
               providers={provider.providers}

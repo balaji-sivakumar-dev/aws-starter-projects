@@ -518,6 +518,10 @@ AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh de
 AWS_PROFILE=journal-dev ./scripts/setup/step-2b-store-secrets.sh dev
 
 AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
+
+OPTIONAL: Deploy only backend changes
+DEPLOY_ROUTES=true AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
+
 ```
 
 

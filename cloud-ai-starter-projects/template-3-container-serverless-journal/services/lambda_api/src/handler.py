@@ -316,6 +316,34 @@ def handler(event, context):
         if method == "GET" and path == "/health":
             return response(200, {"status": "ok", "requestId": request_id})
 
+        # ── Public config (no auth required) ───────────────────────────────────
+        if method == "GET" and path == "/config/providers":
+            providers = []
+            if os.environ.get("AI_ENABLED", "false").lower() == "true" or os.environ.get("BEDROCK_MODEL_ID"):
+                providers.append({
+                    "name": "bedrock",
+                    "label": f"AWS Bedrock ({os.environ.get('BEDROCK_MODEL_ID', 'nova-lite')})",
+                    "configured": True,
+                })
+            if os.environ.get("GROQ_API_KEY"):
+                providers.append({
+                    "name": "groq",
+                    "label": f"Groq ({os.environ.get('GROQ_MODEL_ID', 'llama-3.1-8b-instant')})",
+                    "configured": True,
+                })
+            if os.environ.get("OPENAI_API_KEY"):
+                providers.append({
+                    "name": "openai",
+                    "label": f"OpenAI ({os.environ.get('OPENAI_LLM_MODEL', 'gpt-4o-mini')})",
+                    "configured": True,
+                })
+            default_provider = os.environ.get("LLM_PROVIDER", "bedrock")
+            return response(200, {
+                "providers": providers,
+                "default": default_provider,
+                "requestId": request_id,
+            })
+
         user_id = get_user_id(event)
         claims = get_claims(event)
 
@@ -719,36 +747,6 @@ def handler(event, context):
                 "failed": failed,
                 "totalEntries": len(entries),
                 "errors": errors,
-                "requestId": request_id,
-            })
-
-        # ── Config ─────────────────────────────────────────────────────────────
-
-        if method == "GET" and path == "/config/providers":
-            providers = []
-            # Bedrock is always available when AI_ENABLED=true (IAM-controlled, no key needed)
-            if os.environ.get("AI_ENABLED", "false").lower() == "true" or os.environ.get("BEDROCK_MODEL_ID"):
-                providers.append({
-                    "name": "bedrock",
-                    "label": f"AWS Bedrock ({os.environ.get('BEDROCK_MODEL_ID', 'nova-lite')})",
-                    "configured": True,
-                })
-            if os.environ.get("GROQ_API_KEY"):
-                providers.append({
-                    "name": "groq",
-                    "label": f"Groq ({os.environ.get('GROQ_MODEL_ID', 'llama-3.1-8b-instant')})",
-                    "configured": True,
-                })
-            if os.environ.get("OPENAI_API_KEY"):
-                providers.append({
-                    "name": "openai",
-                    "label": f"OpenAI ({os.environ.get('OPENAI_LLM_MODEL', 'gpt-4o-mini')})",
-                    "configured": True,
-                })
-            default_provider = os.environ.get("LLM_PROVIDER", "bedrock")
-            return response(200, {
-                "providers": providers,
-                "default": default_provider,
                 "requestId": request_id,
             })
 
