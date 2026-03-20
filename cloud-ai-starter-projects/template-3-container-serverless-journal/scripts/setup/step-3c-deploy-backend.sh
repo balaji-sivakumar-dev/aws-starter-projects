@@ -115,12 +115,32 @@ if [ "${#TARGETS[@]}" -eq 0 ]; then
   exit 0
 fi
 
+# ── Read admin_emails from SSM (stored by step-2b-store-secrets.sh) ──────────
+# Terraform var defaults to "" — this overrides it with the live SSM value so
+# the Lambda ADMIN_EMAILS env var is always up to date without editing tfvars.
+ADMIN_EMAILS_ARGS=()
+PROFILE="${AWS_PROFILE:-default}"
+ADMIN_EMAILS_SSM=$(aws ssm get-parameter \
+  --name "/journal/${ENV_NAME}/admin_emails" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text \
+  --profile "${PROFILE}" 2>/dev/null || echo "")
+if [[ -n "${ADMIN_EMAILS_SSM}" ]]; then
+  echo ">> Admin emails (from SSM): ${ADMIN_EMAILS_SSM}"
+  ADMIN_EMAILS_ARGS=( "-var=admin_emails=${ADMIN_EMAILS_SSM}" )
+else
+  echo ">> Admin emails: none found in SSM (/journal/${ENV_NAME}/admin_emails)"
+  echo "   Run step-2b-store-secrets.sh with at least one email=admin in .env.users"
+fi
+echo
+
 echo ">> terraform plan (targeted)"
-terraform plan -var-file="${REL_VAR_FILE}" "${TARGETS[@]}"
+terraform plan -var-file="${REL_VAR_FILE}" "${ADMIN_EMAILS_ARGS[@]+"${ADMIN_EMAILS_ARGS[@]}"}" "${TARGETS[@]}"
 
 echo
 echo ">> terraform apply (targeted)"
-terraform apply -var-file="${REL_VAR_FILE}" "${TARGETS[@]}"
+terraform apply -var-file="${REL_VAR_FILE}" "${ADMIN_EMAILS_ARGS[@]+"${ADMIN_EMAILS_ARGS[@]}"}" "${TARGETS[@]}"
 
 popd >/dev/null
 
