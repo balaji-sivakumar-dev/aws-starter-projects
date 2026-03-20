@@ -8,6 +8,7 @@ import EntryForm from "./components/EntryForm";
 import EntryList from "./components/EntryList";
 import AdminPanel from "./components/AdminPanel";
 import AskJournal from "./components/AskJournal";
+import ImportCSV from "./components/ImportCSV";
 import InsightsPanel from "./components/InsightsPanel";
 import ProviderSelector from "./components/ProviderSelector";
 import { useInsights } from "./state/useInsights";
@@ -190,6 +191,7 @@ export default function App() {
             <aside className={`journal-panel${journalView === "detail" ? " mobile-hidden" : ""}`}>
               <div className="sidebar-list-header">
                 <span className="sidebar-list-title">Entries</span>
+                <button className="btn-ghost btn-import" title="Import CSV" onClick={() => { app.setMode("import"); setJournalView("detail"); }}>⬆ CSV</button>
                 <button className="btn-new" onClick={() => { app.setMode("create"); setJournalView("detail"); }}>+ New</button>
               </div>
               {app.error && <div className="sidebar-error">{app.error}</div>}
@@ -215,6 +217,16 @@ export default function App() {
               <button className="mobile-back-btn" onClick={() => setJournalView("list")}>
                 ← Entries
               </button>
+              {app.mode === "import" && (
+                <ImportCSV
+                  onDone={async (count) => {
+                    await app.bootstrap();
+                    app.setMode("detail");
+                    setJournalView("list");
+                  }}
+                  onCancel={() => { app.setMode("detail"); setJournalView("list"); }}
+                />
+              )}
               {app.mode === "create" && (
                 <EntryForm submitLabel="Create Entry" onSubmit={app.saveCreate} onCancel={() => { app.setMode("detail"); setJournalView("list"); }} />
               )}

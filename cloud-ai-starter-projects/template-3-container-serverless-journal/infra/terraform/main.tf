@@ -22,6 +22,7 @@ locals {
     # ── Entries extra routes ──────────────────────────────────────────────
     count_entries       = { route_key = "GET /entries/count",                    authorization = "JWT" }
     bulk_delete         = { route_key = "POST /entries/bulk-delete",             authorization = "JWT" }
+    bulk_import         = { route_key = "POST /entries/bulk-import",             authorization = "JWT" }
     # ── Config (public — returns available providers, no secrets) ─────────
     config_providers    = { route_key = "GET /config/providers",                 authorization = "NONE" }
     # ── RAG routes — JWT-only, never public ───────────────────────────────

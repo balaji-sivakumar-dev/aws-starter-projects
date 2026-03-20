@@ -430,6 +430,32 @@ def handler(event, context):
             write_audit(user_id, "BULK_DELETE_ENTRIES", request_id, {"count": deleted_count}, email=_email, username=_username)
             return response(200, {"deleted": deleted_count, "requestId": request_id})
 
+        if method == "POST" and path == "/entries/bulk-import":
+            payload = parse_body(event)
+            rows = payload.get("entries", [])
+            if not isinstance(rows, list) or len(rows) == 0:
+                raise ApiError(400, "VALIDATION_ERROR", "entries must be a non-empty list")
+            if len(rows) > 500:
+                raise ApiError(400, "VALIDATION_ERROR", "cannot import more than 500 entries at once")
+            imported, failed, errors = 0, 0, []
+            for row in rows:
+                try:
+                    title = str(row.get("title") or "").strip()
+                    body = str(row.get("body") or "").strip()
+                    if not title or not body:
+                        raise ValueError("title and body are required")
+                    item = create_entry(user_id, {
+                        "title": title,
+                        "body": body,
+                        "entryDate": str(row.get("entryDate") or row.get("date") or "").strip(),
+                    })
+                    imported += 1
+                except Exception as exc:
+                    failed += 1
+                    errors.append({"title": str(row.get("title") or "")[:60], "error": str(exc)})
+            write_audit(user_id, "BULK_IMPORT_ENTRIES", request_id, {"imported": imported, "failed": failed}, email=_email, username=_username)
+            return response(201, {"imported": imported, "failed": failed, "errors": errors, "requestId": request_id})
+
         if method == "POST" and path == "/entries":
             item = create_entry(user_id, parse_body(event))
             write_audit(user_id, "CREATE_ENTRY", request_id, {"entryId": item["entryId"]}, email=_email, username=_username)

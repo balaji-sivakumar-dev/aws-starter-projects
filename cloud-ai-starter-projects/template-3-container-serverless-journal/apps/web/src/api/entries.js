@@ -14,3 +14,5 @@ export const triggerAi = (entryId, provider) =>
 export const countEntries = () => api("/entries/count");
 export const bulkDeleteEntries = (entryIds) =>
   api("/entries/bulk-delete", { method: "POST", body: JSON.stringify({ entryIds }) });
+export const bulkImportEntries = (entries) =>
+  api("/entries/bulk-import", { method: "POST", body: JSON.stringify({ entries }) });
