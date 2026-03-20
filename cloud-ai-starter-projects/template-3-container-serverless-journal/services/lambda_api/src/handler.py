@@ -602,7 +602,12 @@ def handler(event, context):
             if not question:
                 raise ApiError(400, "VALIDATION_ERROR", "query is required")
 
-            provider_name = llm_provider_name()
+            # Per-request provider override via X-LLM-Provider header
+            headers = event.get("headers") or {}
+            requested_provider = headers.get("x-llm-provider", "").lower().strip()
+            valid_providers = {"bedrock", "groq", "openai"}
+            provider_override = requested_provider if requested_provider in valid_providers else None
+            provider_name = llm_provider_name(provider_override)
 
             # Retrieve relevant context
             query_vec = embed_text(question)
@@ -613,7 +618,7 @@ def handler(event, context):
             ]
             context = "\n\n---\n\n".join(context_parts) if context_parts else "(no relevant entries found)"
 
-            # Call LLM via configured provider (bedrock or openai)
+            # Call LLM — use per-request provider override if supplied via header
             prompt = (
                 "You are a helpful journaling assistant. Answer the user's question "
                 "based only on the journal entries provided below. "
@@ -621,7 +626,7 @@ def handler(event, context):
                 f"Journal entries:\n{context}\n\n"
                 f"Question: {question}"
             )
-            answer = llm_ask(prompt, max_tokens=1024)
+            answer = llm_ask(prompt, max_tokens=1024, provider=provider_override)
 
             # Persist conversation to DynamoDB
             conv_id = str(uuid.uuid4())
@@ -687,6 +692,7 @@ def handler(event, context):
             entries = list_all_entries(user_id)
             embedded = 0
             failed = 0
+            errors = []
             for entry in entries:
                 try:
                     text = f"{entry.get('title', '')}\n\n{entry.get('body', '')}"
@@ -700,13 +706,19 @@ def handler(event, context):
                         updated_at=now_iso(),
                     )
                     embedded += 1
-                except Exception:
+                except Exception as exc:
                     failed += 1
+                    errors.append({
+                        "entryId": entry.get("entryId", "unknown"),
+                        "title": entry.get("title", "")[:60],
+                        "error": str(exc),
+                    })
             write_audit(user_id, "RAG_EMBED_ALL", request_id, {"embedded": embedded, "failed": failed, "total": len(entries)})
             return response(200, {
                 "embedded": embedded,
                 "failed": failed,
                 "totalEntries": len(entries),
+                "errors": errors,
                 "requestId": request_id,
             })
 

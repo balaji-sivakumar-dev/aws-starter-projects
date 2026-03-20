@@ -54,22 +54,25 @@ def _bedrock_client():
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
-def ask(prompt: str, max_tokens: int = 1024) -> str:
+def ask(prompt: str, max_tokens: int = 1024, provider: str = None) -> str:
     """
     Send a prompt to the configured LLM and return the text response.
-    Routes to the configured provider (LLM_PROVIDER env var).
+
+    provider: optional per-request override (e.g. from X-LLM-Provider header).
+              Falls back to LLM_PROVIDER env var, then 'bedrock'.
     Raises RuntimeError on failure.
     """
-    if LLM_PROVIDER == "groq":
+    p = (provider or LLM_PROVIDER or "bedrock").lower().strip()
+    if p == "groq":
         return _ask_groq(prompt, max_tokens)
-    if LLM_PROVIDER == "openai":
+    if p == "openai":
         return _ask_openai(prompt, max_tokens)
     return _ask_bedrock(prompt, max_tokens)
 
 
-def provider_name() -> str:
-    """Return the active provider name string."""
-    return LLM_PROVIDER or "bedrock"
+def provider_name(override: str = None) -> str:
+    """Return the resolved provider name, with optional per-request override."""
+    return (override or LLM_PROVIDER or "bedrock").lower().strip()
 
 
 # ── Bedrock ───────────────────────────────────────────────────────────────────
