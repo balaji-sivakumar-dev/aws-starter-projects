@@ -62,13 +62,6 @@ variable "vector_store" {
   default     = "dynamodb"
 }
 
-variable "groq_api_key" {
-  type        = string
-  description = "Groq API key (leave empty when using bedrock or openai). Stored in SSM via step-2b-store-secrets.sh."
-  default     = ""
-  sensitive   = true
-}
-
 variable "groq_model_id" {
   type        = string
   description = "Groq model ID for RAG /ask (used when llm_provider=groq)."
