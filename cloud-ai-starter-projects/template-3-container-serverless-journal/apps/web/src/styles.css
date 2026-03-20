@@ -1052,6 +1052,17 @@ select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px
   padding: 1px 6px;
   letter-spacing: 0.02em;
 }
+.ai-provider-badge,
+.insight-provider-badge {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 2px 7px;
+  letter-spacing: 0.02em;
+}
 .msg-sources { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
 .sources-label { font-size: 0.8rem; color: var(--text-muted); margin-right: 4px; }
 .source-tag {

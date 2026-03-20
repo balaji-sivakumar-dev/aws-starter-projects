@@ -12,7 +12,7 @@ import boto3
 from boto3.dynamodb.conditions import Key
 
 from embeddings import embed_text
-from llm_provider import ask as llm_ask
+from llm_provider import ask as llm_ask, provider_name as llm_provider_name
 from vector_store import count_vectors, delete_all_vectors, search_vectors, upsert_vector
 
 _DDB = boto3.resource("dynamodb")
@@ -89,6 +89,7 @@ def to_entry(item: Dict[str, Any]) -> Dict[str, Any]:
         "tags": item.get("tags", []),
         "aiUpdatedAt": item.get("aiUpdatedAt"),
         "aiError": item.get("aiError"),
+        "aiProvider": item.get("aiProvider"),
     }
 
 
@@ -113,6 +114,7 @@ def to_summary(item: Dict[str, Any]) -> Dict[str, Any]:
         "aiError": item.get("aiError"),
         "createdAt": item.get("createdAt"),
         "updatedAt": item.get("updatedAt"),
+        "aiProvider": item.get("aiProvider"),
     }
 
 
@@ -600,7 +602,7 @@ def handler(event, context):
             if not question:
                 raise ApiError(400, "VALIDATION_ERROR", "query is required")
 
-            provider_name = os.environ.get("LLM_PROVIDER", "bedrock")
+            provider_name = llm_provider_name()
 
             # Retrieve relevant context
             query_vec = embed_text(question)
@@ -712,13 +714,26 @@ def handler(event, context):
 
         if method == "GET" and path == "/config/providers":
             providers = []
-            if os.environ.get("BEDROCK_MODEL_ID"):
-                providers.append({"name": "bedrock", "label": "AWS Bedrock", "configured": True})
+            # Bedrock is always available when AI_ENABLED=true (IAM-controlled, no key needed)
+            if os.environ.get("AI_ENABLED", "false").lower() == "true" or os.environ.get("BEDROCK_MODEL_ID"):
+                providers.append({
+                    "name": "bedrock",
+                    "label": f"AWS Bedrock ({os.environ.get('BEDROCK_MODEL_ID', 'nova-lite')})",
+                    "configured": True,
+                })
             if os.environ.get("GROQ_API_KEY"):
-                providers.append({"name": "groq", "label": "Groq", "configured": True})
+                providers.append({
+                    "name": "groq",
+                    "label": f"Groq ({os.environ.get('GROQ_MODEL_ID', 'llama-3.1-8b-instant')})",
+                    "configured": True,
+                })
             if os.environ.get("OPENAI_API_KEY"):
-                providers.append({"name": "openai", "label": "OpenAI", "configured": True})
-            default_provider = os.environ.get("LLM_PROVIDER", "")
+                providers.append({
+                    "name": "openai",
+                    "label": f"OpenAI ({os.environ.get('OPENAI_LLM_MODEL', 'gpt-4o-mini')})",
+                    "configured": True,
+                })
+            default_provider = os.environ.get("LLM_PROVIDER", "bedrock")
             return response(200, {
                 "providers": providers,
                 "default": default_provider,

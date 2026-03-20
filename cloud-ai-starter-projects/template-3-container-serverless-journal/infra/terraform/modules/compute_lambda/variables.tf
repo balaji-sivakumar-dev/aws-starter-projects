@@ -61,3 +61,22 @@ variable "vector_store" {
   description = "Vector store backend: 'dynamodb' (default, serverless) or 'chroma' (local dev only)"
   default     = "dynamodb"
 }
+
+variable "groq_api_key" {
+  type        = string
+  description = "Groq API key (leave empty when using bedrock or openai). Stored in SSM via step-2b-store-secrets.sh."
+  default     = ""
+  sensitive   = true
+}
+
+variable "groq_model_id" {
+  type        = string
+  description = "Groq model ID for RAG /ask (used when llm_provider=groq)."
+  default     = "llama-3.1-8b-instant"
+}
+
+variable "bedrock_region" {
+  type        = string
+  description = "AWS region to use for Bedrock calls. Defaults to us-east-1 to ensure Titan Embeddings V2 availability (not in ca-central-1)."
+  default     = "us-east-1"
+}

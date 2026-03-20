@@ -78,6 +78,11 @@ resource "aws_lambda_function" "this" {
       OPENAI_EMBED_MODEL  = var.openai_embed_model
       # OPENAI_API_KEY injected from SSM via separate aws_ssm_parameter lookup
       OPENAI_API_KEY      = var.openai_api_key
+      # ── Groq ──────────────────────────────────────────────────────────────
+      GROQ_API_KEY        = var.groq_api_key
+      GROQ_MODEL_ID       = var.groq_model_id
+      # ── Bedrock cross-region (Titan Embeddings not available in all regions) ─
+      BEDROCK_REGION      = var.bedrock_region
       # ── Vector store: "dynamodb" (default, serverless) or "chroma" (local) ─
       VECTOR_STORE        = var.vector_store
     }

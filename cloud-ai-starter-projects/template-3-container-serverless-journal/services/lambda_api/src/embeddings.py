@@ -33,10 +33,12 @@ import boto3
 
 EMBEDDING_PROVIDER = os.environ.get("EMBEDDING_PROVIDER", "bedrock").lower().strip()
 
-# Bedrock
+# Bedrock — use BEDROCK_REGION to allow cross-region calls (e.g. ca-central-1 → us-east-1)
+# Titan Text Embeddings v2 is available in us-east-1, us-west-2, eu-west-1 but NOT ca-central-1.
 _BEDROCK_CLIENT = None
 BEDROCK_EMBED_MODEL = "amazon.titan-embed-text-v2:0"
 BEDROCK_DIMENSIONS = 1536
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", os.environ.get("AWS_REGION", "us-east-1"))
 
 # OpenAI
 OPENAI_EMBED_MODEL = os.environ.get("OPENAI_EMBED_MODEL", "text-embedding-3-small")
@@ -48,7 +50,7 @@ def _bedrock_client():
     if _BEDROCK_CLIENT is None:
         _BEDROCK_CLIENT = boto3.client(
             "bedrock-runtime",
-            region_name=os.environ.get("AWS_REGION", "us-east-1"),
+            region_name=BEDROCK_REGION,
         )
     return _BEDROCK_CLIENT
 

@@ -142,3 +142,4 @@ Tracks all Requirements, Issues, and Fixes for the Reflect journal app.
 - Unit tests for insights and entries endpoints
 - Frontend (Vitest) setup for journal filter component tests
 - ISS-009: Fix burger menu icons on mobile
+- REQ-021 (nice to have): Admin screen audit log enhancement — view all audit records, list users with activity, filter audit log by selected user, show per-user interaction history. Backend: `GET /admin/audit?userId=<id>` filter param + `GET /admin/users` already returns user list. Frontend: user selector dropdown in AdminPanel audit tab, paginated audit table filtered by user.

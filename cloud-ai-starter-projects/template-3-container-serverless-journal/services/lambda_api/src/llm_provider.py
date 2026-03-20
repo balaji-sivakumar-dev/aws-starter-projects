@@ -1,26 +1,23 @@
 """
 llm_provider.py — Provider-agnostic LLM inference for Lambda RAG /ask
 
-Supports two providers controlled by LLM_PROVIDER env var:
+Supports three providers controlled by LLM_PROVIDER env var:
 
-  bedrock (default / recommended)
+  bedrock (default / recommended for AWS deployments)
     Model : BEDROCK_MODEL_ID env var  (default: amazon.nova-lite-v1:0)
-    Cost  : ~$0.060/1M input tokens — cheapest option
+    Region: BEDROCK_REGION env var    (default: us-east-1 — use us-east-1 if ca-central-1 lacks the model)
+    Cost  : ~$0.060/1M input tokens
     Setup : IAM-only, no API key
+
+  groq
+    Model : GROQ_MODEL_ID env var     (default: llama-3.1-8b-instant)
+    Cost  : free tier available
+    Setup : GROQ_API_KEY env var (store in SSM, pass via Terraform)
 
   openai
     Model : OPENAI_LLM_MODEL env var  (default: gpt-4o-mini)
-    Cost  : ~$0.150/1M input tokens — 2.5x more expensive than Nova Lite
-    Setup : requires OPENAI_API_KEY env var
-    Why   : higher reasoning quality; useful for complex journal analysis
-
-Provider comparison for RAG /ask:
-  Nova Lite   → cheapest, good for simple Q&A, ~$0.06/$0.24 per 1M in/out
-  gpt-4o-mini → better reasoning, ~$0.15/$0.60 per 1M in/out
-  gpt-4o      → best quality, ~$2.50/$10.00 per 1M in/out (not recommended for RAG)
-
-All calls use Python stdlib urllib — no extra packages to bundle in Lambda zip.
-boto3 is a Lambda runtime built-in.
+    Cost  : ~$0.150/1M input tokens
+    Setup : OPENAI_API_KEY env var
 """
 
 import json
@@ -33,22 +30,25 @@ import boto3
 
 LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "bedrock").lower().strip()
 
-# Bedrock
-_BEDROCK_CLIENT = None
+# Bedrock — use BEDROCK_REGION so we can cross-region call us-east-1 from ca-central-1
+BEDROCK_REGION = os.environ.get("BEDROCK_REGION", os.environ.get("AWS_REGION", "us-east-1"))
 BEDROCK_MODEL_ID = os.environ.get("BEDROCK_MODEL_ID", "amazon.nova-lite-v1:0")
+
+# Groq
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
+GROQ_MODEL_ID = os.environ.get("GROQ_MODEL_ID", "llama-3.1-8b-instant")
 
 # OpenAI
 OPENAI_LLM_MODEL = os.environ.get("OPENAI_LLM_MODEL", "gpt-4o-mini")
 OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions"
 
+_BEDROCK_CLIENT = None
+
 
 def _bedrock_client():
     global _BEDROCK_CLIENT
     if _BEDROCK_CLIENT is None:
-        _BEDROCK_CLIENT = boto3.client(
-            "bedrock-runtime",
-            region_name=os.environ.get("AWS_REGION", "us-east-1"),
-        )
+        _BEDROCK_CLIENT = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
     return _BEDROCK_CLIENT
 
 
@@ -57,14 +57,19 @@ def _bedrock_client():
 def ask(prompt: str, max_tokens: int = 1024) -> str:
     """
     Send a prompt to the configured LLM and return the text response.
-
     Routes to the configured provider (LLM_PROVIDER env var).
     Raises RuntimeError on failure.
     """
+    if LLM_PROVIDER == "groq":
+        return _ask_groq(prompt, max_tokens)
     if LLM_PROVIDER == "openai":
         return _ask_openai(prompt, max_tokens)
-    else:
-        return _ask_bedrock(prompt, max_tokens)
+    return _ask_bedrock(prompt, max_tokens)
+
+
+def provider_name() -> str:
+    """Return the active provider name string."""
+    return LLM_PROVIDER or "bedrock"
 
 
 # ── Bedrock ───────────────────────────────────────────────────────────────────
@@ -87,6 +92,41 @@ def _ask_bedrock(prompt: str, max_tokens: int) -> str:
         return content[0].get("text", "") if content else str(result)
     except Exception as exc:
         raise RuntimeError(f"Bedrock LLM call failed: {exc}") from exc
+
+
+# ── Groq ──────────────────────────────────────────────────────────────────────
+
+def _ask_groq(prompt: str, max_tokens: int) -> str:
+    import urllib.error
+    if not GROQ_API_KEY:
+        raise RuntimeError("GROQ_API_KEY is not set — cannot use Groq LLM provider")
+
+    payload = json.dumps({
+        "model": GROQ_MODEL_ID,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": max_tokens,
+        "temperature": 0.3,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {GROQ_API_KEY}",
+            "Content-Type": "application/json",
+            "User-Agent": "reflect-journal/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read())
+            return result["choices"][0]["message"]["content"]
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(f"Groq API error {exc.code}: {detail}") from exc
+    except Exception as exc:
+        raise RuntimeError(f"Groq LLM call failed: {exc}") from exc
 
 
 # ── OpenAI — stdlib urllib, no extra packages ─────────────────────────────────

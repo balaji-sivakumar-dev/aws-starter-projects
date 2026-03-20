@@ -193,7 +193,7 @@ def enrich_entry(user_id: str, entry_id: str) -> dict:
             Key={"PK": entry["PK"], "SK": entry["SK"]},
             UpdateExpression=(
                 "SET aiStatus = :s, summary = :summary, tags = :tags, "
-                "aiUpdatedAt = :aiUpdatedAt, aiError = :e, updatedAt = :u"
+                "aiUpdatedAt = :aiUpdatedAt, aiError = :e, updatedAt = :u, aiProvider = :p"
             ),
             ExpressionAttributeValues={
                 ":s": "COMPLETE",
@@ -202,6 +202,7 @@ def enrich_entry(user_id: str, entry_id: str) -> dict:
                 ":aiUpdatedAt": now_iso(),
                 ":e": None,
                 ":u": now_iso(),
+                ":p": LLM_PROVIDER,
             },
         )
 
@@ -267,7 +268,7 @@ def generate_summary(user_id: str, summary_id: str) -> dict:
             Key={"PK": summary["PK"], "SK": summary["SK"]},
             UpdateExpression=(
                 "SET aiStatus = :s, narrative = :n, themes = :t, mood = :m, "
-                "highlights = :h, #rf = :r, aiError = :e, updatedAt = :u"
+                "highlights = :h, #rf = :r, aiError = :e, updatedAt = :u, aiProvider = :p"
             ),
             ExpressionAttributeNames={"#rf": "reflection"},
             ExpressionAttributeValues={
@@ -279,6 +280,7 @@ def generate_summary(user_id: str, summary_id: str) -> dict:
                 ":r": reflection,
                 ":e": None,
                 ":u": now_iso(),
+                ":p": LLM_PROVIDER,
             },
         )
 

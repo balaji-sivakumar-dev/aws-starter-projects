@@ -87,6 +87,9 @@ module "compute_lambda" {
   embedding_provider = var.embedding_provider
   openai_embed_model = var.openai_embed_model
   openai_api_key     = var.openai_api_key
+  groq_api_key       = var.llm_provider == "groq" ? var.groq_api_key : ""
+  groq_model_id      = var.groq_model_id
+  bedrock_region     = var.bedrock_region
   vector_store       = var.vector_store
 }
 

@@ -120,3 +120,16 @@ variable "vector_store" {
   description = "Vector store for RAG: 'dynamodb' (default, serverless — no extra infra) or 'chroma' (local dev only)."
   default     = "dynamodb"
 }
+
+variable "groq_api_key" {
+  type        = string
+  description = "Groq API key for RAG /ask and provider selector. Leave empty to disable Groq. Store via step-2b-store-secrets.sh."
+  default     = ""
+  sensitive   = true
+}
+
+variable "bedrock_region" {
+  type        = string
+  description = "AWS region for Bedrock calls from the API Lambda. Default us-east-1 ensures Titan Embeddings V2 is available regardless of the Lambda's deploy region."
+  default     = "us-east-1"
+}

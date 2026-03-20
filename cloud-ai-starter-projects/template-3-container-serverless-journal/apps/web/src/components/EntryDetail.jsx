@@ -72,6 +72,10 @@ export default function EntryDetail({ entry, onEdit, onRefresh, onTriggerAi }) {
             </div>
           </>
         )}
+
+        {entry.aiProvider && (entry.aiStatus === "DONE" || entry.aiStatus === "COMPLETE") && (
+          <div className="ai-provider-badge">via {entry.aiProvider}</div>
+        )}
       </div>
     </div>
   );
