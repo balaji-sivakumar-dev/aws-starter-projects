@@ -150,17 +150,19 @@ def call_bedrock(prompt: str, max_tokens: int) -> str:
     return str((((resp.get("output") or {}).get("message") or {}).get("content") or [{}])[0].get("text") or "")
 
 
-def invoke_llm(prompt: str, max_tokens: int) -> str:
-    if LLM_PROVIDER == "groq":
+def invoke_llm(prompt: str, max_tokens: int, provider: str = None) -> str:
+    """Call the LLM. `provider` overrides the LLM_PROVIDER env var for this request."""
+    p = (provider or LLM_PROVIDER or "groq").lower().strip()
+    if p == "groq":
         return call_groq(prompt, max_tokens)
-    if LLM_PROVIDER == "bedrock":
+    if p == "bedrock":
         return call_bedrock(prompt, max_tokens)
-    raise ValueError(f"Unknown LLM_PROVIDER: {LLM_PROVIDER!r}. Must be 'groq' or 'bedrock'.")
+    raise ValueError(f"Unknown provider: {p!r}. Must be 'groq' or 'bedrock'.")
 
 
 # ── Entry enrichment ──────────────────────────────────────────────────────────
 
-def enrich_entry(user_id: str, entry_id: str) -> dict:
+def enrich_entry(user_id: str, entry_id: str, provider_override: str = None) -> dict:
     entry = get_entry(user_id, entry_id)
 
     TABLE.update_item(
@@ -181,7 +183,8 @@ def enrich_entry(user_id: str, entry_id: str) -> dict:
             f"body: {body}"
         )
 
-        text = invoke_llm(prompt, MAX_OUTPUT_TOKENS)
+        effective_provider = (provider_override or LLM_PROVIDER or "groq").lower().strip()
+        text = invoke_llm(prompt, MAX_OUTPUT_TOKENS, provider=effective_provider)
         parsed = extract_json(text)
 
         summary = str(parsed.get("summary") or "").strip()[:240]
@@ -202,7 +205,7 @@ def enrich_entry(user_id: str, entry_id: str) -> dict:
                 ":aiUpdatedAt": now_iso(),
                 ":e": None,
                 ":u": now_iso(),
-                ":p": LLM_PROVIDER,
+                ":p": effective_provider,
             },
         )
 
@@ -219,7 +222,7 @@ def enrich_entry(user_id: str, entry_id: str) -> dict:
 
 # ── Period summary generation ─────────────────────────────────────────────────
 
-def generate_summary(user_id: str, summary_id: str) -> dict:
+def generate_summary(user_id: str, summary_id: str, provider_override: str = None) -> dict:
     summary = get_summary(user_id, summary_id)
 
     TABLE.update_item(
@@ -252,7 +255,8 @@ def generate_summary(user_id: str, summary_id: str) -> dict:
             f"\nEntries:\n{entries_text}"
         )
 
-        text = invoke_llm(prompt, MAX_SUMMARY_TOKENS)
+        effective_provider = (provider_override or LLM_PROVIDER or "groq").lower().strip()
+        text = invoke_llm(prompt, MAX_SUMMARY_TOKENS, provider=effective_provider)
         parsed = extract_json(text)
 
         narrative = str(parsed.get("narrative") or "").strip()[:500]
@@ -280,7 +284,7 @@ def generate_summary(user_id: str, summary_id: str) -> dict:
                 ":r": reflection,
                 ":e": None,
                 ":u": now_iso(),
-                ":p": LLM_PROVIDER,
+                ":p": effective_provider,
             },
         )
 
@@ -299,17 +303,19 @@ def generate_summary(user_id: str, summary_id: str) -> dict:
 
 def handler(event, _context):
     event_type = str(event.get("type") or "entry").strip()
+    # providerOverride is set when the user selects a specific provider in the UI
+    provider_override = str(event.get("providerOverride") or "").strip().lower() or None
 
     if event_type == "summary":
         user_id = str(event.get("userId") or "").strip()
         summary_id = str(event.get("summaryId") or "").strip()
         if not user_id or not summary_id:
             raise ValueError("userId and summaryId are required for type=summary")
-        return generate_summary(user_id, summary_id)
+        return generate_summary(user_id, summary_id, provider_override=provider_override)
 
     # default: entry enrichment
     user_id = str(event.get("userId") or "").strip()
     entry_id = str(event.get("entryId") or "").strip()
     if not user_id or not entry_id:
         raise ValueError("userId and entryId are required")
-    return enrich_entry(user_id, entry_id)
+    return enrich_entry(user_id, entry_id, provider_override=provider_override)

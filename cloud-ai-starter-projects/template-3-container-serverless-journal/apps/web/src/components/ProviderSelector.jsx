@@ -3,20 +3,19 @@ export default function ProviderSelector({ providers, selected, onSelect }) {
 
   return (
     <div className="provider-selector">
-      <label className="provider-label">AI Provider</label>
-      <div className="provider-options">
+      <label className="provider-label" htmlFor="provider-select">AI</label>
+      <select
+        id="provider-select"
+        className="provider-select"
+        value={selected}
+        onChange={(e) => onSelect(e.target.value)}
+      >
         {providers.map((p) => (
-          <button
-            key={p.name}
-            className={`provider-btn${selected === p.name ? " active" : ""}`}
-            onClick={() => onSelect(p.name)}
-            title={`${p.label} — ${p.model}`}
-          >
-            <span className="provider-name">{p.label}</span>
-            <span className="provider-model">{p.model}</span>
-          </button>
+          <option key={p.name} value={p.name}>
+            {p.label}
+          </option>
         ))}
-      </div>
+      </select>
     </div>
   );
 }

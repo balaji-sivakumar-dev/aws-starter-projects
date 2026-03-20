@@ -81,6 +81,7 @@ def to_entry(item: Dict[str, Any]) -> Dict[str, Any]:
         "userId": item["userId"],
         "title": item["title"],
         "body": item["body"],
+        "entryDate": item.get("entryDate", item["createdAt"][:10]),  # YYYY-MM-DD, defaults to creation date
         "createdAt": item["createdAt"],
         "updatedAt": item["updatedAt"],
         "deletedAt": item.get("deletedAt"),
@@ -225,6 +226,9 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
     entry_id = str(uuid.uuid4())
     ts = now_iso()
+    # entryDate: user-selected date (YYYY-MM-DD) — defaults to today
+    raw_date = str(payload.get("entryDate") or "").strip()
+    entry_date = raw_date if raw_date and len(raw_date) == 10 else ts[:10]
 
     item = {
         "PK": user_pk(user_id),
@@ -234,6 +238,7 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
         "userId": user_id,
         "title": title,
         "body": body,
+        "entryDate": entry_date,
         "createdAt": ts,
         "updatedAt": ts,
         "aiStatus": "NOT_REQUESTED",
@@ -450,6 +455,11 @@ def handler(event, context):
                 names["#body"] = "body"
                 values[":body"] = body
                 updates.append("#body = :body")
+            if "entryDate" in payload:
+                raw_date = str(payload.get("entryDate") or "").strip()
+                if raw_date and len(raw_date) == 10:
+                    values[":entryDate"] = raw_date
+                    updates.append("entryDate = :entryDate")
             if len(updates) == 1:
                 raise ApiError(400, "VALIDATION_ERROR", "nothing to update")
             args = {
@@ -484,9 +494,14 @@ def handler(event, context):
                 UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
                 ExpressionAttributeValues={":s": "QUEUED", ":e": None, ":u": now_iso()},
             )
+            headers = event.get("headers") or {}
+            provider_req = headers.get("x-llm-provider", "").lower().strip()
+            sfn_input: Dict[str, Any] = {"userId": user_id, "entryId": entry_id, "requestId": request_id}
+            if provider_req in {"bedrock", "groq", "openai"}:
+                sfn_input["providerOverride"] = provider_req
             exec_resp = SFN.start_execution(
                 stateMachineArn=os.environ["WORKFLOW_ARN"],
-                input=json.dumps({"userId": user_id, "entryId": entry_id, "requestId": request_id}),
+                input=json.dumps(sfn_input),
             )
             write_audit(user_id, "TRIGGER_AI", request_id, {"entryId": entry_id})
             return response(202, {"entryId": entry_id, "aiStatus": "QUEUED", "executionArn": exec_resp["executionArn"], "requestId": request_id})
@@ -549,14 +564,14 @@ def handler(event, context):
             TABLE.put_item(Item=item)
 
             if ai_enabled:
+                headers = event.get("headers") or {}
+                provider_req = headers.get("x-llm-provider", "").lower().strip()
+                sfn_input_s: Dict[str, Any] = {"type": "summary", "userId": user_id, "summaryId": summary_id, "requestId": request_id}
+                if provider_req in {"bedrock", "groq", "openai"}:
+                    sfn_input_s["providerOverride"] = provider_req
                 SFN.start_execution(
                     stateMachineArn=os.environ["WORKFLOW_ARN"],
-                    input=json.dumps({
-                        "type": "summary",
-                        "userId": user_id,
-                        "summaryId": summary_id,
-                        "requestId": request_id,
-                    }),
+                    input=json.dumps(sfn_input_s),
                 )
 
             return response(201, {"item": to_summary(item), "requestId": request_id})
@@ -582,14 +597,14 @@ def handler(event, context):
                 UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
                 ExpressionAttributeValues={":s": "QUEUED", ":e": None, ":u": now_iso()},
             )
+            headers = event.get("headers") or {}
+            provider_req = headers.get("x-llm-provider", "").lower().strip()
+            sfn_regen: Dict[str, Any] = {"type": "summary", "userId": user_id, "summaryId": summary_id, "requestId": request_id}
+            if provider_req in {"bedrock", "groq", "openai"}:
+                sfn_regen["providerOverride"] = provider_req
             exec_resp = SFN.start_execution(
                 stateMachineArn=os.environ["WORKFLOW_ARN"],
-                input=json.dumps({
-                    "type": "summary",
-                    "userId": user_id,
-                    "summaryId": summary_id,
-                    "requestId": request_id,
-                }),
+                input=json.dumps(sfn_regen),
             )
             updated = get_summary_item(user_id, summary_id)
             return response(202, {"item": to_summary(updated), "executionArn": exec_resp["executionArn"], "requestId": request_id})

@@ -109,6 +109,27 @@ export function logout() {
   window.location.assign(url.toString());
 }
 
+/**
+ * Return the raw id_token JWT string.
+ * The ID token contains email, given_name, and other user attributes
+ * that the access token lacks. We send this to API Gateway so the Lambda
+ * can read email for admin checks and the /me endpoint.
+ */
+export function idToken() {
+  if (isLocalMode()) return null;
+  const raw = localStorage.getItem(TOKEN_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed.id_token || Date.now() >= Number(parsed.expiresAt || 0)) {
+      return null;
+    }
+    return parsed.id_token;
+  } catch {
+    return null;
+  }
+}
+
 export function isAuthed() {
   if (isLocalMode()) return true; // always signed-in locally
   return Boolean(accessToken());
