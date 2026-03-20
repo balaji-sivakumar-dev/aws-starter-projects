@@ -4,7 +4,8 @@ Vector store factory.
 Reads VECTOR_STORE from the environment and returns the appropriate store.
 
 Supported values:
-  chroma  →  ChromaDBStore  (local Docker container)
+  chroma    →  ChromaDBStore       (local Docker container)
+  dynamodb  →  DynamoDBVectorStore (AWS Lambda / serverless — no extra server)
 """
 
 import os
@@ -26,15 +27,19 @@ def get_vector_store() -> VectorStore:
         from .store import ChromaDBStore
         _instance = ChromaDBStore()
 
+    elif store_name == "dynamodb":
+        from .store import DynamoDBVectorStore
+        _instance = DynamoDBVectorStore()
+
     elif not store_name:
         raise ValueError(
             "VECTOR_STORE is not set. "
-            "Supported values: chroma"
+            "Supported values: chroma | dynamodb"
         )
     else:
         raise ValueError(
             f"Unknown VECTOR_STORE='{store_name}'. "
-            "Supported values: chroma"
+            "Supported values: chroma | dynamodb"
         )
 
     return _instance

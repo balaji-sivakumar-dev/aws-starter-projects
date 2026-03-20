@@ -1,9 +1,10 @@
 import { api } from "./client";
 
-export async function askJournal(query, topK = 5) {
+export async function askJournal(query, topK = 5, provider = null) {
   return api("/rag/ask", {
     method: "POST",
     body: JSON.stringify({ query, top_k: topK }),
+    headers: provider ? { "x-llm-provider": provider } : {},
   });
 }
 
@@ -27,4 +28,16 @@ export async function embedAllEntries() {
 
 export async function ragStatus() {
   return api("/rag/status");
+}
+
+export async function clearIndex() {
+  return api("/rag/vectors", { method: "DELETE" });
+}
+
+export async function listConversations() {
+  return api("/rag/conversations");
+}
+
+export async function deleteConversation(convId) {
+  return api(`/rag/conversations/${convId}`, { method: "DELETE" });
 }

@@ -55,3 +55,9 @@ variable "openai_api_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "vector_store" {
+  type        = string
+  description = "Vector store backend: 'dynamodb' (default, serverless) or 'chroma' (local dev only)"
+  default     = "dynamodb"
+}

@@ -28,7 +28,7 @@ class RAGService:
     def __init__(self, retriever: Retriever) -> None:
         self.retriever = retriever
 
-    def ask(self, tenant_id: str, query: str, top_k: int = 5) -> RAGAnswer:
+    def ask(self, tenant_id: str, query: str, top_k: int = 5, provider_name: str | None = None) -> RAGAnswer:
         """
         Answer a user's question using their journal entries as context.
 
@@ -48,7 +48,7 @@ class RAGService:
             )
 
         context = self._build_context(results)
-        answer = self._generate_answer(query, context)
+        answer = self._generate_answer(query, context, provider_name=provider_name)
         sources = self._format_sources(results)
 
         return RAGAnswer(answer=answer, sources=sources, query=query)
@@ -67,7 +67,7 @@ class RAGService:
             parts.append(f"[Entry {i} — {date}: {title}]\n{r.text}")
         return "\n\n---\n\n".join(parts)
 
-    def _generate_answer(self, query: str, context: str) -> str:
+    def _generate_answer(self, query: str, context: str, provider_name: str | None = None) -> str:
         """Use the LLM to generate an answer from the retrieved context."""
         import os
 
@@ -87,7 +87,7 @@ class RAGService:
         # Try the configured LLM provider first
         try:
             from src.llm.factory import get_provider
-            provider = get_provider()
+            provider = get_provider(provider_name)
             if hasattr(provider, "_chat"):
                 raw = provider._chat(prompt)
         except Exception as e:

@@ -114,3 +114,9 @@ variable "admin_emails" {
   description = "Comma-separated admin email addresses. Populated automatically by step-2b-store-secrets.sh from .env.users (admin entries). See docs/AWS-Console-Setup.md."
   default     = ""
 }
+
+variable "vector_store" {
+  type        = string
+  description = "Vector store for RAG: 'dynamodb' (default, serverless — no extra infra) or 'chroma' (local dev only)."
+  default     = "dynamodb"
+}

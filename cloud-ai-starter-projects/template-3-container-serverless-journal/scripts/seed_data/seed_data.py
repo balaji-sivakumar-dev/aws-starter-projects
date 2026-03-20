@@ -1,5 +1,5 @@
 """
-Seed script — loads 20 realistic journal entries into DynamoDB.
+Seed script — loads ~195 realistic journal entries into DynamoDB.
 
 Works with both local DynamoDB and real AWS DynamoDB.
 

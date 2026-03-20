@@ -513,13 +513,22 @@ JOURNAL_TABLE_NAME=journal-dev-journal \
 
 
 ```bash
+AWS_PROFILE=journal-dev ./scripts/setup/step-2-bootstrap-terraform-backend.sh dev
+
+AWS_PROFILE=journal-dev ./scripts/setup/step-2b-store-secrets.sh dev
+
+AWS_PROFILE=journal-dev ./scripts/setup/step-3a-terraform-apply.sh dev
+```
+
+
+```bash
 
 
 docker compose -f docker-compose.yml -f docker-compose.ollama.yml -f docker-compose.rag.yml down
 docker compose -f docker-compose.yml -f docker-compose.ollama.yml -f docker-compose.rag.yml up --build
 services/api/.venv/bin/python3 scripts/seed_data/seed_data.py
 
-
+SKIP_DOWN=1 VERBOSE=1 bash scripts/tests/test_local_integration.sh
 ```
 
 

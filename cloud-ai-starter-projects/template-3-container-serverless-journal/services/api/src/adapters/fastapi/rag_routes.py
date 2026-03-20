@@ -2,7 +2,7 @@
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from .deps import get_current_user
@@ -41,12 +41,32 @@ def _get_rag_service():
 
 
 @router.post("/ask")
-async def ask_journal(req: AskRequest, user_id: str = Depends(get_current_user)):
+async def ask_journal(req: AskRequest, request: Request, user_id: str = Depends(get_current_user)):
     """Ask a question about your journal entries. Returns an AI-generated answer with source citations."""
     check_rate_limit(user_id, "rag_ask")
+    provider_name = request.headers.get("x-llm-provider") or None
     try:
         rag_service, _ = _get_rag_service()
-        result = rag_service.ask(tenant_id=user_id, query=req.query, top_k=req.top_k)
+        result = rag_service.ask(tenant_id=user_id, query=req.query, top_k=req.top_k, provider_name=provider_name)
+
+        # Persist the Q&A exchange
+        from ...core.repository import create_conversation
+        sources_serializable = [
+            {"entryId": s.get("entryId", ""), "title": s.get("title", ""),
+             "snippet": s.get("snippet", ""), "score": s.get("score", 0),
+             "createdAt": s.get("createdAt", "")}
+            for s in (result.sources or [])
+        ]
+        try:
+            create_conversation(
+                user_id=user_id,
+                question=req.query,
+                answer=result.answer or "",
+                sources=sources_serializable,
+            )
+        except Exception as store_err:
+            logger.warning("Failed to store conversation: %s", store_err)
+
         return {
             "answer": result.answer,
             "sources": result.sources,
@@ -130,6 +150,44 @@ async def embed_all_entries(user_id: str = Depends(get_current_user)):
     except Exception as e:
         logger.error("RAG /embed-all failed: %s", e, exc_info=True)
         raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
+
+
+@router.delete("/vectors")
+async def delete_all_vectors(user_id: str = Depends(get_current_user)):
+    """Delete all embeddings for the current user from the vector index."""
+    try:
+        _, retriever = _get_rag_service()
+        retriever.store.delete_all(tenant_id=user_id)
+        return {"deleted": True, "message": "All indexed entries removed."}
+    except Exception as e:
+        logger.error("RAG /vectors delete-all failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
+
+
+@router.get("/conversations")
+async def list_conversations(user_id: str = Depends(get_current_user)):
+    """List stored Ask Journal conversation history for the current user."""
+    from ...core.repository import list_conversations as _list_conversations
+    try:
+        items = _list_conversations(user_id)
+        return {"items": items}
+    except Exception as e:
+        logger.error("RAG /conversations list failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
+
+
+@router.delete("/conversations/{conv_id}")
+async def delete_conversation(conv_id: str, user_id: str = Depends(get_current_user)):
+    """Delete a stored conversation exchange."""
+    from ...core.repository import delete_conversation as _delete_conversation
+    try:
+        ok = _delete_conversation(user_id, conv_id)
+    except Exception as e:
+        logger.error("RAG /conversations delete failed: %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail={"code": "RAG_ERROR", "message": str(e)}) from e
+    if not ok:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "conversation not found"})
+    return {"deleted": True}
 
 
 @router.get("/status")

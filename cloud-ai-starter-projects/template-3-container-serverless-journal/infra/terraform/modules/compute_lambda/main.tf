@@ -78,6 +78,8 @@ resource "aws_lambda_function" "this" {
       OPENAI_EMBED_MODEL  = var.openai_embed_model
       # OPENAI_API_KEY injected from SSM via separate aws_ssm_parameter lookup
       OPENAI_API_KEY      = var.openai_api_key
+      # ── Vector store: "dynamodb" (default, serverless) or "chroma" (local) ─
+      VECTOR_STORE        = var.vector_store
     }
   }
 }

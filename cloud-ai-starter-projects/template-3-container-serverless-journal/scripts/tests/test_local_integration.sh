@@ -19,6 +19,7 @@
 #   SKIP_DOWN   set to 1 to skip teardown after tests (default: 0)
 #
 # Examples:
+#   cd template-3-container-serverless-journal
 #   bash scripts/tests/test_local_integration.sh
 #   VERBOSE=1 bash scripts/tests/test_local_integration.sh
 #   SKIP_DOWN=1 VERBOSE=1 bash scripts/tests/test_local_integration.sh

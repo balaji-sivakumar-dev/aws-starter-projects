@@ -59,6 +59,7 @@ def generate_summary(
     user_id: str = Depends(get_current_user),
 ):
     check_rate_limit(user_id, "insights_generate")
+    provider_name = request.headers.get("x-llm-provider") or None
     try:
         item = insights.generate_summary(
             user_id=user_id,
@@ -66,6 +67,7 @@ def generate_summary(
             year=body.year,
             week=body.week,
             month=body.month,
+            provider_name=provider_name,
         )
     except AppError as exc:
         raise _http(exc)
@@ -104,8 +106,9 @@ def regenerate_summary(
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
+    provider_name = request.headers.get("x-llm-provider") or None
     try:
-        item = insights.regenerate_summary(user_id, summary_id)
+        item = insights.regenerate_summary(user_id, summary_id, provider_name=provider_name)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}

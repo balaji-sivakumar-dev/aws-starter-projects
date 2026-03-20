@@ -92,30 +92,48 @@ class LLMProvider(ABC):
         return "\n".join(lines)
 
     @staticmethod
+    def _extract_json(raw: str) -> str:
+        """
+        Strip markdown fences and extract the first complete JSON object from the
+        LLM response. LLMs sometimes prepend/append prose around the JSON block;
+        this handles that gracefully.
+        """
+        import re
+
+        # Remove markdown code fences (```json … ``` or ``` … ```)
+        clean = re.sub(r"```(?:json)?", "", raw)
+        clean = re.sub(r"```", "", clean).strip()
+
+        # Find the outermost {...} block
+        start = clean.find("{")
+        end = clean.rfind("}")
+        if start != -1 and end != -1 and end > start:
+            return clean[start : end + 1]
+        return clean
+
+    @staticmethod
     def parse_response(raw: str) -> Dict[str, Any]:
         """Parse a per-entry enrich() response, with fallback."""
         import json
-        import re
 
-        clean = re.sub(r"```(?:json)?|```", "", raw).strip()
+        json_str = LLMProvider._extract_json(raw)
         try:
-            data = json.loads(clean)
+            data = json.loads(json_str)
             return {
                 "summary": str(data.get("summary") or "").strip(),
                 "tags": [str(t).lower().strip() for t in data.get("tags", []) if t][:5],
             }
-        except json.JSONDecodeError:
-            return {"summary": clean[:500], "tags": []}
+        except (json.JSONDecodeError, ValueError):
+            return {"summary": json_str[:500], "tags": []}
 
     @staticmethod
     def parse_period_response(raw: str) -> Dict[str, Any]:
         """Parse an analyze_period() response, with fallback."""
         import json
-        import re
 
-        clean = re.sub(r"```(?:json)?|```", "", raw).strip()
+        json_str = LLMProvider._extract_json(raw)
         try:
-            data = json.loads(clean)
+            data = json.loads(json_str)
             return {
                 "narrative": str(data.get("narrative") or "").strip(),
                 "themes": [str(t).lower().strip() for t in data.get("themes", []) if t][:6],
@@ -123,9 +141,9 @@ class LLMProvider(ABC):
                 "highlights": [str(h).strip() for h in data.get("highlights", []) if h][:3],
                 "reflection": str(data.get("reflection") or "").strip(),
             }
-        except json.JSONDecodeError:
+        except (json.JSONDecodeError, ValueError):
             return {
-                "narrative": clean[:1000],
+                "narrative": json_str[:1000],
                 "themes": [],
                 "mood": "",
                 "highlights": [],

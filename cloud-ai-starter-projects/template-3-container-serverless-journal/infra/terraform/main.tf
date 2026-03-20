@@ -74,6 +74,7 @@ module "compute_lambda" {
   embedding_provider = var.embedding_provider
   openai_embed_model = var.openai_embed_model
   openai_api_key     = var.openai_api_key
+  vector_store       = var.vector_store
 }
 
 module "ai_gateway" {

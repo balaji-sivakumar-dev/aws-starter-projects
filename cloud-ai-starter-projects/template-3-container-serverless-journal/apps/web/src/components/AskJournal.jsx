@@ -1,13 +1,15 @@
-import { useState } from "react";
-import { askJournal, searchJournal, embedAllEntries, ragStatus } from "../api/rag";
+import { useEffect, useState } from "react";
+import { askJournal, clearIndex, deleteConversation, listConversations, searchJournal, embedAllEntries, ragStatus } from "../api/rag";
 
-export default function AskJournal() {
+export default function AskJournal({ providerName }) {
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("ask"); // "ask" or "search"
   const [status, setStatus] = useState(null);
   const [indexing, setIndexing] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
 
   async function loadStatus() {
     try {
@@ -15,6 +17,36 @@ export default function AskJournal() {
       setStatus(s);
     } catch {
       setStatus({ totalVectors: 0, error: "RAG not configured" });
+    }
+  }
+
+  async function loadHistory() {
+    try {
+      const resp = await listConversations();
+      const stored = (resp.items || []).reverse(); // oldest first
+      const historyMessages = [];
+      for (const conv of stored) {
+        historyMessages.push({ role: "user", content: conv.question, convId: conv.convId });
+        historyMessages.push({
+          role: "assistant",
+          content: conv.answer,
+          sources: conv.sources || [],
+          convId: conv.convId,
+        });
+      }
+      setMessages(historyMessages);
+    } catch {
+      // History not available — start fresh
+    }
+    setHistoryLoaded(true);
+  }
+
+  async function handleDeleteConversation(convId) {
+    try {
+      await deleteConversation(convId);
+      setMessages((prev) => prev.filter((m) => m.convId !== convId));
+    } catch {
+      // Non-critical — ignore
     }
   }
 
@@ -29,13 +61,20 @@ export default function AskJournal() {
 
     try {
       if (mode === "ask") {
-        const result = await askJournal(userQuery);
+        const result = await askJournal(userQuery, 5, providerName || null);
+        // Reload history to get the persisted convId for the new exchange
+        const histResp = await listConversations().catch(() => ({ items: [] }));
+        const newest = (histResp.items || [])[0]; // newest is first (ScanIndexForward=false)
+        const convId = newest?.question === userQuery ? newest.convId : undefined;
         setMessages((prev) => [
-          ...prev,
+          // Attach convId to the user message that was just added
+          ...prev.slice(0, -1),
+          { ...prev[prev.length - 1], convId },
           {
             role: "assistant",
             content: result.answer,
             sources: result.sources || [],
+            convId,
           },
         ]);
       } else {
@@ -56,6 +95,26 @@ export default function AskJournal() {
       ]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleClearIndex() {
+    if (!window.confirm("Remove all your indexed entries from the search index? You can re-index any time.")) return;
+    setClearing(true);
+    try {
+      await clearIndex();
+      setMessages((prev) => [
+        ...prev,
+        { role: "system", content: "All indexed entries removed. Click \"Index all entries\" to re-index." },
+      ]);
+      loadStatus();
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "error", content: `Clear index failed: ${err.message}` },
+      ]);
+    } finally {
+      setClearing(false);
     }
   }
 
@@ -83,8 +142,11 @@ export default function AskJournal() {
     }
   }
 
-  // Load status on first render
-  if (status === null) loadStatus();
+  // Load status and history on first render
+  useEffect(() => {
+    loadStatus();
+    loadHistory();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="ask-container">
@@ -117,15 +179,37 @@ export default function AskJournal() {
             <button
               className="btn-index"
               onClick={handleEmbedAll}
-              disabled={indexing}
+              disabled={indexing || clearing}
             >
               {indexing ? "Indexing..." : "Index all entries"}
+            </button>
+            <button
+              className="btn-clear-index"
+              onClick={handleClearIndex}
+              disabled={indexing || clearing}
+              title="Remove all your indexed data from the search index"
+            >
+              {clearing ? "Clearing..." : "Clear index"}
             </button>
           </div>
         </div>
       </div>
 
       <div className="ask-messages">
+        {historyLoaded && messages.length > 0 && (
+          <div className="ask-history-header">
+            <span className="ask-history-label">Conversation history</span>
+            <button
+              className="btn-clear-history"
+              onClick={async () => {
+                const convIds = [...new Set(messages.filter((m) => m.convId).map((m) => m.convId))];
+                for (const id of convIds) await handleDeleteConversation(id);
+              }}
+            >
+              Clear history
+            </button>
+          </div>
+        )}
         {messages.length === 0 && (
           <div className="ask-empty">
             <p>Try asking something like:</p>

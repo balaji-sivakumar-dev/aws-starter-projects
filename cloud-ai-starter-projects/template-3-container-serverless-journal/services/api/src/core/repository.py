@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import uuid
+from decimal import Decimal
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -261,6 +262,33 @@ def update_entry(
     return table.update_item(**args)["Attributes"]
 
 
+def count_entries(user_id: str) -> int:
+    """Return the count of non-deleted journal entries for the user."""
+    table = _table()
+    total = 0
+    params: Dict[str, Any] = {
+        "KeyConditionExpression": Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
+        "FilterExpression": "attribute_not_exists(deletedAt)",
+        "Select": "COUNT",
+    }
+    while True:
+        result = table.query(**params)
+        total += result.get("Count", 0)
+        if not result.get("LastEvaluatedKey"):
+            break
+        params["ExclusiveStartKey"] = result["LastEvaluatedKey"]
+    return total
+
+
+def bulk_delete_entries(user_id: str, entry_ids: List[str]) -> int:
+    """Soft-delete multiple entries. Returns the number successfully deleted."""
+    deleted = 0
+    for eid in entry_ids:
+        if soft_delete_entry(user_id, eid):
+            deleted += 1
+    return deleted
+
+
 def soft_delete_entry(user_id: str, entry_id: str) -> bool:
     table = _table()
     item = resolve_entry(user_id, entry_id)
@@ -273,6 +301,84 @@ def soft_delete_entry(user_id: str, entry_id: str) -> bool:
         ExpressionAttributeValues={":d": ts, ":u": ts},
     )
     return True
+
+
+# ── Ask conversations ─────────────────────────────────────────────────────────
+
+def conv_sk(created_at: str, conv_id: str) -> str:
+    return f"CONV#{created_at}#{conv_id}"
+
+
+def to_conversation(item: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "convId": item["convId"],
+        "question": item["question"],
+        "answer": item["answer"],
+        "sources": item.get("sources", []),
+        "createdAt": item["createdAt"],
+    }
+
+
+def _floats_to_decimal(obj: Any) -> Any:
+    """Recursively convert float values to Decimal for DynamoDB compatibility."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    if isinstance(obj, list):
+        return [_floats_to_decimal(v) for v in obj]
+    if isinstance(obj, dict):
+        return {k: _floats_to_decimal(v) for k, v in obj.items()}
+    return obj
+
+
+def create_conversation(
+    user_id: str,
+    question: str,
+    answer: str,
+    sources: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    table = _table()
+    conv_id = str(uuid.uuid4())
+    ts = now_iso()
+    item: Dict[str, Any] = {
+        "PK": user_pk(user_id),
+        "SK": conv_sk(ts, conv_id),
+        "entityType": "CONVERSATION",
+        "convId": conv_id,
+        "userId": user_id,
+        "question": question,
+        "answer": answer,
+        "sources": _floats_to_decimal(sources),
+        "createdAt": ts,
+    }
+    table.put_item(Item=item)
+    return item
+
+
+def list_conversations(user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+    result = _table().query(
+        KeyConditionExpression=(
+            Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("CONV#")
+        ),
+        ScanIndexForward=False,
+        Limit=limit,
+    )
+    return [to_conversation(i) for i in result.get("Items", [])]
+
+
+def delete_conversation(user_id: str, conv_id: str) -> bool:
+    """Delete a conversation by conv_id. Requires a scan of CONV# items to find the SK."""
+    table = _table()
+    # List all conversations and find the one with matching convId
+    result = table.query(
+        KeyConditionExpression=(
+            Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("CONV#")
+        ),
+    )
+    for item in result.get("Items", []):
+        if item.get("convId") == conv_id:
+            table.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+            return True
+    return False
 
 
 # ── Insights: entries by date range ───────────────────────────────────────────

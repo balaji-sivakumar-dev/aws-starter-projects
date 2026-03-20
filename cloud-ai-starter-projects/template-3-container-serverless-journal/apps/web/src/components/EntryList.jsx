@@ -34,9 +34,13 @@ function getYearsAndMonths(items) {
     }));
 }
 
-export default function EntryList({ items, loading, selectedId, onSelect, onDelete, nextToken, onMore }) {
+export default function EntryList({
+  items, loading, selectedId, onSelect, onDelete, nextToken, onMore,
+  totalCount, checkedIds, onToggleCheck, onCheckAll, onClearChecked, onDeleteMany,
+}) {
   const [filterYear, setFilterYear] = useState(null);
   const [filterMonth, setFilterMonth] = useState(null);
+  const [manageMode, setManageMode] = useState(false);
 
   const yearMonths = useMemo(() => getYearsAndMonths(items), [items]);
 
@@ -73,8 +77,62 @@ export default function EntryList({ items, loading, selectedId, onSelect, onDele
     return <div className="entry-list-empty">No entries yet.<br />Click "+ New" to write your first entry.</div>;
   }
 
+  const allFilteredIds = filtered.map((i) => i.entryId);
+  const allChecked = allFilteredIds.length > 0 && allFilteredIds.every((id) => checkedIds?.has(id));
+
+  function toggleManage() {
+    setManageMode((m) => {
+      if (m && onClearChecked) onClearChecked();
+      return !m;
+    });
+  }
+
+  function handleSelectAll() {
+    if (allChecked) {
+      if (onClearChecked) onClearChecked();
+    } else {
+      if (onCheckAll) onCheckAll(allFilteredIds);
+    }
+  }
+
+  const checkedCount = checkedIds ? checkedIds.size : 0;
+
   return (
     <div className="entry-list-root">
+      {/* ── Manage toolbar ── */}
+      <div className="entry-manage-bar">
+        {totalCount !== null && (
+          <span className="entry-total-count">{totalCount} total</span>
+        )}
+        <button
+          className={`btn-manage${manageMode ? " active" : ""}`}
+          onClick={toggleManage}
+          title={manageMode ? "Exit manage mode" : "Manage entries"}
+        >
+          {manageMode ? "Done" : "Manage"}
+        </button>
+      </div>
+
+      {manageMode && (
+        <div className="entry-bulk-bar">
+          <label className="bulk-select-all">
+            <input
+              type="checkbox"
+              checked={allChecked}
+              onChange={handleSelectAll}
+            />
+            {allChecked ? "Deselect all" : "Select all"}
+          </label>
+          <button
+            className="btn-bulk-delete"
+            disabled={loading || checkedCount === 0}
+            onClick={() => checkedCount > 0 && onDeleteMany && onDeleteMany([...checkedIds])}
+          >
+            {checkedCount > 0 ? `Delete ${checkedCount}` : "Delete selected"}
+          </button>
+        </div>
+      )}
+
       {/* ── Filters ── */}
       {yearMonths.length > 0 && (
         <div className="entry-filters">
@@ -117,20 +175,45 @@ export default function EntryList({ items, loading, selectedId, onSelect, onDele
         {filtered.length === 0 && (
           <div className="entry-list-empty">No entries for this period.</div>
         )}
-        {filtered.map((item) => (
-          <div key={item.entryId} className={`entry-item${item.entryId === selectedId ? " selected" : ""}`}>
-            <button className="entry-item-btn" onClick={() => onSelect(item.entryId)}>
-              <span className="entry-item-title">{item.title}</span>
-              <span className="entry-item-meta">
-                <span className="entry-item-date">{formatDate(item.createdAt)}</span>
-                {item.aiStatus && item.aiStatus !== "PENDING" && (
-                  <span className={`entry-item-ai ${aiClass(item.aiStatus)}`}>{item.aiStatus}</span>
-                )}
-              </span>
-            </button>
-            <button className="entry-item-delete" title="Delete entry" onClick={() => onDelete(item.entryId)}>✕</button>
-          </div>
-        ))}
+        {filtered.map((item) => {
+          const isChecked = checkedIds?.has(item.entryId) ?? false;
+          return (
+            <div
+              key={item.entryId}
+              className={`entry-item${item.entryId === selectedId && !manageMode ? " selected" : ""}${manageMode && isChecked ? " checked" : ""}${manageMode ? " manage-row" : ""}`}
+              onClick={manageMode ? () => onToggleCheck && onToggleCheck(item.entryId) : undefined}
+            >
+              {manageMode && (
+                <input
+                  type="checkbox"
+                  className="entry-item-checkbox"
+                  checked={isChecked}
+                  onChange={() => onToggleCheck && onToggleCheck(item.entryId)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
+              <button
+                className={`entry-item-btn${manageMode ? " manage-mode-btn" : ""}`}
+                onClick={manageMode
+                  ? (e) => { e.stopPropagation(); onToggleCheck && onToggleCheck(item.entryId); }
+                  : () => onSelect(item.entryId)
+                }
+                tabIndex={manageMode ? -1 : 0}
+              >
+                <span className="entry-item-title">{item.title}</span>
+                <span className="entry-item-meta">
+                  <span className="entry-item-date">{formatDate(item.createdAt)}</span>
+                  {item.aiStatus && item.aiStatus !== "PENDING" && (
+                    <span className={`entry-item-ai ${aiClass(item.aiStatus)}`}>{item.aiStatus}</span>
+                  )}
+                </span>
+              </button>
+              {!manageMode && (
+                <button className="entry-item-delete" title="Delete entry" onClick={(e) => { e.stopPropagation(); onDelete(item.entryId); }}>✕</button>
+              )}
+            </div>
+          );
+        })}
         {nextToken && (
           <button className="btn-load-more" onClick={onMore}>Load more…</button>
         )}
