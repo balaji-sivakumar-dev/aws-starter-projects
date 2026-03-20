@@ -14,6 +14,8 @@ LLM_PROVIDER      = os.getenv("LLM_PROVIDER", "groq")        # "groq" | "bedrock
 GROQ_API_KEY      = os.getenv("GROQ_API_KEY", "")
 GROQ_MODEL_ID     = os.getenv("GROQ_MODEL_ID", "llama-3.1-8b-instant")
 BEDROCK_MODEL_ID  = os.getenv("BEDROCK_MODEL_ID", "amazon.nova-lite-v1:0")
+# Cross-region: nova-lite and Titan Embeddings V2 not available in ca-central-1
+BEDROCK_REGION    = os.getenv("BEDROCK_REGION", "us-east-1")
 MAX_INPUT_CHARS   = int(os.getenv("MAX_INPUT_CHARS", "8000"))
 MAX_OUTPUT_TOKENS = int(os.getenv("MAX_OUTPUT_TOKENS", "256"))
 MAX_SUMMARY_TOKENS = int(os.getenv("MAX_SUMMARY_TOKENS", "512"))
@@ -141,7 +143,7 @@ def call_groq(prompt: str, max_tokens: int) -> str:
 
 
 def call_bedrock(prompt: str, max_tokens: int) -> str:
-    bedrock = boto3.client("bedrock-runtime")
+    bedrock = boto3.client("bedrock-runtime", region_name=BEDROCK_REGION)
     resp = bedrock.converse(
         modelId=BEDROCK_MODEL_ID,
         messages=[{"role": "user", "content": [{"text": prompt}]}],
