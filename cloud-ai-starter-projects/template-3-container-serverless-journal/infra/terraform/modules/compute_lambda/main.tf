@@ -26,7 +26,7 @@ resource "aws_iam_role_policy_attachment" "basic" {
 
 data "aws_iam_policy_document" "inline" {
   statement {
-    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query"]
+    actions   = ["dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:UpdateItem", "dynamodb:DeleteItem", "dynamodb:Query", "dynamodb:Scan", "dynamodb:BatchWriteItem"]
     resources = [var.journal_table_arn]
   }
 

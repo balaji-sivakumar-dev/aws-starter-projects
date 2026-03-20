@@ -13,9 +13,10 @@ from boto3.dynamodb.conditions import Key
 
 from embeddings import embed_text
 from llm_provider import ask as llm_ask
-from vector_store import count_vectors, search_vectors, upsert_vector
+from vector_store import count_vectors, delete_all_vectors, search_vectors, upsert_vector
 
-TABLE = boto3.resource("dynamodb").Table(os.environ["JOURNAL_TABLE_NAME"])
+_DDB = boto3.resource("dynamodb")
+TABLE = _DDB.Table(os.environ["JOURNAL_TABLE_NAME"])
 SFN = boto3.client("stepfunctions")
 
 MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]
@@ -113,6 +114,52 @@ def to_summary(item: Dict[str, Any]) -> Dict[str, Any]:
         "createdAt": item.get("createdAt"),
         "updatedAt": item.get("updatedAt"),
     }
+
+
+# ── Conversation key helpers ──────────────────────────────────────────────────
+
+def conv_sk(ts: str, conv_id: str) -> str:
+    return f"CONV#{ts}#{conv_id}"
+
+
+def to_conversation(item: Dict[str, Any]) -> Dict[str, Any]:
+    sources = item.get("sources", [])
+    if isinstance(sources, str):
+        try:
+            sources = json.loads(sources)
+        except Exception:
+            sources = []
+    return {
+        "convId": item.get("convId", ""),
+        "question": item.get("question", ""),
+        "answer": item.get("answer", ""),
+        "sources": sources,
+        "provider": item.get("provider", ""),
+        "createdAt": item.get("createdAt", ""),
+    }
+
+
+# ── Audit log helpers ─────────────────────────────────────────────────────────
+
+AUDIT_PK = "AUDIT"
+
+
+def write_audit(user_id: str, event_type: str, request_id: str, details: Optional[Dict] = None) -> None:
+    """Write an audit log entry to DynamoDB. Never raises."""
+    try:
+        ts = now_iso()
+        TABLE.put_item(Item={
+            "PK": AUDIT_PK,
+            "SK": f"LOG#{ts[:10]}#{ts}#{request_id}",
+            "entityType": "AUDIT_LOG",
+            "userId": user_id or "anonymous",
+            "eventType": event_type,
+            "requestId": request_id,
+            "timestamp": ts,
+            "details": details or {},
+        })
+    except Exception:
+        pass  # audit failures must never break requests
 
 
 def get_user_id(event: Dict[str, Any]) -> str:
@@ -220,6 +267,7 @@ def list_entries(user_id: str, limit: int, next_token: Optional[str]):
         "KeyConditionExpression": Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
         "Limit": limit,
         "ScanIndexForward": False,
+        "ConsistentRead": True,  # avoid read-after-write misses on refresh
     }
     if next_token:
         try:
@@ -289,13 +337,61 @@ def handler(event, context):
         # ── Entries ────────────────────────────────────────────────────────────
         if method == "GET" and path == "/entries":
             query = event.get("queryStringParameters") or {}
-            limit = int(query.get("limit") or 20)
+            limit = int(query.get("limit") or 50)
             limit = max(1, min(limit, 100))
             items, next_token = list_entries(user_id, limit, query.get("nextToken"))
             return response(200, {"items": items, "nextToken": next_token, "requestId": request_id})
 
+        if method == "GET" and path == "/entries/count":
+            # Count all non-deleted entries for user (paginated DynamoDB query)
+            total = 0
+            last_key = None
+            while True:
+                params: Dict[str, Any] = {
+                    "KeyConditionExpression": Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
+                    "Select": "ALL_ATTRIBUTES",
+                    "ConsistentRead": True,
+                }
+                if last_key:
+                    params["ExclusiveStartKey"] = last_key
+                result = TABLE.query(**params)
+                total += sum(1 for i in result.get("Items", []) if not i.get("deletedAt"))
+                last_key = result.get("LastEvaluatedKey")
+                if not last_key:
+                    break
+            return response(200, {"count": total, "requestId": request_id})
+
+        if method == "POST" and path == "/entries/bulk-delete":
+            payload = parse_body(event)
+            entry_ids = payload.get("entryIds", [])
+            if not isinstance(entry_ids, list) or len(entry_ids) == 0:
+                raise ApiError(400, "VALIDATION_ERROR", "entryIds must be a non-empty list")
+            if len(entry_ids) > 200:
+                raise ApiError(400, "VALIDATION_ERROR", "cannot delete more than 200 entries at once")
+            deleted_count = 0
+            ts = now_iso()
+            for eid in entry_ids:
+                try:
+                    lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(str(eid))}).get("Item")
+                    if not lookup:
+                        continue
+                    item = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup["entrySk"]}).get("Item")
+                    if not item or item.get("deletedAt"):
+                        continue
+                    TABLE.update_item(
+                        Key={"PK": item["PK"], "SK": item["SK"]},
+                        UpdateExpression="SET deletedAt = :d, updatedAt = :u",
+                        ExpressionAttributeValues={":d": ts, ":u": ts},
+                    )
+                    deleted_count += 1
+                except Exception:
+                    pass
+            write_audit(user_id, "BULK_DELETE_ENTRIES", request_id, {"count": deleted_count})
+            return response(200, {"deleted": deleted_count, "requestId": request_id})
+
         if method == "POST" and path == "/entries":
             item = create_entry(user_id, parse_body(event))
+            write_audit(user_id, "CREATE_ENTRY", request_id, {"entryId": item["entryId"]})
             return response(201, {"item": to_entry(item), "requestId": request_id})
 
         entry_id = str(path_params.get("entryId") or "").strip()
@@ -335,6 +431,7 @@ def handler(event, context):
             if names:
                 args["ExpressionAttributeNames"] = names
             updated = TABLE.update_item(**args)["Attributes"]
+            write_audit(user_id, "UPDATE_ENTRY", request_id, {"entryId": entry_id})
             return response(200, {"item": to_entry(updated), "requestId": request_id})
 
         if method == "DELETE" and entry_id and path == f"/entries/{entry_id}":
@@ -344,6 +441,7 @@ def handler(event, context):
                 UpdateExpression="SET deletedAt = :d, updatedAt = :u",
                 ExpressionAttributeValues={":d": now_iso(), ":u": now_iso()},
             )
+            write_audit(user_id, "DELETE_ENTRY", request_id, {"entryId": entry_id})
             return response(200, {"deleted": True, "requestId": request_id})
 
         if method == "POST" and entry_id and path == f"/entries/{entry_id}/ai":
@@ -360,6 +458,7 @@ def handler(event, context):
                 stateMachineArn=os.environ["WORKFLOW_ARN"],
                 input=json.dumps({"userId": user_id, "entryId": entry_id, "requestId": request_id}),
             )
+            write_audit(user_id, "TRIGGER_AI", request_id, {"entryId": entry_id})
             return response(202, {"entryId": entry_id, "aiStatus": "QUEUED", "executionArn": exec_resp["executionArn"], "requestId": request_id})
 
         # ── Insights summaries ─────────────────────────────────────────────────
@@ -473,37 +572,8 @@ def handler(event, context):
             embedded = count_vectors(user_id)
             total = len(list_all_entries(user_id))
             return response(200, {
-                "embeddedCount": embedded,
+                "totalVectors": embedded,
                 "totalEntries": total,
-                "requestId": request_id,
-            })
-
-        if method == "POST" and path == "/rag/embed-all":
-            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
-            if not ai_enabled:
-                raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
-            entries = list_all_entries(user_id)
-            embedded = 0
-            skipped = 0
-            for entry in entries:
-                try:
-                    text = f"{entry.get('title', '')}\n\n{entry.get('body', '')}"
-                    vector = embed_text(text)
-                    upsert_vector(
-                        user_id=user_id,
-                        entry_id=entry["entryId"],
-                        embedding=vector,
-                        title=entry.get("title", ""),
-                        body_snippet=entry.get("body", "")[:500],
-                        updated_at=now_iso(),
-                    )
-                    embedded += 1
-                except Exception:
-                    skipped += 1
-            return response(200, {
-                "embedded": embedded,
-                "skipped": skipped,
-                "total": len(entries),
                 "requestId": request_id,
             })
 
@@ -515,9 +585,10 @@ def handler(event, context):
             query = str(payload.get("query") or "").strip()
             if not query:
                 raise ApiError(400, "VALIDATION_ERROR", "query is required")
-            top_k = min(int(payload.get("topK") or 5), 10)
+            top_k = min(int(payload.get("top_k") or payload.get("topK") or 5), 10)
             query_vec = embed_text(query)
             results = search_vectors(user_id, query_vec, top_k)
+            write_audit(user_id, "RAG_SEARCH", request_id, {"query": query[:100]})
             return response(200, {"results": results, "requestId": request_id})
 
         if method == "POST" and path == "/rag/ask":
@@ -525,13 +596,16 @@ def handler(event, context):
             if not ai_enabled:
                 raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
             payload = parse_body(event)
-            question = str(payload.get("question") or "").strip()
+            question = str(payload.get("query") or payload.get("question") or "").strip()
             if not question:
-                raise ApiError(400, "VALIDATION_ERROR", "question is required")
+                raise ApiError(400, "VALIDATION_ERROR", "query is required")
+
+            provider_name = os.environ.get("LLM_PROVIDER", "bedrock")
 
             # Retrieve relevant context
             query_vec = embed_text(question)
-            hits = search_vectors(user_id, query_vec, top_k=5)
+            top_k = min(int(payload.get("top_k") or 5), 10)
+            hits = search_vectors(user_id, query_vec, top_k=top_k)
             context_parts = [
                 f"Entry: {h['title']}\n{h['bodySnippet']}" for h in hits
             ]
@@ -546,9 +620,211 @@ def handler(event, context):
                 f"Question: {question}"
             )
             answer = llm_ask(prompt, max_tokens=1024)
+
+            # Persist conversation to DynamoDB
+            conv_id = str(uuid.uuid4())
+            ts = now_iso()
+            sources_data = [{"entryId": h["entryId"], "title": h["title"], "score": h["score"], "snippet": h.get("bodySnippet", ""), "createdAt": ""} for h in hits]
+            try:
+                TABLE.put_item(Item={
+                    "PK": user_pk(user_id),
+                    "SK": conv_sk(ts, conv_id),
+                    "entityType": "CONVERSATION",
+                    "convId": conv_id,
+                    "question": question,
+                    "answer": answer,
+                    "sources": json.dumps(sources_data),
+                    "provider": provider_name,
+                    "createdAt": ts,
+                })
+            except Exception:
+                pass  # conversation persistence failure must not break the response
+
+            write_audit(user_id, "RAG_ASK", request_id, {"provider": provider_name, "query": question[:100]})
             return response(200, {
                 "answer": answer,
-                "sources": [{"entryId": h["entryId"], "title": h["title"], "score": h["score"]} for h in hits],
+                "sources": sources_data,
+                "provider": provider_name,
+                "requestId": request_id,
+            })
+
+        if method == "GET" and path == "/rag/conversations":
+            result = TABLE.query(
+                KeyConditionExpression=Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("CONV#"),
+                ScanIndexForward=False,
+                Limit=50,
+            )
+            items = [to_conversation(i) for i in result.get("Items", [])]
+            return response(200, {"items": items, "requestId": request_id})
+
+        conv_id_param = str(path_params.get("convId") or "").strip()
+
+        if method == "DELETE" and conv_id_param and path == f"/rag/conversations/{conv_id_param}":
+            # Find by scanning for matching convId
+            result = TABLE.query(
+                KeyConditionExpression=Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("CONV#"),
+            )
+            deleted = False
+            for item in result.get("Items", []):
+                if item.get("convId") == conv_id_param:
+                    TABLE.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+                    deleted = True
+                    break
+            write_audit(user_id, "DELETE_CONVERSATION", request_id, {"convId": conv_id_param})
+            return response(200, {"deleted": deleted, "requestId": request_id})
+
+        if method == "DELETE" and path == "/rag/vectors":
+            count = delete_all_vectors(user_id)
+            write_audit(user_id, "RAG_CLEAR_VECTORS", request_id, {"deleted": count})
+            return response(200, {"deleted": count, "requestId": request_id})
+
+        if method == "POST" and path == "/rag/embed-all":
+            ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
+            if not ai_enabled:
+                raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
+            entries = list_all_entries(user_id)
+            embedded = 0
+            failed = 0
+            for entry in entries:
+                try:
+                    text = f"{entry.get('title', '')}\n\n{entry.get('body', '')}"
+                    vector = embed_text(text)
+                    upsert_vector(
+                        user_id=user_id,
+                        entry_id=entry["entryId"],
+                        embedding=vector,
+                        title=entry.get("title", ""),
+                        body_snippet=entry.get("body", "")[:500],
+                        updated_at=now_iso(),
+                    )
+                    embedded += 1
+                except Exception:
+                    failed += 1
+            write_audit(user_id, "RAG_EMBED_ALL", request_id, {"embedded": embedded, "failed": failed, "total": len(entries)})
+            return response(200, {
+                "embedded": embedded,
+                "failed": failed,
+                "totalEntries": len(entries),
+                "requestId": request_id,
+            })
+
+        # ── Config ─────────────────────────────────────────────────────────────
+
+        if method == "GET" and path == "/config/providers":
+            providers = []
+            if os.environ.get("BEDROCK_MODEL_ID"):
+                providers.append({"name": "bedrock", "label": "AWS Bedrock", "configured": True})
+            if os.environ.get("GROQ_API_KEY"):
+                providers.append({"name": "groq", "label": "Groq", "configured": True})
+            if os.environ.get("OPENAI_API_KEY"):
+                providers.append({"name": "openai", "label": "OpenAI", "configured": True})
+            default_provider = os.environ.get("LLM_PROVIDER", "")
+            return response(200, {
+                "providers": providers,
+                "default": default_provider,
+                "requestId": request_id,
+            })
+
+        # ── Admin routes ───────────────────────────────────────────────────────
+        # All admin routes require the caller to be an admin (email in ADMIN_EMAILS).
+
+        is_admin_path = path.startswith("/admin/")
+        if is_admin_path:
+            claims = get_claims(event)
+            email = str(claims.get("email") or "").strip().lower()
+            admin_emails = {e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()}
+            if email not in admin_emails:
+                raise ApiError(403, "FORBIDDEN", "admin access required")
+
+        if method == "GET" and path == "/admin/audit":
+            query = event.get("queryStringParameters") or {}
+            date_filter = query.get("date", "")
+            limit = min(int(query.get("limit") or 100), 500)
+            params: Dict[str, Any] = {
+                "KeyConditionExpression": (
+                    Key("PK").eq(AUDIT_PK) & Key("SK").begins_with(f"LOG#{date_filter}")
+                    if date_filter else Key("PK").eq(AUDIT_PK)
+                ),
+                "ScanIndexForward": False,
+                "Limit": limit,
+            }
+            result = TABLE.query(**params)
+            items = []
+            for item in result.get("Items", []):
+                items.append({
+                    "eventType": item.get("eventType", ""),
+                    "userId": item.get("userId", ""),
+                    "timestamp": item.get("timestamp", ""),
+                    "requestId": item.get("requestId", ""),
+                    "details": item.get("details", {}),
+                })
+            return response(200, {"items": items, "requestId": request_id})
+
+        if method == "GET" and path == "/admin/metrics":
+            query = event.get("queryStringParameters") or {}
+            days = int(query.get("days") or 7)
+            cutoff = (datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=days)).date().isoformat()
+
+            result = TABLE.query(
+                KeyConditionExpression=Key("PK").eq(AUDIT_PK) & Key("SK").begins_with("LOG#"),
+                FilterExpression="timestamp >= :cutoff",
+                ExpressionAttributeValues={":cutoff": cutoff},
+            )
+            logs = result.get("Items", [])
+            active_users: set = set()
+            total_ai_calls = 0
+            total_rag_queries = 0
+            total_actions = len(logs)
+            ai_calls_by_provider: Dict[str, int] = {}
+            for log in logs:
+                uid = log.get("userId", "")
+                if uid and uid != "anonymous":
+                    active_users.add(uid)
+                event_type = log.get("eventType", "")
+                if event_type in ("RAG_ASK",):
+                    total_ai_calls += 1
+                    p = (log.get("details") or {}).get("provider", "unknown")
+                    ai_calls_by_provider[p] = ai_calls_by_provider.get(p, 0) + 1
+                if event_type in ("RAG_ASK", "RAG_SEARCH"):
+                    total_rag_queries += 1
+            return response(200, {
+                "activeUsers": len(active_users),
+                "totalAiCalls": total_ai_calls,
+                "totalRagQueries": total_rag_queries,
+                "totalUserActions": total_actions,
+                "aiCallsByProvider": ai_calls_by_provider,
+                "estimatedCost": 0.0,
+                "requestId": request_id,
+            })
+
+        if method == "GET" and path == "/admin/users":
+            # Extract distinct userIds from recent audit logs
+            result = TABLE.query(
+                KeyConditionExpression=Key("PK").eq(AUDIT_PK),
+                ScanIndexForward=False,
+                Limit=1000,
+            )
+            user_ids = sorted({item.get("userId", "") for item in result.get("Items", []) if item.get("userId") and item.get("userId") != "anonymous"})
+            return response(200, {"users": user_ids, "totalUsers": len(user_ids), "requestId": request_id})
+
+        if method == "GET" and path == "/admin/rag/status":
+            # Count all VECTOR# items across all users via scan (admin only)
+            scan_result = TABLE.scan(
+                FilterExpression="entityType = :e",
+                ExpressionAttributeValues={":e": "ENTRY_VECTOR"},
+                Select="COUNT",
+            )
+            total_vectors = scan_result.get("Count", 0)
+            # Count distinct users with vectors
+            scan_result2 = TABLE.scan(
+                FilterExpression="entityType = :e",
+                ExpressionAttributeValues={":e": "ENTRY_VECTOR"},
+                ProjectionExpression="PK",
+            )
+            user_pks = {item["PK"] for item in scan_result2.get("Items", [])}
+            return response(200, {
+                "totalVectors": total_vectors,
+                "totalUsers": len(user_pks),
                 "requestId": request_id,
             })
 

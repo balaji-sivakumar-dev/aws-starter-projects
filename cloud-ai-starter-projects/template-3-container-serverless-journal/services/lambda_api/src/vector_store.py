@@ -86,6 +86,28 @@ def count_vectors(user_id: str) -> int:
     return result.get("Count", 0)
 
 
+def delete_all_vectors(user_id: str) -> int:
+    """Delete all vector items for the user. Returns the count deleted."""
+    deleted = 0
+    last_key = None
+    while True:
+        params: dict = {
+            "KeyConditionExpression": Key("PK").eq(_pk(user_id)) & Key("SK").begins_with("VECTOR#"),
+            "ProjectionExpression": "PK, SK",
+        }
+        if last_key:
+            params["ExclusiveStartKey"] = last_key
+        result = TABLE.query(**params)
+        with TABLE.batch_writer() as batch:
+            for item in result.get("Items", []):
+                batch.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
+                deleted += 1
+        last_key = result.get("LastEvaluatedKey")
+        if not last_key:
+            break
+    return deleted
+
+
 def search_vectors(user_id: str, query_embedding: list, top_k: int = 5) -> list:
     """
     Return the top-k most similar entries to the query embedding.

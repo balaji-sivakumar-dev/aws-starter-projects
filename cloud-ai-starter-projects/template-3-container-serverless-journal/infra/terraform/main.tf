@@ -19,11 +19,24 @@ locals {
     get_summary = { route_key = "GET /insights/summaries/{summaryId}", authorization = "JWT" }
     delete_summary = { route_key = "DELETE /insights/summaries/{summaryId}", authorization = "JWT" }
     regenerate_summary = { route_key = "POST /insights/summaries/{summaryId}/regenerate", authorization = "JWT" }
+    # ── Entries extra routes ──────────────────────────────────────────────
+    count_entries       = { route_key = "GET /entries/count",                    authorization = "JWT" }
+    bulk_delete         = { route_key = "POST /entries/bulk-delete",             authorization = "JWT" }
+    # ── Config (public — returns available providers, no secrets) ─────────
+    config_providers    = { route_key = "GET /config/providers",                 authorization = "NONE" }
     # ── RAG routes — JWT-only, never public ───────────────────────────────
-    rag_status    = { route_key = "GET /rag/status",    authorization = "JWT" }
-    rag_embed_all = { route_key = "POST /rag/embed-all", authorization = "JWT" }
-    rag_search    = { route_key = "POST /rag/search",   authorization = "JWT" }
-    rag_ask       = { route_key = "POST /rag/ask",      authorization = "JWT" }
+    rag_status          = { route_key = "GET /rag/status",                       authorization = "JWT" }
+    rag_embed_all       = { route_key = "POST /rag/embed-all",                   authorization = "JWT" }
+    rag_search          = { route_key = "POST /rag/search",                      authorization = "JWT" }
+    rag_ask             = { route_key = "POST /rag/ask",                         authorization = "JWT" }
+    rag_vectors_delete  = { route_key = "DELETE /rag/vectors",                   authorization = "JWT" }
+    rag_conversations   = { route_key = "GET /rag/conversations",                authorization = "JWT" }
+    rag_conv_delete     = { route_key = "DELETE /rag/conversations/{convId}",    authorization = "JWT" }
+    # ── Admin routes — JWT-only + server-side admin email check ──────────
+    admin_audit         = { route_key = "GET /admin/audit",                      authorization = "JWT" }
+    admin_metrics       = { route_key = "GET /admin/metrics",                    authorization = "JWT" }
+    admin_users         = { route_key = "GET /admin/users",                      authorization = "JWT" }
+    admin_rag_status    = { route_key = "GET /admin/rag/status",                 authorization = "JWT" }
   }
 
   # Hybrid mode keeps contract stable by splitting ownership of routes.

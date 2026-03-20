@@ -121,6 +121,18 @@ Tracks all Requirements, Issues, and Fixes for the Reflect journal app.
 | ISS-015 | AI Insights narrative shows raw JSON — LLM adds prose before/after JSON block, `json.loads` fails | `[x]` | `_extract_json()` in `interface.py` finds outermost `{…}` before parsing; 7 new unit tests passing |
 | ISS-016 | Manage mode UX broken — entry titles invisible, no way to know what to do, delete button hidden until selection | `[x]` | Whole row clickable to toggle; "Delete selected" always visible (disabled when 0); titles bright in manage mode |
 | ISS-017 | No way to delete user-level RAG index data | `[x]` | `DELETE /rag/vectors` calls `store.delete_all(tenant_id)`; "Clear index" button in Ask UI with confirmation dialog |
+| ISS-018 | New routes missing from deployed Lambda handler — count, bulk-delete, config/providers, rag/conversations, rag/vectors return 404 in AWS | `[x]` | Added to `lambda_api/src/handler.py` + `infra/terraform/main.tf`; deploy with `DEPLOY_ROUTES=true ./step-3c-deploy-backend.sh` |
+| ISS-019 | CORS missing `X-LLM-Provider` header — provider selector blocked in AWS | `[x]` | Added to `allow_headers` in `modules/api_edge/main.tf` |
+| ISS-020 | Entry refresh bug — new entries appear in UI after save but disappear on page refresh (DynamoDB eventual consistency) | `[x]` | Added `ConsistentRead=True` to `list_entries` query in `lambda_api/src/handler.py` |
+| ISS-021 | `GET /rag/status` returns `embeddedCount` but frontend expects `totalVectors` | `[x]` | Fixed field name in `lambda_api/src/handler.py` |
+| ISS-022 | Admin dashboard backend routes missing (`/admin/metrics`, `/admin/audit`, `/admin/users`, `/admin/rag/status`) | `[x]` | Added to `lambda_api/src/handler.py` + `infra/terraform/main.tf` |
+
+### Group G — Observability & Provider Attribution
+
+| ID | Description | Status | Notes |
+|---|---|---|---|
+| REQ-019 | Show AI provider used — RAG ask and insights responses include `provider` field; displayed in UI | `[x]` | Lambda handler returns `provider` in ask/summary responses; `msg-provider-badge` shown in AskJournal |
+| REQ-020 | Audit logging — all write + AI interactions logged to DynamoDB `AUDIT` PK; Admin audit view reads from it | `[x]` | `write_audit()` in handler; `GET /admin/audit`, `/admin/metrics`, `/admin/users`, `/admin/rag/status` endpoints |
 
 ---
 

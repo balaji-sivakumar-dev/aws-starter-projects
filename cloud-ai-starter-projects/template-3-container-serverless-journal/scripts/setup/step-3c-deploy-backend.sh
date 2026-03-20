@@ -18,6 +18,9 @@
 #   DEPLOY_API=false    AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 #   DEPLOY_AI=false     AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 #   DEPLOY_SFN=false    AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
+#
+# When API Gateway routes have been added/changed (main.tf api_routes map changed):
+#   DEPLOY_ROUTES=true  AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 
 set -euo pipefail
 
@@ -30,13 +33,16 @@ BACKEND_FILE="${TF_DIR}/backend.${ENV_NAME}.tfbackend"
 DEPLOY_API="${DEPLOY_API:-true}"
 DEPLOY_AI="${DEPLOY_AI:-true}"
 DEPLOY_SFN="${DEPLOY_SFN:-true}"
+# Set DEPLOY_ROUTES=true when API Gateway routes have been added/changed (api_routes map in main.tf)
+DEPLOY_ROUTES="${DEPLOY_ROUTES:-false}"
 
 echo "== Backend Deploy (Template 3) =="
-echo "Environment : ${ENV_NAME}"
-echo "TF_DIR      : ${TF_DIR}"
-echo "Deploy API  : ${DEPLOY_API}"
-echo "Deploy AI   : ${DEPLOY_AI}"
-echo "Deploy SFN  : ${DEPLOY_SFN}"
+echo "Environment   : ${ENV_NAME}"
+echo "TF_DIR        : ${TF_DIR}"
+echo "Deploy API    : ${DEPLOY_API}"
+echo "Deploy AI     : ${DEPLOY_AI}"
+echo "Deploy SFN    : ${DEPLOY_SFN}"
+echo "Deploy Routes : ${DEPLOY_ROUTES}"
 echo
 
 # ── Pre-flight ────────────────────────────────────────────────────────────────
@@ -93,6 +99,16 @@ if [ "${DEPLOY_SFN}" = "true" ]; then
   TARGETS+=( "-target=module.workflow.aws_sfn_state_machine.this" )
 fi
 
+if [ "${DEPLOY_ROUTES}" = "true" ]; then
+  # Add/update API Gateway routes, integrations, and Lambda permissions
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_api.this" )
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_route.this" )
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_integration.lambda" )
+  TARGETS+=( "-target=module.api_edge.aws_lambda_permission.allow_apigw" )
+  # Also redeploy API Lambda IAM if permissions changed
+  TARGETS+=( "-target=module.compute_lambda[0].aws_iam_role_policy.inline" )
+fi
+
 if [ "${#TARGETS[@]}" -eq 0 ]; then
   echo "Nothing to deploy (all DEPLOY_* flags are false)."
   popd >/dev/null
@@ -112,9 +128,10 @@ echo
 echo "✅ Backend deploy complete for env: ${ENV_NAME}"
 echo
 echo "What was deployed:"
-[ "${DEPLOY_API}" = "true" ] && echo "  ✓ API Lambda        (module.compute_lambda)"
-[ "${DEPLOY_AI}"  = "true" ] && echo "  ✓ AI Gateway Lambda (module.ai_gateway IAM + function)"
-[ "${DEPLOY_SFN}" = "true" ] && echo "  ✓ Step Functions    (module.workflow state machine)"
+[ "${DEPLOY_API}"    = "true" ] && echo "  ✓ API Lambda           (module.compute_lambda)"
+[ "${DEPLOY_AI}"     = "true" ] && echo "  ✓ AI Gateway Lambda    (module.ai_gateway IAM + function)"
+[ "${DEPLOY_SFN}"    = "true" ] && echo "  ✓ Step Functions       (module.workflow state machine)"
+[ "${DEPLOY_ROUTES}" = "true" ] && echo "  ✓ API Gateway routes   (module.api_edge routes + integrations)"
 echo
 echo "If you also changed the web frontend, run:"
 echo "   AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"

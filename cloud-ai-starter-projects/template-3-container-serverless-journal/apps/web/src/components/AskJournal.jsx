@@ -31,6 +31,7 @@ export default function AskJournal({ providerName }) {
           role: "assistant",
           content: conv.answer,
           sources: conv.sources || [],
+          provider: conv.provider || "",
           convId: conv.convId,
         });
       }
@@ -74,6 +75,7 @@ export default function AskJournal({ providerName }) {
             role: "assistant",
             content: result.answer,
             sources: result.sources || [],
+            provider: result.provider || "",
             convId,
           },
         ]);
@@ -240,6 +242,9 @@ export default function AskJournal({ providerName }) {
             {msg.role === "assistant" && (
               <div className="msg-bubble msg-assistant">
                 <div className="msg-answer">{msg.content}</div>
+                {msg.provider && (
+                  <div className="msg-provider-badge">via {msg.provider}</div>
+                )}
                 {msg.sources?.length > 0 && (
                   <div className="msg-sources">
                     <span className="sources-label">Sources:</span>
