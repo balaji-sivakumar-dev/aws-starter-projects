@@ -147,7 +147,8 @@ def to_conversation(item: Dict[str, Any]) -> Dict[str, Any]:
 AUDIT_PK = "AUDIT"
 
 
-def write_audit(user_id: str, event_type: str, request_id: str, details: Optional[Dict] = None) -> None:
+def write_audit(user_id: str, event_type: str, request_id: str, details: Optional[Dict] = None,
+                email: str = "", username: str = "") -> None:
     """Write an audit log entry to DynamoDB. Never raises."""
     try:
         ts = now_iso()
@@ -156,6 +157,8 @@ def write_audit(user_id: str, event_type: str, request_id: str, details: Optiona
             "SK": f"LOG#{ts[:10]}#{ts}#{request_id}",
             "entityType": "AUDIT_LOG",
             "userId": user_id or "anonymous",
+            "email": email or "",
+            "username": username or "",
             "eventType": event_type,
             "requestId": request_id,
             "timestamp": ts,
@@ -351,6 +354,9 @@ def handler(event, context):
 
         user_id = get_user_id(event)
         claims = get_claims(event)
+        # Caller identity — stored in all audit log entries written from this request
+        _email    = str(claims.get("email") or "").strip().lower()
+        _username = str(claims.get("cognito:username") or claims.get("username") or "").strip()
 
         # ── /me ────────────────────────────────────────────────────────────────
         if method == "GET" and path == "/me":
@@ -421,12 +427,12 @@ def handler(event, context):
                     deleted_count += 1
                 except Exception:
                     pass
-            write_audit(user_id, "BULK_DELETE_ENTRIES", request_id, {"count": deleted_count})
+            write_audit(user_id, "BULK_DELETE_ENTRIES", request_id, {"count": deleted_count}, email=_email, username=_username)
             return response(200, {"deleted": deleted_count, "requestId": request_id})
 
         if method == "POST" and path == "/entries":
             item = create_entry(user_id, parse_body(event))
-            write_audit(user_id, "CREATE_ENTRY", request_id, {"entryId": item["entryId"]})
+            write_audit(user_id, "CREATE_ENTRY", request_id, {"entryId": item["entryId"]}, email=_email, username=_username)
             return response(201, {"item": to_entry(item), "requestId": request_id})
 
         entry_id = str(path_params.get("entryId") or "").strip()
@@ -471,7 +477,7 @@ def handler(event, context):
             if names:
                 args["ExpressionAttributeNames"] = names
             updated = TABLE.update_item(**args)["Attributes"]
-            write_audit(user_id, "UPDATE_ENTRY", request_id, {"entryId": entry_id})
+            write_audit(user_id, "UPDATE_ENTRY", request_id, {"entryId": entry_id}, email=_email, username=_username)
             return response(200, {"item": to_entry(updated), "requestId": request_id})
 
         if method == "DELETE" and entry_id and path == f"/entries/{entry_id}":
@@ -481,7 +487,7 @@ def handler(event, context):
                 UpdateExpression="SET deletedAt = :d, updatedAt = :u",
                 ExpressionAttributeValues={":d": now_iso(), ":u": now_iso()},
             )
-            write_audit(user_id, "DELETE_ENTRY", request_id, {"entryId": entry_id})
+            write_audit(user_id, "DELETE_ENTRY", request_id, {"entryId": entry_id}, email=_email, username=_username)
             return response(200, {"deleted": True, "requestId": request_id})
 
         if method == "POST" and entry_id and path == f"/entries/{entry_id}/ai":
@@ -503,7 +509,7 @@ def handler(event, context):
                 stateMachineArn=os.environ["WORKFLOW_ARN"],
                 input=json.dumps(sfn_input),
             )
-            write_audit(user_id, "TRIGGER_AI", request_id, {"entryId": entry_id})
+            write_audit(user_id, "TRIGGER_AI", request_id, {"entryId": entry_id}, email=_email, username=_username)
             return response(202, {"entryId": entry_id, "aiStatus": "QUEUED", "executionArn": exec_resp["executionArn"], "requestId": request_id})
 
         # ── Insights summaries ─────────────────────────────────────────────────
@@ -633,7 +639,7 @@ def handler(event, context):
             top_k = min(int(payload.get("top_k") or payload.get("topK") or 5), 10)
             query_vec = embed_text(query)
             results = search_vectors(user_id, query_vec, top_k)
-            write_audit(user_id, "RAG_SEARCH", request_id, {"query": query[:100]})
+            write_audit(user_id, "RAG_SEARCH", request_id, {"query": query[:100]}, email=_email, username=_username)
             return response(200, {"results": results, "requestId": request_id})
 
         if method == "POST" and path == "/rag/ask":
@@ -690,7 +696,7 @@ def handler(event, context):
             except Exception:
                 pass  # conversation persistence failure must not break the response
 
-            write_audit(user_id, "RAG_ASK", request_id, {"provider": provider_name, "query": question[:100]})
+            write_audit(user_id, "RAG_ASK", request_id, {"provider": provider_name, "query": question[:100]}, email=_email, username=_username)
             return response(200, {
                 "answer": answer,
                 "sources": sources_data,
@@ -720,12 +726,12 @@ def handler(event, context):
                     TABLE.delete_item(Key={"PK": item["PK"], "SK": item["SK"]})
                     deleted = True
                     break
-            write_audit(user_id, "DELETE_CONVERSATION", request_id, {"convId": conv_id_param})
+            write_audit(user_id, "DELETE_CONVERSATION", request_id, {"convId": conv_id_param}, email=_email, username=_username)
             return response(200, {"deleted": deleted, "requestId": request_id})
 
         if method == "DELETE" and path == "/rag/vectors":
             count = delete_all_vectors(user_id)
-            write_audit(user_id, "RAG_CLEAR_VECTORS", request_id, {"deleted": count})
+            write_audit(user_id, "RAG_CLEAR_VECTORS", request_id, {"deleted": count}, email=_email, username=_username)
             return response(200, {"deleted": count, "requestId": request_id})
 
         if method == "POST" and path == "/rag/embed-all":
@@ -756,7 +762,7 @@ def handler(event, context):
                         "title": entry.get("title", "")[:60],
                         "error": str(exc),
                     })
-            write_audit(user_id, "RAG_EMBED_ALL", request_id, {"embedded": embedded, "failed": failed, "total": len(entries)})
+            write_audit(user_id, "RAG_EMBED_ALL", request_id, {"embedded": embedded, "failed": failed, "total": len(entries)}, email=_email, username=_username)
             return response(200, {
                 "embedded": embedded,
                 "failed": failed,
@@ -779,7 +785,8 @@ def handler(event, context):
         if method == "GET" and path == "/admin/audit":
             query = event.get("queryStringParameters") or {}
             date_filter = query.get("date", "")
-            limit = min(int(query.get("limit") or 100), 500)
+            user_id_filter = query.get("userId", "").strip()
+            limit = min(int(query.get("limit") or 200), 500)
             params: Dict[str, Any] = {
                 "KeyConditionExpression": (
                     Key("PK").eq(AUDIT_PK) & Key("SK").begins_with(f"LOG#{date_filter}")
@@ -791,9 +798,14 @@ def handler(event, context):
             result = TABLE.query(**params)
             items = []
             for item in result.get("Items", []):
+                uid = item.get("userId", "")
+                if user_id_filter and uid != user_id_filter:
+                    continue
                 items.append({
                     "eventType": item.get("eventType", ""),
-                    "userId": item.get("userId", ""),
+                    "userId": uid,
+                    "email": item.get("email", ""),
+                    "username": item.get("username", ""),
                     "timestamp": item.get("timestamp", ""),
                     "requestId": item.get("requestId", ""),
                     "details": item.get("details", {}),
@@ -838,14 +850,33 @@ def handler(event, context):
             })
 
         if method == "GET" and path == "/admin/users":
-            # Extract distinct userIds from recent audit logs
+            # Build a deduplicated user list from audit logs.
+            # Each audit entry may carry email/username — take the most recent values per userId.
             result = TABLE.query(
                 KeyConditionExpression=Key("PK").eq(AUDIT_PK),
                 ScanIndexForward=False,
-                Limit=1000,
+                Limit=2000,
             )
-            user_ids = sorted({item.get("userId", "") for item in result.get("Items", []) if item.get("userId") and item.get("userId") != "anonymous"})
-            return response(200, {"users": user_ids, "totalUsers": len(user_ids), "requestId": request_id})
+            user_map: Dict[str, Dict[str, str]] = {}  # userId → {email, username, lastSeen}
+            for item in result.get("Items", []):
+                uid = item.get("userId", "")
+                if not uid or uid == "anonymous":
+                    continue
+                if uid not in user_map:
+                    user_map[uid] = {
+                        "userId": uid,
+                        "email": item.get("email", ""),
+                        "username": item.get("username", ""),
+                        "lastSeen": item.get("timestamp", ""),
+                    }
+                else:
+                    # Fill in missing email/username from older entries
+                    if not user_map[uid]["email"] and item.get("email"):
+                        user_map[uid]["email"] = item["email"]
+                    if not user_map[uid]["username"] and item.get("username"):
+                        user_map[uid]["username"] = item["username"]
+            users = sorted(user_map.values(), key=lambda u: u.get("email") or u["userId"])
+            return response(200, {"users": users, "totalUsers": len(users), "requestId": request_id})
 
         if method == "GET" and path == "/admin/rag/status":
             # Count all VECTOR# items across all users via scan (admin only)
