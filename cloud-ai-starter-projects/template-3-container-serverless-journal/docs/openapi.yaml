@@ -1,0 +1,1516 @@
+openapi: "3.1.0"
+
+info:
+  title: Reflect Journal API
+  version: "1.0.0"
+  description: |
+    REST API for the **Reflect** AI-powered journal app (Template 3).
+
+    ## Authentication
+    All routes except `GET /health` and `GET /config/providers` require a valid
+    **Cognito JWT** supplied in the `Authorization: Bearer <token>` header.
+
+    Admin routes (`/admin/*`) additionally check the caller's email against the
+    `ADMIN_EMAILS` environment variable and return `403` if the check fails.
+
+    ## Request IDs
+    Every response includes a `requestId` field that matches the API Gateway
+    request ID — useful for cross-referencing CloudWatch logs.
+
+  contact:
+    name: Reflect App
+
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com
+    description: AWS API Gateway (replace with your deployed URL)
+    variables:
+      apiId:
+        default: "your-api-id"
+      region:
+        default: "ca-central-1"
+  - url: http://localhost:8000
+    description: Local development (FastAPI / Docker Compose)
+
+tags:
+  - name: Health
+    description: Service health check
+  - name: Config
+    description: Runtime configuration (public)
+  - name: Profile
+    description: Authenticated user profile
+  - name: Entries
+    description: Journal entry CRUD operations
+  - name: Insights
+    description: AI-generated period summaries
+  - name: RAG
+    description: Retrieval-augmented generation — vector search and Q&A
+  - name: Admin
+    description: Admin-only — metrics, audit logs, and system status
+
+# ── Security ──────────────────────────────────────────────────────────────────
+
+security:
+  - CognitoJWT: []
+
+components:
+  securitySchemes:
+    CognitoJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Cognito-issued JWT. Obtain via the Cognito Hosted UI or `@aws-amplify/auth`.
+
+  schemas:
+
+    # ── Common ──────────────────────────────────────────────────────────────
+
+    RequestId:
+      type: string
+      format: uuid
+      readOnly: true
+      description: API Gateway request ID — use for CloudWatch log correlation.
+      example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    ErrorResponse:
+      type: object
+      required: [code, message, requestId]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          example: NOT_FOUND
+          enum:
+            - VALIDATION_ERROR
+            - NOT_FOUND
+            - UNAUTHORIZED
+            - FORBIDDEN
+            - AI_NOT_CONFIGURED
+            - INTERNAL_ERROR
+        message:
+          type: string
+          description: Human-readable error description.
+          example: "entry not found"
+        requestId:
+          $ref: "#/components/schemas/RequestId"
+
+    # ── Journal Entry ─────────────────────────────────────────────────────
+
+    AiStatus:
+      type: string
+      enum: [NOT_REQUESTED, QUEUED, PROCESSING, DONE, ERROR, SKIPPED]
+      description: |
+        Lifecycle of AI enrichment for an entry:
+        - `NOT_REQUESTED` — AI has not been triggered
+        - `QUEUED` — Step Functions execution started
+        - `PROCESSING` — AI is running
+        - `DONE` — AI enrichment completed successfully
+        - `ERROR` — AI enrichment failed (see `aiError`)
+        - `SKIPPED` — `LLM_PROVIDER` not configured
+
+    JournalEntry:
+      type: object
+      required: [entryId, userId, title, body, createdAt, updatedAt, aiStatus]
+      properties:
+        entryId:
+          type: string
+          format: uuid
+          description: Stable entry identifier.
+        userId:
+          type: string
+          description: Cognito `sub` (UUID) of the owning user.
+        title:
+          type: string
+          minLength: 1
+          description: Short entry title.
+          example: "Morning run"
+        body:
+          type: string
+          minLength: 1
+          description: Full entry body / content.
+          example: "Ran 5 km along the waterfront. Felt great."
+        createdAt:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp of creation.
+        updatedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 UTC timestamp of last modification.
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when the entry is soft-deleted. Null otherwise.
+        aiStatus:
+          $ref: "#/components/schemas/AiStatus"
+        summary:
+          type: string
+          nullable: true
+          description: One-sentence AI-generated summary.
+          example: "A refreshing morning run that boosted energy levels."
+        tags:
+          type: array
+          items:
+            type: string
+          description: AI-extracted keywords / themes.
+          example: ["exercise", "wellbeing", "morning"]
+        aiUpdatedAt:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of last successful AI enrichment.
+        aiError:
+          type: string
+          nullable: true
+          description: Error message from last failed AI enrichment attempt.
+
+    CreateEntryRequest:
+      type: object
+      required: [title, body]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Morning run"
+        body:
+          type: string
+          minLength: 1
+          example: "Ran 5 km along the waterfront. Felt great."
+
+    UpdateEntryRequest:
+      type: object
+      description: At least one of `title` or `body` must be provided.
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: "Morning run (updated)"
+        body:
+          type: string
+          minLength: 1
+          example: "Ran 5 km. Slightly tired but proud."
+
+    BulkDeleteRequest:
+      type: object
+      required: [entryIds]
+      properties:
+        entryIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 200
+          description: List of entry IDs to soft-delete.
+
+    PaginatedEntriesResponse:
+      type: object
+      required: [items, requestId]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/JournalEntry"
+        nextToken:
+          type: string
+          nullable: true
+          description: |
+            Base64-encoded DynamoDB LastEvaluatedKey. Pass as `nextToken` query
+            parameter to fetch the next page. Null when no more pages remain.
+        requestId:
+          $ref: "#/components/schemas/RequestId"
+
+    # ── Period Summary ────────────────────────────────────────────────────
+
+    SummaryAiStatus:
+      type: string
+      enum: [PENDING, QUEUED, PROCESSING, DONE, NOT_CONFIGURED, ERROR]
+
+    PeriodSummary:
+      type: object
+      required: [summaryId, userId, period, year, periodLabel, startDate, endDate, entryCount, aiStatus, createdAt, updatedAt]
+      properties:
+        summaryId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        period:
+          type: string
+          enum: [weekly, monthly, yearly]
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+        month:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 12
+          description: Present only for `period=monthly`.
+        week:
+          type: integer
+          nullable: true
+          minimum: 1
+          maximum: 53
+          description: Present only for `period=weekly`.
+        periodLabel:
+          type: string
+          description: Human-readable label, e.g. "March 2026" or "Week 12, 2026".
+          example: "March 2026"
+        startDate:
+          type: string
+          format: date
+          example: "2026-03-01"
+        endDate:
+          type: string
+          format: date
+          example: "2026-03-31"
+        entryCount:
+          type: integer
+          description: Number of journal entries in this period.
+        aiStatus:
+          $ref: "#/components/schemas/SummaryAiStatus"
+        narrative:
+          type: string
+          nullable: true
+          description: AI-generated prose narrative for the period.
+        themes:
+          type: array
+          items:
+            type: string
+          description: Recurring themes identified by AI.
+          example: ["productivity", "exercise", "family"]
+        mood:
+          type: string
+          nullable: true
+          description: AI-assessed overall mood for the period.
+          example: "optimistic"
+        highlights:
+          type: array
+          items:
+            type: string
+          description: Key highlights identified by AI.
+          example: ["Completed 5K run", "Promoted at work"]
+        reflection:
+          type: string
+          nullable: true
+          description: AI-generated reflection / closing question.
+        aiError:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateSummaryRequest:
+      type: object
+      required: [period, year]
+      properties:
+        period:
+          type: string
+          enum: [weekly, monthly, yearly]
+        year:
+          type: integer
+          minimum: 2000
+          maximum: 2100
+          example: 2026
+        month:
+          type: integer
+          minimum: 1
+          maximum: 12
+          description: Required when `period=monthly`.
+          example: 3
+        week:
+          type: integer
+          minimum: 1
+          maximum: 53
+          description: Required when `period=weekly`.
+          example: 12
+
+    # ── RAG ──────────────────────────────────────────────────────────────
+
+    VectorSource:
+      type: object
+      properties:
+        entryId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        score:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          description: Cosine similarity score (0 = no match, 1 = exact match).
+          example: 0.87
+        snippet:
+          type: string
+          description: First 500 characters of the entry body.
+        createdAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    RagSearchRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          example: "career goals"
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+          description: Number of results to return.
+
+    RagAskRequest:
+      type: object
+      required: [query]
+      properties:
+        query:
+          type: string
+          minLength: 1
+          example: "What was I stressed about in January?"
+        top_k:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 5
+          description: Number of context entries to retrieve before calling the LLM.
+
+    RagAskResponse:
+      type: object
+      required: [answer, sources, requestId]
+      properties:
+        answer:
+          type: string
+          description: LLM-generated answer grounded in retrieved journal entries.
+          example: "In January you mentioned feeling stressed about the project deadline..."
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/VectorSource"
+          description: Journal entries used as context for the answer.
+        provider:
+          type: string
+          description: LLM provider that generated this answer.
+          example: "bedrock"
+        requestId:
+          $ref: "#/components/schemas/RequestId"
+
+    ConversationItem:
+      type: object
+      required: [convId, question, answer, createdAt]
+      properties:
+        convId:
+          type: string
+          format: uuid
+          description: Conversation ID — use to delete this exchange.
+        question:
+          type: string
+        answer:
+          type: string
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/VectorSource"
+        provider:
+          type: string
+          description: LLM provider used.
+          example: "bedrock"
+        createdAt:
+          type: string
+          format: date-time
+
+    # ── Config ────────────────────────────────────────────────────────────
+
+    LlmProviderInfo:
+      type: object
+      required: [name, label, configured]
+      properties:
+        name:
+          type: string
+          description: Provider identifier — pass as `X-LLM-Provider` header.
+          example: "bedrock"
+        label:
+          type: string
+          description: Display-friendly provider name.
+          example: "AWS Bedrock"
+        configured:
+          type: boolean
+          description: Whether the provider has a valid API key / IAM config.
+
+    # ── Profile ───────────────────────────────────────────────────────────
+
+    UserProfile:
+      type: object
+      required: [userId, email, username, isAdmin, requestId]
+      properties:
+        userId:
+          type: string
+          description: Cognito `sub` (UUID).
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          description: Cognito username.
+        isAdmin:
+          type: boolean
+          description: True when the user's email is in `ADMIN_EMAILS`.
+        requestId:
+          $ref: "#/components/schemas/RequestId"
+
+    # ── Admin ─────────────────────────────────────────────────────────────
+
+    AuditLogItem:
+      type: object
+      properties:
+        eventType:
+          type: string
+          description: Event type code.
+          example: "RAG_ASK"
+          enum:
+            - CREATE_ENTRY
+            - UPDATE_ENTRY
+            - DELETE_ENTRY
+            - BULK_DELETE_ENTRIES
+            - TRIGGER_AI
+            - RAG_ASK
+            - RAG_SEARCH
+            - RAG_EMBED_ALL
+            - RAG_CLEAR_VECTORS
+            - DELETE_CONVERSATION
+        userId:
+          type: string
+          description: Cognito sub of the acting user.
+        timestamp:
+          type: string
+          format: date-time
+        requestId:
+          type: string
+          format: uuid
+        details:
+          type: object
+          additionalProperties: true
+          description: |
+            Event-specific details. Common fields:
+            - `entryId` (string) — for entry events
+            - `count` / `deleted` (int) — for bulk / clear operations
+            - `query` (string, truncated) — for RAG events
+            - `provider` (string) — for RAG_ASK
+
+    AdminMetricsResponse:
+      type: object
+      properties:
+        activeUsers:
+          type: integer
+          description: Distinct users seen in the requested period.
+        totalAiCalls:
+          type: integer
+          description: Number of RAG_ASK events.
+        totalRagQueries:
+          type: integer
+          description: Number of RAG_ASK + RAG_SEARCH events combined.
+        totalUserActions:
+          type: integer
+          description: Total audit log entries in the period.
+        aiCallsByProvider:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Breakdown of AI calls by provider name.
+          example: { "bedrock": 42, "groq": 7 }
+        estimatedCost:
+          type: number
+          format: float
+          description: Rough AI cost estimate in USD (placeholder).
+        requestId:
+          $ref: "#/components/schemas/RequestId"
+
+# ── Paths ─────────────────────────────────────────────────────────────────────
+
+paths:
+
+  # ── Health ────────────────────────────────────────────────────────────────
+
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Health check
+      description: Returns `{"status":"ok"}`. No authentication required.
+      security: []
+      responses:
+        "200":
+          description: Service is healthy.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, requestId]
+                properties:
+                  status:
+                    type: string
+                    example: "ok"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+
+  # ── Config ────────────────────────────────────────────────────────────────
+
+  /config/providers:
+    get:
+      tags: [Config]
+      operationId: getProviders
+      summary: List available LLM providers
+      description: |
+        Returns the LLM providers that are configured server-side (i.e. have
+        a valid API key or IAM role). Public — no authentication required.
+
+        Use the `name` of a returned provider as the `X-LLM-Provider` request
+        header when calling `/rag/ask` or `/entries/{entryId}/ai`.
+      security: []
+      responses:
+        "200":
+          description: List of configured providers.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [providers, requestId]
+                properties:
+                  providers:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/LlmProviderInfo"
+                  default:
+                    type: string
+                    description: Name of the default provider (value of `LLM_PROVIDER` env var).
+                    example: "bedrock"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+
+  # ── Profile ───────────────────────────────────────────────────────────────
+
+  /me:
+    get:
+      tags: [Profile]
+      operationId: getMe
+      summary: Get current user profile
+      description: Returns the authenticated user's ID, email, and admin status.
+      responses:
+        "200":
+          description: User profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          description: Missing or invalid JWT.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Entries ───────────────────────────────────────────────────────────────
+
+  /entries:
+    get:
+      tags: [Entries]
+      operationId: listEntries
+      summary: List journal entries
+      description: |
+        Returns a page of the authenticated user's non-deleted journal entries,
+        ordered newest-first. Supports cursor-based pagination via `nextToken`.
+
+        DynamoDB `ConsistentRead=true` is used so newly created entries appear
+        immediately on the next list call (avoids read-after-write misses).
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum entries per page (1–100). Default 50.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: nextToken
+          in: query
+          description: Pagination cursor from the previous response's `nextToken` field.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Page of entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedEntriesResponse"
+        "400":
+          description: Invalid `nextToken`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Entries]
+      operationId: createEntry
+      summary: Create journal entry
+      description: Creates a new journal entry. Both `title` and `body` are required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEntryRequest"
+      responses:
+        "201":
+          description: Entry created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/JournalEntry"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "400":
+          description: Validation error (missing title or body).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /entries/count:
+    get:
+      tags: [Entries]
+      operationId: countEntries
+      summary: Count journal entries
+      description: Returns the total number of non-deleted entries for the current user.
+      responses:
+        "200":
+          description: Entry count.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [count, requestId]
+                properties:
+                  count:
+                    type: integer
+                    description: Total non-deleted entry count.
+                    example: 195
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /entries/bulk-delete:
+    post:
+      tags: [Entries]
+      operationId: bulkDeleteEntries
+      summary: Bulk soft-delete entries
+      description: |
+        Soft-deletes up to 200 entries in a single call. Non-existent or
+        already-deleted IDs are silently skipped. The response `deleted` count
+        reflects only entries that were actually soft-deleted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkDeleteRequest"
+      responses:
+        "200":
+          description: Bulk delete result.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, requestId]
+                properties:
+                  deleted:
+                    type: integer
+                    description: Number of entries actually soft-deleted.
+                    example: 3
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "400":
+          description: Empty list or more than 200 IDs.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /entries/{entryId}:
+    parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Entry UUID.
+
+    get:
+      tags: [Entries]
+      operationId: getEntry
+      summary: Get entry
+      description: Retrieve a single journal entry by ID. Returns 404 if deleted.
+      responses:
+        "200":
+          description: Entry found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/JournalEntry"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      tags: [Entries]
+      operationId: updateEntry
+      summary: Update entry
+      description: Update an entry's title and/or body. At least one field is required.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEntryRequest"
+      responses:
+        "200":
+          description: Entry updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/JournalEntry"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "400":
+          description: Empty update (no fields provided).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Entries]
+      operationId: deleteEntry
+      summary: Delete entry (soft)
+      description: Soft-deletes an entry by setting `deletedAt`. The entry is hidden from all list/get calls but remains in DynamoDB.
+      responses:
+        "200":
+          description: Entry soft-deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, requestId]
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /entries/{entryId}/ai:
+    parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Entries]
+      operationId: triggerEntryAi
+      summary: Trigger AI enrichment
+      description: |
+        Starts an AWS Step Functions execution to enrich the entry with an
+        AI-generated `summary` and `tags`. The entry's `aiStatus` is set to
+        `QUEUED` immediately. Poll `GET /entries/{entryId}` to check progress.
+
+        Requires `AI_ENABLED=true` on the server. Pass `X-LLM-Provider` header
+        to select a non-default provider.
+      parameters:
+        - name: X-LLM-Provider
+          in: header
+          description: Override the default LLM provider for this call.
+          schema:
+            type: string
+            example: "bedrock"
+      responses:
+        "202":
+          description: AI enrichment queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entryId, aiStatus, executionArn, requestId]
+                properties:
+                  entryId:
+                    type: string
+                    format: uuid
+                  aiStatus:
+                    type: string
+                    example: "QUEUED"
+                  executionArn:
+                    type: string
+                    description: Step Functions execution ARN.
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/AiNotConfigured"
+
+  # ── Insights ──────────────────────────────────────────────────────────────
+
+  /insights/summaries:
+    get:
+      tags: [Insights]
+      operationId: listSummaries
+      summary: List period summaries
+      description: Returns all period summaries for the authenticated user, newest-first.
+      responses:
+        "200":
+          description: Summary list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, requestId]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/PeriodSummary"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Insights]
+      operationId: createSummary
+      summary: Create period summary
+      description: |
+        Creates a new period summary. If `AI_ENABLED=true`, also queues an
+        AI enrichment job via Step Functions to generate narrative, themes,
+        mood, highlights, and reflection.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSummaryRequest"
+            examples:
+              monthly:
+                summary: Monthly summary for March 2026
+                value:
+                  period: monthly
+                  year: 2026
+                  month: 3
+              yearly:
+                summary: Yearly summary for 2025
+                value:
+                  period: yearly
+                  year: 2025
+              weekly:
+                summary: Week 12 of 2026
+                value:
+                  period: weekly
+                  year: 2026
+                  week: 12
+      responses:
+        "201":
+          description: Summary created (AI enrichment queued if enabled).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/PeriodSummary"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "400":
+          description: Invalid period, year, month, or week.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /insights/summaries/{summaryId}:
+    parameters:
+      - name: summaryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      tags: [Insights]
+      operationId: getSummary
+      summary: Get period summary
+      responses:
+        "200":
+          description: Summary found.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/PeriodSummary"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Insights]
+      operationId: deleteSummary
+      summary: Delete period summary
+      responses:
+        "200":
+          description: Summary deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, requestId]
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /insights/summaries/{summaryId}/regenerate:
+    parameters:
+      - name: summaryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      tags: [Insights]
+      operationId: regenerateSummary
+      summary: Re-run AI enrichment on summary
+      description: |
+        Resets the summary's `aiStatus` to `QUEUED` and starts a new Step
+        Functions execution to re-generate the AI narrative. Useful when
+        new entries have been added to the period since the summary was first
+        generated.
+      responses:
+        "202":
+          description: AI re-enrichment queued.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [item, executionArn, requestId]
+                properties:
+                  item:
+                    $ref: "#/components/schemas/PeriodSummary"
+                  executionArn:
+                    type: string
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/AiNotConfigured"
+
+  # ── RAG ───────────────────────────────────────────────────────────────────
+
+  /rag/status:
+    get:
+      tags: [RAG]
+      operationId: getRagStatus
+      summary: RAG index status
+      description: Returns the count of embedded entries and the total number of entries for the current user.
+      responses:
+        "200":
+          description: RAG status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totalVectors, totalEntries, requestId]
+                properties:
+                  totalVectors:
+                    type: integer
+                    description: Number of entries indexed in the vector store.
+                    example: 195
+                  totalEntries:
+                    type: integer
+                    description: Total non-deleted entries for the user.
+                    example: 195
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rag/embed-all:
+    post:
+      tags: [RAG]
+      operationId: embedAllEntries
+      summary: Embed all entries
+      description: |
+        Generates embeddings for every non-deleted journal entry and stores
+        them in the vector store (DynamoDB `VECTOR#<entryId>` SK). Already-
+        embedded entries are overwritten (upsert). Requires `AI_ENABLED=true`.
+
+        This call is synchronous and may take several seconds for large
+        corpora. Lambda timeout is 30 s — consider splitting if you have
+        more than ~150 entries.
+      responses:
+        "200":
+          description: Embedding complete.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [embedded, failed, totalEntries, requestId]
+                properties:
+                  embedded:
+                    type: integer
+                    description: Number of entries successfully embedded.
+                    example: 193
+                  failed:
+                    type: integer
+                    description: Number of entries that failed to embed.
+                    example: 2
+                  totalEntries:
+                    type: integer
+                    description: Total entries processed.
+                    example: 195
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/AiNotConfigured"
+
+  /rag/search:
+    post:
+      tags: [RAG]
+      operationId: searchJournal
+      summary: Semantic search
+      description: |
+        Embeds the query and returns the top-k most similar journal entries
+        using cosine similarity computed in-memory. No LLM is called — pure
+        vector retrieval.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RagSearchRequest"
+            example:
+              query: "career goals"
+              top_k: 5
+      responses:
+        "200":
+          description: Search results.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results, requestId]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/VectorSource"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "400":
+          description: Missing query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/AiNotConfigured"
+
+  /rag/ask:
+    post:
+      tags: [RAG]
+      operationId: askJournal
+      summary: Ask a question (RAG Q&A)
+      description: |
+        Retrieves the top-k most relevant journal entries by vector similarity,
+        then passes them as context to the configured LLM to generate an answer.
+
+        The Q&A exchange is persisted as a `CONV#` item in DynamoDB and
+        returned via `GET /rag/conversations`.
+
+        Use the `X-LLM-Provider` header to override the default provider.
+      parameters:
+        - name: X-LLM-Provider
+          in: header
+          description: Override the default LLM provider for this call.
+          schema:
+            type: string
+            enum: [bedrock, groq, openai]
+            example: "bedrock"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RagAskRequest"
+            example:
+              query: "What was I stressed about in January?"
+              top_k: 5
+      responses:
+        "200":
+          description: Answer with sources.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RagAskResponse"
+        "400":
+          description: Missing query.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "503":
+          $ref: "#/components/responses/AiNotConfigured"
+
+  /rag/conversations:
+    get:
+      tags: [RAG]
+      operationId: listConversations
+      summary: List conversation history
+      description: Returns the 50 most recent Q&A exchanges, newest-first.
+      responses:
+        "200":
+          description: Conversation list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, requestId]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ConversationItem"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rag/conversations/{convId}:
+    parameters:
+      - name: convId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Conversation UUID (from `ConversationItem.convId`).
+    delete:
+      tags: [RAG]
+      operationId: deleteConversation
+      summary: Delete conversation
+      description: Permanently deletes a conversation exchange from DynamoDB.
+      responses:
+        "200":
+          description: Conversation deleted (or was already absent).
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, requestId]
+                properties:
+                  deleted:
+                    type: boolean
+                    example: true
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /rag/vectors:
+    delete:
+      tags: [RAG]
+      operationId: clearVectors
+      summary: Clear all vector embeddings
+      description: |
+        Deletes every `VECTOR#` item for the current user from DynamoDB.
+        The journal entries themselves are **not** affected. Re-index at any
+        time by calling `POST /rag/embed-all`.
+      responses:
+        "200":
+          description: Vectors cleared.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted, requestId]
+                properties:
+                  deleted:
+                    type: integer
+                    description: Number of vector items deleted.
+                    example: 195
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ── Admin ─────────────────────────────────────────────────────────────────
+
+  /admin/audit:
+    get:
+      tags: [Admin]
+      operationId: getAuditLogs
+      summary: List audit logs
+      description: |
+        Returns audit log entries written by `write_audit()` in the Lambda
+        handler. All write and AI interactions are logged.
+
+        Requires admin email in JWT claims. Non-admin callers receive `403`.
+      parameters:
+        - name: date
+          in: query
+          description: |
+            Filter logs to a single calendar day (ISO date `YYYY-MM-DD`).
+            Omit to return the most recent `limit` entries across all dates.
+          schema:
+            type: string
+            format: date
+            example: "2026-03-19"
+        - name: limit
+          in: query
+          description: Maximum number of log entries to return (1–500). Default 100.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 500
+            default: 100
+      responses:
+        "200":
+          description: Audit log entries, newest-first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, requestId]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/AuditLogItem"
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/metrics:
+    get:
+      tags: [Admin]
+      operationId: getMetrics
+      summary: Usage metrics
+      description: |
+        Computes metrics from the DynamoDB audit log for the requested number
+        of trailing days.
+      parameters:
+        - name: days
+          in: query
+          description: Number of trailing days to include. Default 7.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 90
+            default: 7
+      responses:
+        "200":
+          description: Aggregated metrics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminMetricsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/users:
+    get:
+      tags: [Admin]
+      operationId: listUsers
+      summary: List known users
+      description: |
+        Returns distinct user IDs extracted from the audit log.
+        Note: only users who have performed a logged action appear here.
+      responses:
+        "200":
+          description: User list.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users, totalUsers, requestId]
+                properties:
+                  users:
+                    type: array
+                    items:
+                      type: string
+                    description: Sorted list of Cognito sub UUIDs.
+                  totalUsers:
+                    type: integer
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/rag/status:
+    get:
+      tags: [Admin]
+      operationId: adminRagStatus
+      summary: Global RAG index stats
+      description: |
+        Returns the total number of embedded vectors and distinct users who
+        have indexed entries, across all users. Uses a DynamoDB table Scan
+        (admin-only operation).
+      responses:
+        "200":
+          description: Global RAG stats.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [totalVectors, totalUsers, requestId]
+                properties:
+                  totalVectors:
+                    type: integer
+                    description: Total VECTOR# items across all users.
+                    example: 1240
+                  totalUsers:
+                    type: integer
+                    description: Number of distinct users with indexed entries.
+                    example: 4
+                  requestId:
+                    $ref: "#/components/schemas/RequestId"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+# ── Shared Responses ──────────────────────────────────────────────────────────
+
+  responses:
+    Unauthorized:
+      description: Missing or invalid JWT.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: UNAUTHORIZED
+            message: "missing valid token"
+            requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    Forbidden:
+      description: Admin access required — caller email is not in ADMIN_EMAILS.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: FORBIDDEN
+            message: "admin access required"
+            requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    NotFound:
+      description: Resource not found (or belongs to another user).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: NOT_FOUND
+            message: "entry not found"
+            requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+
+    AiNotConfigured:
+      description: AI is not enabled on the server (AI_ENABLED != true).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            code: AI_NOT_CONFIGURED
+            message: "AI enrichment is not configured. Set AI_ENABLED=true and configure an LLM provider."
+            requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
