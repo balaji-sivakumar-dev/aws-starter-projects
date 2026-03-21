@@ -143,3 +143,13 @@ Tracks all Requirements, Issues, and Fixes for the Reflect journal app.
 - Frontend (Vitest) setup for journal filter component tests
 - ISS-009: Fix burger menu icons on mobile
 - REQ-021 (nice to have): Admin screen audit log enhancement — view all audit records, list users with activity, filter audit log by selected user, show per-user interaction history. Backend: `GET /admin/audit?userId=<id>` filter param + `GET /admin/users` already returns user list. Frontend: user selector dropdown in AdminPanel audit tab, paginated audit table filtered by user.
+
+### Nice to Have — User & Admin Management (reusable pattern for future apps)
+
+These are not needed for the current Reflect deployment but are worth building as a reusable module for future templates.
+
+| ID | Description | Notes |
+|---|---|---|
+| NTH-001 | **Invite-only user onboarding** — Admin invites users by email; Cognito `AdminCreateUser` sends a temp-password email; user resets password on first login. Disable self-signup entirely. Frontend: "Invite User" form in Admin panel → `POST /admin/invite` endpoint. | Replaces current allowlist (.env.users / SSM) pattern |
+| NTH-002 | **Cognito Groups for admin management** — Create an `Admins` group in the Cognito User Pool. Lambda checks `cognito:groups` claim in JWT instead of comparing email against `ADMIN_EMAILS` env var. Add/remove admins via Cognito console or a future admin UI — no SSM, no redeployment required. | Cleaner than current SSM email list approach |
+| NTH-003 | **Admin-promoted group approval flow** — Self-signup allowed but pre-signup Lambda places new users in a `Pending` Cognito group. Admin promotes to `Users` group to grant access. Lambda gate checks group membership on every request. | Combines NTH-001 and NTH-002; highest effort |
