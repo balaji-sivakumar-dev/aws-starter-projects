@@ -24,12 +24,12 @@ This project serves two goals:
 ## Quick start
 
 ```bash
-docker compose up --build
+make dev
 # Web UI  → http://localhost:3000
 # API     → http://localhost:8080/docs
 ```
 
-No login required locally — all requests run as `dev-user`.
+No login required locally — all requests run as `dev-user`. See [Setup](docs/Setup.md) for full local and AWS deploy instructions.
 
 ## Deploy
 
@@ -40,7 +40,7 @@ A `Makefile` wraps all deploy scripts. Run `make help` to see all targets.
 make bootstrap          # create Terraform S3 backend
 make secrets            # store API keys + user allowlist in SSM
 make infra              # terraform apply (full deploy)
-make cognito-admin      # create admin user in Cognito
+make cognito-admin      # create admin Cognito user
 
 # Iterative deploys
 make deploy-backend     # Lambda API + AI Gateway + Step Functions
@@ -50,9 +50,12 @@ make deploy             # backend + web together
 
 # Local dev
 make dev                # docker compose up (full stack)
-make test               # run Python tests
+make dev-down           # stop local stack
+make test               # run Python tests (112 tests, no Docker needed)
 make web-dev            # Vite dev server (localhost:5173)
 ```
+
+Full step-by-step instructions, user management, and AI provider configuration → **[docs/Setup.md](docs/Setup.md)**
 
 ## Docs
 
@@ -60,7 +63,7 @@ make web-dev            # Vite dev server (localhost:5173)
 |-----|-------------|
 | [Architecture](docs/Architecture.md) | System design, data model, API contract, deployment modes |
 | [Architecture Diagram](docs/Reflect%20APP%20AWS.drawio.xml) | AWS architecture diagram (draw.io) — open with `npx @drawio/mcp` or [app.diagrams.net](https://app.diagrams.net) |
-| [Setup](docs/Setup.md) | Local dev, seed data, LLM config, running tests, AWS deployment scripts |
+| [Setup](docs/Setup.md) | Local dev, seed data, LLM config, `make` targets, user management, AWS deploy |
 | [Testing-Local](docs/Testing-Local.md) | Step-by-step guide to run and test the full stack locally, including RAG |
 | [AWS-Console-Setup](docs/AWS-Console-Setup.md) | Manual AWS console steps after Terraform deploy (allowlist, admin user, TTL, alarms) |
 | [AWS-Cost-Estimate](docs/AWS-Cost-Estimate.md) | Monthly cost breakdown by compute mode; what to keep running vs shut down after testing |
