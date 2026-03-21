@@ -9,9 +9,10 @@ Pattern:
 """
 
 import uuid
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from ...core import handlers
 from ...core.models import (
@@ -21,7 +22,7 @@ from ...core.models import (
     SingleEntryResponse,
     UpdateEntryRequest,
 )
-from .deps import get_current_user
+from .deps import get_current_user, get_current_user_email
 
 router = APIRouter()
 
@@ -47,11 +48,19 @@ def health():
 # ── Identity ──────────────────────────────────────────────────────────────────
 
 @router.get("/me", tags=["auth"])
-def me(request: Request, user_id: str = Depends(get_current_user)):
-    return {**handlers.me(user_id), "requestId": _rid(request)}
+def me(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+    email: str = Depends(get_current_user_email),
+):
+    return {**handlers.me(user_id, email), "requestId": _rid(request)}
 
 
 # ── Entries ───────────────────────────────────────────────────────────────────
+
+class BulkDeleteRequest(BaseModel):
+    entryIds: List[str]
+
 
 @router.get("/entries", response_model=ListEntriesResponse, tags=["entries"])
 def list_entries(
@@ -65,6 +74,32 @@ def list_entries(
     except AppError as exc:
         raise _http(exc)
     return {"items": items, "nextToken": next_tok, "requestId": _rid(request)}
+
+
+# NOTE: static sub-paths (/count, /bulk-delete) must be registered BEFORE
+# the parameterised route /entries/{entry_id} to avoid FastAPI swallowing
+# "count" and "bulk-delete" as path parameter values.
+
+@router.get("/entries/count", tags=["entries"])
+def count_entries(
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    count = handlers.count_entries(user_id)
+    return {"count": count, "requestId": _rid(request)}
+
+
+@router.post("/entries/bulk-delete", tags=["entries"])
+def bulk_delete_entries(
+    body: BulkDeleteRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        deleted = handlers.bulk_delete_entries(user_id, body.entryIds)
+    except AppError as exc:
+        raise _http(exc)
+    return {"deleted": deleted, "requestId": _rid(request)}
 
 
 @router.post("/entries", response_model=SingleEntryResponse, status_code=201, tags=["entries"])
@@ -128,8 +163,9 @@ def trigger_ai(
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
+    provider_name = request.headers.get("x-llm-provider") or None
     try:
-        result = handlers.trigger_ai(user_id, entry_id)
+        result = handlers.trigger_ai(user_id, entry_id, provider_name=provider_name)
     except AppError as exc:
         raise _http(exc)
     return {**result, "requestId": _rid(request)}

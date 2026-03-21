@@ -18,6 +18,9 @@
 #   DEPLOY_API=false    AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 #   DEPLOY_AI=false     AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 #   DEPLOY_SFN=false    AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
+#
+# When API Gateway routes have been added/changed (main.tf api_routes map changed):
+#   DEPLOY_ROUTES=true  AWS_PROFILE=journal-dev ./scripts/setup/step-3c-deploy-backend.sh dev
 
 set -euo pipefail
 
@@ -30,13 +33,16 @@ BACKEND_FILE="${TF_DIR}/backend.${ENV_NAME}.tfbackend"
 DEPLOY_API="${DEPLOY_API:-true}"
 DEPLOY_AI="${DEPLOY_AI:-true}"
 DEPLOY_SFN="${DEPLOY_SFN:-true}"
+# Set DEPLOY_ROUTES=true when API Gateway routes have been added/changed (api_routes map in main.tf)
+DEPLOY_ROUTES="${DEPLOY_ROUTES:-false}"
 
 echo "== Backend Deploy (Template 3) =="
-echo "Environment : ${ENV_NAME}"
-echo "TF_DIR      : ${TF_DIR}"
-echo "Deploy API  : ${DEPLOY_API}"
-echo "Deploy AI   : ${DEPLOY_AI}"
-echo "Deploy SFN  : ${DEPLOY_SFN}"
+echo "Environment   : ${ENV_NAME}"
+echo "TF_DIR        : ${TF_DIR}"
+echo "Deploy API    : ${DEPLOY_API}"
+echo "Deploy AI     : ${DEPLOY_AI}"
+echo "Deploy SFN    : ${DEPLOY_SFN}"
+echo "Deploy Routes : ${DEPLOY_ROUTES}"
 echo
 
 # ── Pre-flight ────────────────────────────────────────────────────────────────
@@ -63,9 +69,11 @@ fi
 echo ">> Clearing Lambda zip caches..."
 API_ZIP="${TF_DIR}/modules/compute_lambda/.build/api.zip"
 AI_ZIP="${TF_DIR}/modules/ai_gateway/.build/ai-gateway.zip"
+PRE_SIGNUP_ZIP="${TF_DIR}/modules/auth/lambda/pre_signup.zip"
 
-[ -f "${API_ZIP}" ] && rm -f "${API_ZIP}" && echo "   Removed ${API_ZIP}"
-[ -f "${AI_ZIP}"  ] && rm -f "${AI_ZIP}"  && echo "   Removed ${AI_ZIP}"
+[ -f "${API_ZIP}"        ] && rm -f "${API_ZIP}"        && echo "   Removed ${API_ZIP}"
+[ -f "${AI_ZIP}"         ] && rm -f "${AI_ZIP}"         && echo "   Removed ${AI_ZIP}"
+[ -f "${PRE_SIGNUP_ZIP}" ] && rm -f "${PRE_SIGNUP_ZIP}" && echo "   Removed ${PRE_SIGNUP_ZIP}"
 echo
 
 # ── Terraform init ────────────────────────────────────────────────────────────
@@ -91,18 +99,48 @@ if [ "${DEPLOY_SFN}" = "true" ]; then
   TARGETS+=( "-target=module.workflow.aws_sfn_state_machine.this" )
 fi
 
+if [ "${DEPLOY_ROUTES}" = "true" ]; then
+  # Add/update API Gateway routes, integrations, and Lambda permissions
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_api.this" )
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_route.this" )
+  TARGETS+=( "-target=module.api_edge.aws_apigatewayv2_integration.lambda" )
+  TARGETS+=( "-target=module.api_edge.aws_lambda_permission.allow_apigw" )
+  # Also redeploy API Lambda IAM if permissions changed
+  TARGETS+=( "-target=module.compute_lambda[0].aws_iam_role_policy.inline" )
+fi
+
 if [ "${#TARGETS[@]}" -eq 0 ]; then
   echo "Nothing to deploy (all DEPLOY_* flags are false)."
   popd >/dev/null
   exit 0
 fi
 
+# ── Read admin_emails from SSM (stored by step-2b-store-secrets.sh) ──────────
+# Terraform var defaults to "" — this overrides it with the live SSM value so
+# the Lambda ADMIN_EMAILS env var is always up to date without editing tfvars.
+ADMIN_EMAILS_ARGS=()
+PROFILE="${AWS_PROFILE:-default}"
+ADMIN_EMAILS_SSM=$(aws ssm get-parameter \
+  --name "/journal/${ENV_NAME}/admin_emails" \
+  --with-decryption \
+  --query "Parameter.Value" \
+  --output text \
+  --profile "${PROFILE}" 2>/dev/null || echo "")
+if [[ -n "${ADMIN_EMAILS_SSM}" ]]; then
+  echo ">> Admin emails (from SSM): ${ADMIN_EMAILS_SSM}"
+  ADMIN_EMAILS_ARGS=( "-var=admin_emails=${ADMIN_EMAILS_SSM}" )
+else
+  echo ">> Admin emails: none found in SSM (/journal/${ENV_NAME}/admin_emails)"
+  echo "   Run step-2b-store-secrets.sh with at least one email=admin in .env.users"
+fi
+echo
+
 echo ">> terraform plan (targeted)"
-terraform plan -var-file="${REL_VAR_FILE}" "${TARGETS[@]}"
+terraform plan -var-file="${REL_VAR_FILE}" "${ADMIN_EMAILS_ARGS[@]+"${ADMIN_EMAILS_ARGS[@]}"}" "${TARGETS[@]}"
 
 echo
 echo ">> terraform apply (targeted)"
-terraform apply -var-file="${REL_VAR_FILE}" "${TARGETS[@]}"
+terraform apply -var-file="${REL_VAR_FILE}" "${ADMIN_EMAILS_ARGS[@]+"${ADMIN_EMAILS_ARGS[@]}"}" "${TARGETS[@]}"
 
 popd >/dev/null
 
@@ -110,9 +148,10 @@ echo
 echo "✅ Backend deploy complete for env: ${ENV_NAME}"
 echo
 echo "What was deployed:"
-[ "${DEPLOY_API}" = "true" ] && echo "  ✓ API Lambda        (module.compute_lambda)"
-[ "${DEPLOY_AI}"  = "true" ] && echo "  ✓ AI Gateway Lambda (module.ai_gateway IAM + function)"
-[ "${DEPLOY_SFN}" = "true" ] && echo "  ✓ Step Functions    (module.workflow state machine)"
+[ "${DEPLOY_API}"    = "true" ] && echo "  ✓ API Lambda           (module.compute_lambda)"
+[ "${DEPLOY_AI}"     = "true" ] && echo "  ✓ AI Gateway Lambda    (module.ai_gateway IAM + function)"
+[ "${DEPLOY_SFN}"    = "true" ] && echo "  ✓ Step Functions       (module.workflow state machine)"
+[ "${DEPLOY_ROUTES}" = "true" ] && echo "  ✓ API Gateway routes   (module.api_edge routes + integrations)"
 echo
 echo "If you also changed the web frontend, run:"
 echo "   AWS_PROFILE=${AWS_PROFILE:-journal-dev} ./scripts/setup/step-4a-deploy-web-to-s3.sh ${ENV_NAME}"

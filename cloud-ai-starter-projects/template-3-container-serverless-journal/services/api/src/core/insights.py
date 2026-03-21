@@ -56,6 +56,7 @@ def generate_summary(
     year: int,
     week: Optional[int] = None,
     month: Optional[int] = None,
+    provider_name: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Generate a period summary:
@@ -112,9 +113,9 @@ def generate_summary(
     summary_id = item["summaryId"]
 
     # Run AI (synchronous)
-    llm_provider = os.getenv("LLM_PROVIDER", "")
+    llm_provider = provider_name or os.getenv("LLM_PROVIDER", "")
     if llm_provider:
-        _run_llm(user_id, summary_id, entries, label)
+        _run_llm(user_id, summary_id, entries, label, provider_name=llm_provider)
     else:
         # No LLM: generate a basic text-only summary without AI
         _run_text_only(user_id, summary_id, entries, label)
@@ -142,7 +143,9 @@ def delete_summary(user_id: str, summary_id: str) -> None:
         raise AppError(404, "NOT_FOUND", "summary not found")
 
 
-def regenerate_summary(user_id: str, summary_id: str) -> Dict[str, Any]:
+def regenerate_summary(
+    user_id: str, summary_id: str, provider_name: Optional[str] = None,
+) -> Dict[str, Any]:
     item = repository.get_summary_item(user_id, summary_id)
     if not item:
         raise AppError(404, "NOT_FOUND", "summary not found")
@@ -165,9 +168,9 @@ def regenerate_summary(user_id: str, summary_id: str) -> Dict[str, Any]:
         ExpressionAttributeValues={":s": "PROCESSING", ":u": repository.now_iso()},
     )
 
-    llm_provider = os.getenv("LLM_PROVIDER", "")
+    llm_provider = provider_name or os.getenv("LLM_PROVIDER", "")
     if llm_provider:
-        _run_llm(user_id, summary_id, entries, item["periodLabel"])
+        _run_llm(user_id, summary_id, entries, item["periodLabel"], provider_name=llm_provider)
     else:
         _run_text_only(user_id, summary_id, entries, item["periodLabel"])
 
@@ -182,11 +185,12 @@ def _run_llm(
     summary_id: str,
     entries: List[Dict[str, Any]],
     period_label: str,
+    provider_name: Optional[str] = None,
 ) -> None:
     from ..llm.factory import get_provider
 
     try:
-        provider = get_provider()
+        provider = get_provider(provider_name)
         result = provider.analyze_period(entries, period_label)
         repository.update_summary_result(
             user_id=user_id,

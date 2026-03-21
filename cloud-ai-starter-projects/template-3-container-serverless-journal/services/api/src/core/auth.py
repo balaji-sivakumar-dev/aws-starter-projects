@@ -42,3 +42,23 @@ def resolve_user_cognito(bearer_token: str) -> str:
         return user_id
     except JWTError as exc:
         raise ValueError(f"invalid token: {exc}") from exc
+
+
+def resolve_email_cognito(bearer_token: str) -> str:
+    """
+    Decode a Cognito JWT (already verified) and return the email claim.
+    Assumes token is valid — call after resolve_user_cognito succeeds.
+    """
+    if not jwks_cache:
+        raise ValueError("JWKS not loaded")
+    try:
+        payload = jwt.decode(
+            bearer_token,
+            jwks_cache,
+            algorithms=["RS256"],
+            audience=COGNITO_CLIENT_ID,
+            issuer=COGNITO_ISSUER,
+        )
+        return str(payload.get("email") or "").strip().lower()
+    except JWTError as exc:
+        raise ValueError(f"invalid token: {exc}") from exc

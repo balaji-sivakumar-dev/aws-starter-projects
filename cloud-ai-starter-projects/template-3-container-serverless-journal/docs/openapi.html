@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Reflect API — OpenAPI Docs</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f1117; color: #e2e8f0; }
+
+    /* ── Loading / error banner ── */
+    #banner {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
+      padding: 14px 20px; font-size: 14px; display: none;
+    }
+    #banner.info  { background: #1e3a5f; border-bottom: 1px solid #2d5a9e; }
+    #banner.error { background: #4a1c1c; border-bottom: 1px solid #9e2d2d; }
+    #banner a { color: #93c5fd; }
+
+    /* ── Fallback viewer (shown when Redoc CDN unavailable) ── */
+    #fallback {
+      display: none; max-width: 960px; margin: 60px auto; padding: 0 24px 60px;
+    }
+    #fallback h1 { font-size: 26px; margin-bottom: 4px; color: #f8fafc; }
+    #fallback .subtitle { color: #94a3b8; margin-bottom: 32px; font-size: 14px; }
+    .tag-section { margin-bottom: 40px; }
+    .tag-title {
+      font-size: 18px; font-weight: 600; color: #7dd3fc;
+      border-bottom: 1px solid #1e293b; padding-bottom: 8px; margin-bottom: 16px;
+    }
+    .endpoint {
+      background: #1a1f2e; border: 1px solid #2d3748;
+      border-radius: 8px; margin-bottom: 12px; overflow: hidden;
+    }
+    .endpoint-header {
+      display: flex; align-items: center; gap: 12px;
+      padding: 12px 16px; cursor: pointer; user-select: none;
+    }
+    .endpoint-header:hover { background: #1e2535; }
+    .method {
+      font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px;
+      min-width: 52px; text-align: center; letter-spacing: 0.04em;
+    }
+    .method-GET    { background: #1a4731; color: #4ade80; }
+    .method-POST   { background: #1e3a5f; color: #60a5fa; }
+    .method-PUT    { background: #3d2e00; color: #fbbf24; }
+    .method-DELETE { background: #4a1c1c; color: #f87171; }
+    .path          { font-family: "SF Mono", Monaco, monospace; font-size: 14px; color: #e2e8f0; }
+    .auth-badge    { margin-left: auto; font-size: 11px; color: #64748b; }
+    .auth-badge.jwt { color: #a78bfa; }
+    .summary-text  { font-size: 13px; color: #94a3b8; margin-left: auto; }
+    .endpoint-body { padding: 0 16px 14px; display: none; border-top: 1px solid #2d3748; }
+    .endpoint-body.open { display: block; }
+    .endpoint-desc { font-size: 13px; color: #94a3b8; margin: 10px 0; line-height: 1.6; white-space: pre-wrap; }
+    .field-table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 12px; }
+    .field-table th { text-align: left; color: #64748b; padding: 4px 8px; border-bottom: 1px solid #1e293b; }
+    .field-table td { padding: 4px 8px; border-bottom: 1px solid #1a2030; vertical-align: top; }
+    .field-name  { font-family: "SF Mono", Monaco, monospace; color: #7dd3fc; }
+    .field-type  { color: #a78bfa; }
+    .field-req   { color: #f87171; font-size: 10px; }
+    .section-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 4px; }
+    .response-code { display: inline-block; font-family: monospace; font-size: 12px; font-weight: 700; padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
+    .rc-2xx { background: #1a4731; color: #4ade80; }
+    .rc-4xx { background: #4a1c1c; color: #f87171; }
+    .rc-5xx { background: #4a2000; color: #fb923c; }
+
+    /* ── Swagger UI live ── */
+    #swagger-ui-wrapper { padding-top: 0; }
+    .swagger-ui .topbar { display: none; }
+  </style>
+</head>
+<body>
+
+<div id="banner" class="info">
+  Loading API documentation from CDN…
+  If this banner persists, see the <strong>offline instructions</strong> below.
+</div>
+
+<!-- Redoc renders here when CDN is available -->
+<div id="redoc-container"></div>
+
+<!-- Fallback table-based viewer (always populated, shown if CDN fails) -->
+<div id="fallback">
+  <h1>Reflect Journal API</h1>
+  <p class="subtitle">v1.0.0 — 28 endpoints &nbsp;|&nbsp;
+    Offline viewer &nbsp;·&nbsp;
+    For the full interactive docs open this file while online
+    (Redoc loads from CDN on first visit, then works offline via browser cache).
+  </p>
+  <div id="endpoint-list"></div>
+</div>
+
+<script>
+// ── Embedded spec (subset used by fallback viewer) ────────────────────────────
+const ENDPOINTS = [
+  // Health & Config
+  { method:"GET",    path:"/health",                            auth:"NONE", tag:"Health",   summary:"Health check" },
+  { method:"GET",    path:"/config/providers",                  auth:"NONE", tag:"Config",   summary:"List available LLM providers",
+    description:"Returns configured LLM providers. Pass the provider `name` as the `X-LLM-Provider` header on RAG/AI calls.",
+    response:"{ providers: [{name, label, configured}], default, requestId }" },
+
+  // Profile
+  { method:"GET",    path:"/me",                                auth:"JWT",  tag:"Profile",  summary:"Get current user profile",
+    response:"{ userId, email, username, isAdmin, requestId }" },
+
+  // Entries
+  { method:"GET",    path:"/entries",                           auth:"JWT",  tag:"Entries",  summary:"List entries (newest-first, paginated)",
+    params:[{name:"limit",type:"integer",req:false,desc:"1–100, default 50"},{name:"nextToken",type:"string",req:false,desc:"Pagination cursor"}],
+    response:"{ items: [JournalEntry], nextToken, requestId }" },
+  { method:"GET",    path:"/entries/count",                     auth:"JWT",  tag:"Entries",  summary:"Count non-deleted entries",
+    response:"{ count: integer, requestId }" },
+  { method:"POST",   path:"/entries",                           auth:"JWT",  tag:"Entries",  summary:"Create entry",
+    body:[{name:"title",type:"string",req:true},{name:"body",type:"string",req:true}],
+    response:"{ item: JournalEntry, requestId }" },
+  { method:"GET",    path:"/entries/{entryId}",                 auth:"JWT",  tag:"Entries",  summary:"Get entry",
+    response:"{ item: JournalEntry, requestId }" },
+  { method:"PUT",    path:"/entries/{entryId}",                 auth:"JWT",  tag:"Entries",  summary:"Update entry title/body",
+    body:[{name:"title",type:"string",req:false},{name:"body",type:"string",req:false}],
+    response:"{ item: JournalEntry, requestId }" },
+  { method:"DELETE", path:"/entries/{entryId}",                 auth:"JWT",  tag:"Entries",  summary:"Soft-delete entry",
+    response:"{ deleted: true, requestId }" },
+  { method:"POST",   path:"/entries/bulk-delete",               auth:"JWT",  tag:"Entries",  summary:"Bulk soft-delete entries (max 200)",
+    body:[{name:"entryIds",type:"string[]",req:true,desc:"1–200 entry UUIDs"}],
+    response:"{ deleted: integer, requestId }" },
+  { method:"POST",   path:"/entries/{entryId}/ai",              auth:"JWT",  tag:"Entries",  summary:"Trigger AI enrichment (async)",
+    description:"Queues a Step Functions job. Poll GET /entries/{entryId} to check aiStatus.\nPass X-LLM-Provider header to override the default provider.",
+    response:"{ entryId, aiStatus: QUEUED, executionArn, requestId }" },
+
+  // Insights
+  { method:"GET",    path:"/insights/summaries",                auth:"JWT",  tag:"Insights", summary:"List period summaries",
+    response:"{ items: [PeriodSummary], requestId }" },
+  { method:"POST",   path:"/insights/summaries",                auth:"JWT",  tag:"Insights", summary:"Create period summary",
+    body:[
+      {name:"period",type:"weekly|monthly|yearly",req:true},
+      {name:"year",type:"integer",req:true,desc:"2000–2100"},
+      {name:"month",type:"integer",req:false,desc:"1–12, required for monthly"},
+      {name:"week",type:"integer",req:false,desc:"1–53, required for weekly"},
+    ],
+    response:"{ item: PeriodSummary, requestId }" },
+  { method:"GET",    path:"/insights/summaries/{summaryId}",    auth:"JWT",  tag:"Insights", summary:"Get period summary",
+    response:"{ item: PeriodSummary, requestId }" },
+  { method:"DELETE", path:"/insights/summaries/{summaryId}",    auth:"JWT",  tag:"Insights", summary:"Delete period summary",
+    response:"{ deleted: true, requestId }" },
+  { method:"POST",   path:"/insights/summaries/{summaryId}/regenerate", auth:"JWT", tag:"Insights", summary:"Re-run AI enrichment",
+    description:"Resets aiStatus to QUEUED and starts a new Step Functions job.",
+    response:"{ item: PeriodSummary, executionArn, requestId }" },
+
+  // RAG
+  { method:"GET",    path:"/rag/status",                        auth:"JWT",  tag:"RAG",      summary:"RAG index status",
+    response:"{ totalVectors: integer, totalEntries: integer, requestId }" },
+  { method:"POST",   path:"/rag/embed-all",                     auth:"JWT",  tag:"RAG",      summary:"Embed all entries",
+    description:"Generates Bedrock Titan embeddings for every entry and upserts into DynamoDB vector store.",
+    response:"{ embedded, failed, totalEntries, requestId }" },
+  { method:"POST",   path:"/rag/search",                        auth:"JWT",  tag:"RAG",      summary:"Semantic vector search",
+    body:[{name:"query",type:"string",req:true},{name:"top_k",type:"integer",req:false,desc:"1–10, default 5"}],
+    response:"{ results: [{entryId, title, bodySnippet, score}], requestId }" },
+  { method:"POST",   path:"/rag/ask",                           auth:"JWT",  tag:"RAG",      summary:"RAG Q&A — ask a question over your journal",
+    description:"Retrieves top-k entries by similarity, then calls the LLM to generate an answer.\nExchange is persisted and returned by GET /rag/conversations.\nPass X-LLM-Provider header to select provider.",
+    body:[{name:"query",type:"string",req:true},{name:"top_k",type:"integer",req:false,desc:"1–10, default 5"}],
+    response:"{ answer, sources: [{entryId, title, score, snippet}], provider, requestId }" },
+  { method:"GET",    path:"/rag/conversations",                 auth:"JWT",  tag:"RAG",      summary:"List conversation history (50 newest)",
+    response:"{ items: [ConversationItem], requestId }" },
+  { method:"DELETE", path:"/rag/conversations/{convId}",        auth:"JWT",  tag:"RAG",      summary:"Delete conversation",
+    response:"{ deleted: boolean, requestId }" },
+  { method:"DELETE", path:"/rag/vectors",                       auth:"JWT",  tag:"RAG",      summary:"Clear all vector embeddings",
+    description:"Deletes all VECTOR# items for the current user. Journal entries are not affected.",
+    response:"{ deleted: integer, requestId }" },
+
+  // Admin
+  { method:"GET",    path:"/admin/audit",                       auth:"JWT+Admin", tag:"Admin",    summary:"Audit logs",
+    params:[{name:"date",type:"string",req:false,desc:"YYYY-MM-DD filter"},{name:"limit",type:"integer",req:false,desc:"1–500, default 100"}],
+    response:"{ items: [AuditLogItem], requestId }" },
+  { method:"GET",    path:"/admin/metrics",                     auth:"JWT+Admin", tag:"Admin",    summary:"Usage metrics",
+    params:[{name:"days",type:"integer",req:false,desc:"Trailing days, default 7"}],
+    response:"{ activeUsers, totalAiCalls, totalRagQueries, totalUserActions, aiCallsByProvider, estimatedCost, requestId }" },
+  { method:"GET",    path:"/admin/users",                       auth:"JWT+Admin", tag:"Admin",    summary:"List known users",
+    response:"{ users: [string], totalUsers, requestId }" },
+  { method:"GET",    path:"/admin/rag/status",                  auth:"JWT+Admin", tag:"Admin",    summary:"Global RAG index stats",
+    response:"{ totalVectors, totalUsers, requestId }" },
+];
+
+// ── Build fallback table viewer ───────────────────────────────────────────────
+function buildFallback() {
+  const container = document.getElementById("endpoint-list");
+  const tags = [...new Set(ENDPOINTS.map(e => e.tag))];
+
+  tags.forEach(tag => {
+    const section = document.createElement("div");
+    section.className = "tag-section";
+    section.innerHTML = `<div class="tag-title">${tag}</div>`;
+
+    ENDPOINTS.filter(e => e.tag === tag).forEach(ep => {
+      const card = document.createElement("div");
+      card.className = "endpoint";
+
+      const isJwtAdmin = ep.auth === "JWT+Admin";
+      const authLabel = ep.auth === "NONE" ? "public" : isJwtAdmin ? "JWT + admin" : "JWT";
+      const authClass = ep.auth === "NONE" ? "" : "jwt";
+
+      let bodyRows = "";
+      if (ep.body?.length) {
+        bodyRows = `<div class="section-label">Request body</div>
+          <table class="field-table">
+            <thead><tr><th>Field</th><th>Type</th><th>Req</th><th>Description</th></tr></thead>
+            <tbody>${ep.body.map(f =>
+              `<tr>
+                <td class="field-name">${f.name}</td>
+                <td class="field-type">${f.type}</td>
+                <td class="field-req">${f.req ? "✓" : ""}</td>
+                <td>${f.desc || ""}</td>
+              </tr>`
+            ).join("")}</tbody>
+          </table>`;
+      }
+
+      let paramRows = "";
+      if (ep.params?.length) {
+        paramRows = `<div class="section-label">Query parameters</div>
+          <table class="field-table">
+            <thead><tr><th>Param</th><th>Type</th><th>Req</th><th>Description</th></tr></thead>
+            <tbody>${ep.params.map(p =>
+              `<tr>
+                <td class="field-name">${p.name}</td>
+                <td class="field-type">${p.type}</td>
+                <td class="field-req">${p.req ? "✓" : ""}</td>
+                <td>${p.desc || ""}</td>
+              </tr>`
+            ).join("")}</tbody>
+          </table>`;
+      }
+
+      const descHtml = ep.description
+        ? `<div class="endpoint-desc">${ep.description}</div>` : "";
+      const respHtml = ep.response
+        ? `<div class="section-label">Response (200 / 201 / 202)</div>
+           <div class="endpoint-desc" style="font-family:monospace;font-size:12px;color:#7dd3fc">${ep.response}</div>` : "";
+
+      card.innerHTML = `
+        <div class="endpoint-header" onclick="this.nextElementSibling.classList.toggle('open')">
+          <span class="method method-${ep.method}">${ep.method}</span>
+          <span class="path">${ep.path}</span>
+          <span class="auth-badge ${authClass}">${authLabel}</span>
+        </div>
+        <div class="endpoint-body">
+          <div class="endpoint-desc" style="font-weight:600;color:#e2e8f0;margin-top:10px">${ep.summary}</div>
+          ${descHtml}
+          ${paramRows}
+          ${bodyRows}
+          ${respHtml}
+        </div>`;
+      section.appendChild(card);
+    });
+
+    container.appendChild(section);
+  });
+}
+
+buildFallback();
+
+// ── Try loading Redoc from CDN ────────────────────────────────────────────────
+const banner = document.getElementById("banner");
+const fallback = document.getElementById("fallback");
+const redocContainer = document.getElementById("redoc-container");
+
+banner.style.display = "block";
+banner.className = "info";
+banner.innerHTML = "⏳ Loading interactive API docs from CDN (Redoc)… " +
+  "If this stays visible, scroll down for the offline viewer.";
+
+const script = document.createElement("script");
+script.src = "https://cdn.jsdelivr.net/npm/redoc@2.1.3/bundles/redoc.standalone.js";
+
+script.onload = () => {
+  // Determine the YAML path relative to this HTML file
+  const specUrl = new URL("openapi.yaml", window.location.href).href;
+
+  banner.innerHTML = "✅ Interactive docs loaded. " +
+    '<a href="openapi.yaml" download>Download openapi.yaml</a>';
+  setTimeout(() => { banner.style.display = "none"; }, 3000);
+
+  fallback.style.display = "none";
+  redocContainer.style.display = "block";
+
+  Redoc.init(specUrl, {
+    theme: {
+      colors: {
+        primary: { main: "#7dd3fc" },
+        http: {
+          get:    "#4ade80",
+          post:   "#60a5fa",
+          put:    "#fbbf24",
+          delete: "#f87171",
+          patch:  "#c084fc",
+        },
+      },
+      typography: {
+        fontSize: "14px",
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        code: { fontFamily: "'SF Mono', Monaco, monospace" },
+      },
+      sidebar: {
+        backgroundColor: "#0f1117",
+        textColor: "#94a3b8",
+      },
+      rightPanel: {
+        backgroundColor: "#161b27",
+      },
+    },
+    hideDownloadButton: false,
+    scrollYOffset: 0,
+    expandDefaultServerVariables: true,
+  }, document.getElementById("redoc-container"));
+};
+
+script.onerror = () => {
+  banner.className = "error";
+  banner.innerHTML =
+    "⚠️ CDN unavailable — showing offline viewer below. " +
+    "Connect to the internet and reload for the full interactive experience, " +
+    'or open <code>openapi.yaml</code> in VS Code with the ' +
+    '<a href="https://marketplace.visualstudio.com/items?itemName=42Crunch.vscode-openapi" target="_blank">OpenAPI (Swagger) Editor</a> extension.';
+
+  fallback.style.display = "block";
+  redocContainer.style.display = "none";
+};
+
+document.head.appendChild(script);
+</script>
+</body>
+</html>

@@ -119,6 +119,10 @@ function SummaryDetail({ summary, onRegenerate, loading }) {
         <div className="error-text" style={{ marginBottom: "14px" }}>AI error: {summary.aiError}</div>
       )}
 
+      {summary.aiProvider && summary.aiStatus === "COMPLETE" && (
+        <div className="insight-provider-badge">via {summary.aiProvider}</div>
+      )}
+
       {summary.mood && (
         <div className="insight-mood">🌡 Mood: {summary.mood}</div>
       )}

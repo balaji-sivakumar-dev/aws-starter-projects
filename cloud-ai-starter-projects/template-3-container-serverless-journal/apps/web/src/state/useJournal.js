@@ -1,8 +1,8 @@
 import { useCallback, useState } from "react";
 
-import { createEntry, deleteEntry, getEntry, getMe, listEntries, triggerAi, updateEntry } from "../api/entries";
+import { bulkDeleteEntries, countEntries, createEntry, deleteEntry, getEntry, getMe, listEntries, triggerAi, updateEntry } from "../api/entries";
 
-export function useJournal() {
+export function useJournal(providerName) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [me, setMe] = useState(null);
@@ -11,15 +11,18 @@ export function useJournal() {
   const [selected, setSelected] = useState(null);
   const [nextToken, setNextToken] = useState(null);
   const [mode, setMode] = useState("detail");
+  const [totalCount, setTotalCount] = useState(null);
+  const [checkedIds, setCheckedIds] = useState(new Set());
 
   const bootstrap = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [meResp, listResp] = await Promise.all([getMe(), listEntries()]);
+      const [meResp, listResp, countResp] = await Promise.all([getMe(), listEntries(), countEntries()]);
       setMe(meResp);
       setEntries(listResp.items || []);
       setNextToken(listResp.nextToken || null);
+      setTotalCount(countResp.count ?? null);
       if ((listResp.items || []).length > 0) {
         setSelectedId(listResp.items[0].entryId);
         setSelected(listResp.items[0]);
@@ -105,6 +108,8 @@ export function useJournal() {
       await deleteEntry(entryId);
       const remaining = entries.filter((e) => e.entryId !== entryId);
       setEntries(remaining);
+      setTotalCount((c) => (c !== null ? c - 1 : null));
+      setCheckedIds((prev) => { const next = new Set(prev); next.delete(entryId); return next; });
       if (entryId === selectedId) {
         const first = remaining[0] || null;
         setSelectedId(first ? first.entryId : "");
@@ -117,19 +122,58 @@ export function useJournal() {
     }
   }, [entries, selectedId]);
 
+  const removeMany = useCallback(async (entryIds) => {
+    if (!entryIds.length) return;
+    setLoading(true);
+    setError("");
+    try {
+      const resp = await bulkDeleteEntries(entryIds);
+      const deletedSet = new Set(entryIds);
+      const remaining = entries.filter((e) => !deletedSet.has(e.entryId));
+      setEntries(remaining);
+      setTotalCount((c) => (c !== null ? c - resp.deleted : null));
+      setCheckedIds(new Set());
+      if (deletedSet.has(selectedId)) {
+        const first = remaining[0] || null;
+        setSelectedId(first ? first.entryId : "");
+        setSelected(first);
+      }
+    } catch (err) {
+      setError(err.message || "Bulk delete failed");
+    } finally {
+      setLoading(false);
+    }
+  }, [entries, selectedId]);
+
+  const toggleCheck = useCallback((entryId) => {
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      next.has(entryId) ? next.delete(entryId) : next.add(entryId);
+      return next;
+    });
+  }, []);
+
+  const checkAll = useCallback((ids) => {
+    setCheckedIds(new Set(ids));
+  }, []);
+
+  const clearChecked = useCallback(() => {
+    setCheckedIds(new Set());
+  }, []);
+
   const queueAi = useCallback(async () => {
     if (!selectedId) return;
     setLoading(true);
     setError("");
     try {
-      await triggerAi(selectedId);
+      await triggerAi(selectedId, providerName || undefined);
       await refresh();
     } catch (err) {
       setError(err.message || "AI trigger failed");
     } finally {
       setLoading(false);
     }
-  }, [refresh, selectedId]);
+  }, [refresh, selectedId, providerName]);
 
   return {
     loading,
@@ -140,6 +184,8 @@ export function useJournal() {
     selected,
     nextToken,
     mode,
+    totalCount,
+    checkedIds,
     setMode,
     bootstrap,
     select,
@@ -148,6 +194,10 @@ export function useJournal() {
     saveCreate,
     saveEdit,
     remove,
+    removeMany,
+    toggleCheck,
+    checkAll,
+    clearChecked,
     queueAi,
   };
 }

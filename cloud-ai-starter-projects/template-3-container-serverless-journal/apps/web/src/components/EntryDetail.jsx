@@ -23,7 +23,12 @@ export default function EntryDetail({ entry, onEdit, onRefresh, onTriggerAi }) {
   return (
     <div className="card">
       <div className="entry-header">
-        <h1 className="entry-title">{entry.title}</h1>
+        <div className="entry-title-block">
+          <h1 className="entry-title">{entry.title}</h1>
+          {entry.entryDate && (
+            <span className="entry-date-badge">{entry.entryDate}</span>
+          )}
+        </div>
         <div className="entry-actions">
           <button className="btn-ghost" onClick={onRefresh}>↻ Refresh</button>
           <button className="btn-secondary" onClick={onEdit}>Edit</button>
@@ -71,6 +76,10 @@ export default function EntryDetail({ entry, onEdit, onRefresh, onTriggerAi }) {
               {entry.tags.map((t) => <span key={t} className="tag">{t}</span>)}
             </div>
           </>
+        )}
+
+        {entry.aiProvider && (entry.aiStatus === "DONE" || entry.aiStatus === "COMPLETE") && (
+          <div className="ai-provider-badge">via {entry.aiProvider}</div>
         )}
       </div>
     </div>

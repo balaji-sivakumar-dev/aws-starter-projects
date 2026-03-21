@@ -14,3 +14,8 @@ variable "groq_model_id" {
   type    = string
   default = "llama-3.1-8b-instant"
 }
+variable "bedrock_region" {
+  type        = string
+  default     = "us-east-1"
+  description = "AWS region for Bedrock API calls (nova-lite not available in ca-central-1)"
+}

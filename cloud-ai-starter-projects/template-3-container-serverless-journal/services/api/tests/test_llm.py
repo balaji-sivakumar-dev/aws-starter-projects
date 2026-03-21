@@ -62,9 +62,9 @@ def _reset_factory():
     factory.reset_provider()
 
 
-def _inject(stub: LLMProvider):
+def _inject(stub: LLMProvider, name: str = "stub"):
     """Inject a stub directly into the factory cache."""
-    factory._instance = stub
+    factory._cache[name] = stub
 
 
 # ── Happy path ────────────────────────────────────────────────────────────────
@@ -221,7 +221,140 @@ def test_trigger_ai_cannot_enrich_another_users_entry(client):
 def test_factory_reset_allows_provider_swap(client):
     """Verify reset_provider() truly clears the cache."""
     _inject(_StubProvider())
-    assert factory.get_provider() is not None
+    assert factory.get_provider("stub") is not None
 
     factory.reset_provider()
-    assert factory._instance is None
+    assert len(factory._cache) == 0
+
+
+# ── Provider selection via X-LLM-Provider header ─────────────────────────────
+
+
+def test_trigger_ai_uses_provider_from_header(client):
+    """The x-llm-provider header should select the provider."""
+    _inject(_StubProvider(), name="stub")
+    os.environ["LLM_PROVIDER"] = "stub"
+
+    create = client.post(
+        "/entries",
+        json={"title": "Header Test", "body": "Using a specific provider."},
+        headers={"X-User-Id": "dev-user"},
+    )
+    entry_id = create.json()["item"]["entryId"]
+
+    resp = client.post(
+        f"/entries/{entry_id}/ai",
+        headers={"X-User-Id": "dev-user", "x-llm-provider": "stub"},
+    )
+    assert resp.status_code == 202
+    assert resp.json()["aiStatus"] == "DONE"
+
+
+# ── Config endpoint tests ────────────────────────────────────────────────────
+
+
+def test_config_providers_returns_list(client):
+    """GET /config/providers should return available providers."""
+    os.environ["GROQ_API_KEY"] = "gsk_test"
+    os.environ["LLM_PROVIDER"] = "groq"
+
+    resp = client.get("/config/providers")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "providers" in data
+    assert "default" in data
+    assert data["default"] == "groq"
+    names = [p["name"] for p in data["providers"]]
+    assert "groq" in names
+
+
+def test_config_providers_omits_unconfigured(client):
+    """Providers without API keys should be excluded."""
+    os.environ.pop("GROQ_API_KEY", None)
+    os.environ.pop("OPENAI_API_KEY", None)
+    os.environ["LLM_PROVIDER"] = ""
+
+    resp = client.get("/config/providers")
+    data = resp.json()
+    names = [p["name"] for p in data["providers"]]
+    assert "groq" not in names
+    assert "openai" not in names
+
+
+# ── Multi-provider factory tests ─────────────────────────────────────────────
+
+
+def test_factory_available_providers_with_keys():
+    """available_providers() should return only providers with API keys set."""
+    os.environ["GROQ_API_KEY"] = "gsk_test"
+    os.environ.pop("OPENAI_API_KEY", None)
+
+    providers = factory.available_providers()
+    names = [p["name"] for p in providers]
+    assert "groq" in names
+    assert "openai" not in names
+
+
+def test_factory_get_provider_by_name():
+    """get_provider(name) should return a provider by name, caching it."""
+    _inject(_StubProvider(), name="stub")
+    p = factory.get_provider("stub")
+    assert isinstance(p, _StubProvider)
+
+
+# ── parse_period_response — JSON extraction robustness ───────────────────────
+
+
+def test_parse_period_response_clean_json():
+    """Correctly formed JSON is parsed normally."""
+    raw = '{"narrative": "Good period.", "themes": ["growth"], "mood": "positive", "highlights": ["Launch"], "reflection": "Keep going?"}'
+    result = LLMProvider.parse_period_response(raw)
+    assert result["narrative"] == "Good period."
+    assert result["themes"] == ["growth"]
+    assert result["mood"] == "positive"
+    assert result["highlights"] == ["Launch"]
+    assert result["reflection"] == "Keep going?"
+
+
+def test_parse_period_response_strips_markdown_fences():
+    """Markdown code fences around JSON are stripped."""
+    raw = '```json\n{"narrative": "Good.", "themes": [], "mood": "ok", "highlights": [], "reflection": ""}\n```'
+    result = LLMProvider.parse_period_response(raw)
+    assert result["narrative"] == "Good."
+
+
+def test_parse_period_response_handles_prose_before_json():
+    """LLM prose before the JSON block is ignored."""
+    raw = 'Here is my analysis:\n\n{"narrative": "Productive.", "themes": ["work"], "mood": "focused", "highlights": [], "reflection": "Next steps?"}'
+    result = LLMProvider.parse_period_response(raw)
+    assert result["narrative"] == "Productive."
+    assert result["themes"] == ["work"]
+
+
+def test_parse_period_response_handles_prose_after_json():
+    """LLM prose after the JSON block is ignored."""
+    raw = '{"narrative": "Growth.", "themes": [], "mood": "good", "highlights": [], "reflection": ""}\n\nLet me know if you need more detail.'
+    result = LLMProvider.parse_period_response(raw)
+    assert result["narrative"] == "Growth."
+
+
+def test_parse_period_response_fallback_on_bad_json():
+    """When JSON cannot be extracted, the raw text is used as narrative fallback."""
+    raw = "This is not JSON at all."
+    result = LLMProvider.parse_period_response(raw)
+    assert "This is not JSON at all" in result["narrative"]
+    assert result["themes"] == []
+
+
+def test_parse_response_clean_json():
+    raw = '{"summary": "A good day.", "tags": ["health", "work"]}'
+    result = LLMProvider.parse_response(raw)
+    assert result["summary"] == "A good day."
+    assert result["tags"] == ["health", "work"]
+
+
+def test_parse_response_handles_prose_before_json():
+    raw = 'Sure! Here is the result:\n{"summary": "Active day.", "tags": ["fitness"]}'
+    result = LLMProvider.parse_response(raw)
+    assert result["summary"] == "Active day."
+    assert "fitness" in result["tags"]

@@ -1,5 +1,5 @@
 import { config, isLocalMode } from "../config";
-import { accessToken } from "../auth/auth";
+import { idToken, accessToken } from "../auth/auth";
 
 /**
  * Thin fetch wrapper.
@@ -16,7 +16,9 @@ export async function api(path, options = {}) {
   if (isLocalMode()) {
     headers["X-User-Id"] = config.localUserId;
   } else {
-    const token = accessToken();
+    // ID token preferred — it includes email/given_name needed by /me and admin checks.
+    // Falls back to access token if id_token is unavailable (older sessions).
+    const token = idToken() || accessToken();
     if (token) headers["Authorization"] = `Bearer ${token}`;
   }
 

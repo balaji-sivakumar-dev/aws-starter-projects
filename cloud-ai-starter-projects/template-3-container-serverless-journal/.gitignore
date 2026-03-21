@@ -14,6 +14,9 @@ dist/
 # Docker
 .env           # real secrets — never commit
 
+# User access config (copy from .env.users.example, never commit)
+.env.users
+
 # Terraform
 .terraform/
 *.tfstate
@@ -21,6 +24,10 @@ dist/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+
+# Lambda build artifacts (regenerated on every deploy)
+**/.build/
+**/*.zip
 
 # Local test scripts with real credentials (copy from *.example, never commit)
 *.local

@@ -22,8 +22,19 @@ def health() -> Dict[str, str]:
 
 # ── Identity ──────────────────────────────────────────────────────────────────
 
-def me(user_id: str) -> Dict[str, str]:
-    return {"userId": user_id}
+def me(user_id: str, email: str = "") -> Dict[str, Any]:
+    import os
+    app_env = os.getenv("APP_ENV", "local")
+    if app_env in ("local", "test"):
+        is_admin = True
+    else:
+        admin_emails = {
+            e.strip().lower()
+            for e in os.getenv("ADMIN_EMAILS", "").split(",")
+            if e.strip()
+        }
+        is_admin = email.strip().lower() in admin_emails
+    return {"userId": user_id, "email": email, "isAdmin": is_admin}
 
 
 # ── Entries ───────────────────────────────────────────────────────────────────
@@ -86,30 +97,40 @@ def delete_entry(user_id: str, entry_id: str) -> None:
         raise AppError(404, "NOT_FOUND", "entry not found")
 
 
+def count_entries(user_id: str) -> int:
+    return repository.count_entries(user_id)
+
+
+def bulk_delete_entries(user_id: str, entry_ids: List[str]) -> int:
+    if not entry_ids:
+        raise AppError(400, "VALIDATION_ERROR", "entry_ids must not be empty")
+    if len(entry_ids) > 200:
+        raise AppError(400, "VALIDATION_ERROR", "bulk delete limited to 200 entries at a time")
+    return repository.bulk_delete_entries(user_id, entry_ids)
+
+
 # ── AI workflow ───────────────────────────────────────────────────────────────
 
-def trigger_ai(user_id: str, entry_id: str) -> Dict[str, Any]:
+def trigger_ai(
+    user_id: str, entry_id: str, provider_name: Optional[str] = None,
+) -> Dict[str, Any]:
     """
     Kick off AI enrichment (summary + tags) for an entry.
 
-    Phase 1 (local): calls the LLM provider synchronously and writes results
-                     back to DynamoDB directly.
-    Phase 4 (AWS):   starts a Step Functions execution asynchronously.
+    Args:
+        provider_name: Optional LLM provider override (e.g. "groq", "openai").
+                       If None, uses the default from LLM_PROVIDER env var.
     """
     item = repository.resolve_entry(user_id, entry_id)
     if not item:
         raise AppError(404, "NOT_FOUND", "entry not found")
 
-    # Determine execution mode
     import os
-    app_env = os.getenv("APP_ENV", "local")
-    llm_provider = os.getenv("LLM_PROVIDER", "")
+    llm_provider = provider_name or os.getenv("LLM_PROVIDER", "")
 
     if llm_provider:
-        # LLM provider configured — call synchronously (Phase 3: LLM testing)
-        return _run_ai_sync(user_id, entry_id, item, app_env)
+        return _run_ai_sync(user_id, entry_id, item, llm_provider)
 
-    # No LLM configured yet — return stub
     return {
         "entryId": entry_id,
         "aiStatus": "SKIPPED",
@@ -118,7 +139,7 @@ def trigger_ai(user_id: str, entry_id: str) -> Dict[str, Any]:
 
 
 def _run_ai_sync(
-    user_id: str, entry_id: str, item: Dict[str, Any], app_env: str
+    user_id: str, entry_id: str, item: Dict[str, Any], provider_name: str,
 ) -> Dict[str, Any]:
     """Synchronous AI call — used in local/dev mode and for LLM testing."""
     from ..llm.factory import get_provider
@@ -134,7 +155,7 @@ def _run_ai_sync(
     )
 
     try:
-        provider = get_provider()
+        provider = get_provider(provider_name)
         result = provider.enrich(title=item["title"], body=item["body"])
 
         repository._table().update_item(

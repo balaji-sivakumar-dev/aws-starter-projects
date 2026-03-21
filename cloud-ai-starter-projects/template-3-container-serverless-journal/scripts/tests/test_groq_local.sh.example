@@ -2,17 +2,17 @@
 # Local Groq test script — copy to test_groq_local.sh and fill in your key
 #
 # Setup (one-time):
-#   cp scripts/test_groq_local.sh.example scripts/test_groq_local.sh
-#   chmod +x scripts/test_groq_local.sh
+#   cp scripts/tests/test_groq_local.sh.example scripts/tests/test_groq_local.sh
+#   chmod +x scripts/tests/test_groq_local.sh
 #   # Edit test_groq_local.sh and set GROQ_API_KEY
 #
 # Run:
-#   ./scripts/test_groq_local.sh
+#   bash scripts/tests/test_groq_local.sh
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+REPO_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"  # scripts/tests/ → scripts/ → repo root
 
 # ── Configure your credentials here ──────────────────────────────────────────
 export GROQ_API_KEY="gsk_replace_with_your_key"
@@ -29,4 +29,4 @@ if [ ! -f "$PYTHON" ]; then
 fi
 
 cd "$REPO_ROOT"
-"$PYTHON" scripts/test_ai_gateway_local.py
+"$PYTHON" scripts/tests/test_ai_gateway_local.py

@@ -10,11 +10,11 @@ Usage:
     pip install boto3
 
     # Set your Groq key and run:
-    GROQ_API_KEY=gsk_... python3 scripts/test_ai_gateway_local.py
+    GROQ_API_KEY=gsk_... python3 scripts/tests/test_ai_gateway_local.py
 
 Optional overrides:
-    GROQ_MODEL_ID=llama-3.3-70b-versatile  python3 scripts/test_ai_gateway_local.py
-    LLM_PROVIDER=bedrock                    python3 scripts/test_ai_gateway_local.py
+    GROQ_MODEL_ID=llama-3.3-70b-versatile  python3 scripts/tests/test_ai_gateway_local.py
+    LLM_PROVIDER=bedrock                    python3 scripts/tests/test_ai_gateway_local.py
 """
 
 import os

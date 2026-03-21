@@ -5,9 +5,12 @@
 # All AWS config (region, table name) is read automatically from
 # Terraform outputs — no manual copy-pasting required.
 #
+# Run from the template-3 root directory:
+#   cd cloud-ai-starter-projects/template-3-container-serverless-journal
+#
 # Usage:
-#   AWS_PROFILE=journal-dev ./scripts/seed-aws.sh dev
-#   AWS_PROFILE=journal-dev USER_ID=<cognito-sub-uuid> ./scripts/seed-aws.sh dev
+#   AWS_PROFILE=journal-dev ./scripts/seed_data/seed-aws.sh dev
+#   AWS_PROFILE=journal-dev USER_ID=<cognito-sub-uuid> ./scripts/seed_data/seed-aws.sh dev
 #
 # USER_ID is the Cognito sub (UUID) for the user you want to seed.
 # Find it in:
@@ -105,7 +108,7 @@ JOURNAL_TABLE_NAME="$TABLE_NAME" \
 USER_ID="$USER_ID" \
 AWS_DEFAULT_REGION="$REGION" \
 AWS_PROFILE="$PROFILE" \
-  "$PYTHON" "$REPO_ROOT/scripts/seed_data.py"
+  "$PYTHON" "$REPO_ROOT/scripts/seed_data/seed_data.py"
 
 echo "------------------------------------------------------------"
 echo ""

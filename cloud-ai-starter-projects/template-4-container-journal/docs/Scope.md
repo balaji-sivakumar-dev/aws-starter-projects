@@ -1,183 +1,167 @@
-# Template 4 — Container Journal: Scope & Design
+# Template 4 — Platform Scope & Target Applications
 
-> **Status: Scoped — Not yet built**
+> **Status: Design phase**
 > Last updated: 2026-03-14
 
 ---
 
-## 1. Goal
+## 1. Vision
 
-Build the Reflect journal app as a **pure container deployment** using AWS App Runner as the API compute layer. The product features (journal CRUD, AI enrichment, insights summaries) are identical to Template 3. The infrastructure and runtime are different.
+Build a **reusable full-stack platform template** that can bootstrap multiple AI-powered applications. Each app gets authentication, data storage, API layer, AI/RAG capabilities, file processing, and deployment automation out of the box — then adds its own business logic on top.
 
-This serves as a reference template for teams who prefer always-warm containers over Lambda cold-start serverless.
-
----
-
-## 2. What already exists (reuse from Template 3)
-
-Template 3's codebase was designed with this in mind. The following are already built and just need to be wired together:
-
-| Component | Location (Template 3) | Reuse plan |
-|-----------|----------------------|------------|
-| Node.js/Express API | `services/container_api/src/server.js` | Copy + extend (add Insights endpoints) |
-| App Runner Terraform module | `modules/compute_container/` | Copy + fix (add instance IAM role) |
-| API Gateway HTTP_PROXY integration | `modules/api_edge/main.tf` | Copy as-is |
-| Auth (Cognito) Terraform module | `modules/auth/` | Copy as-is |
-| DynamoDB Terraform module | `modules/db/` | Copy as-is |
-| AI Gateway Lambda | `modules/ai_gateway/` | Copy as-is |
-| Step Functions workflow | `modules/workflow/` | Copy as-is |
-| CloudFront + S3 hosting | `modules/web_hosting/` | Copy as-is |
-| React frontend | `apps/web/` | Copy as-is |
-| Setup/destroy scripts | `scripts/` | Copy + simplify |
+The motivation: save cost and time in the initial phase of each project. Start with a proven architecture, deploy cheaply (pay-per-use), and scale when customer base and revenue grow.
 
 ---
 
-## 3. Gaps to fill (what needs to be built or fixed)
+## 2. Target Applications
 
-### Gap 1 — App Runner instance IAM role *(blocker)*
+### 2.1 Personal Budget Tracker
 
-The existing `compute_container/main.tf` creates an ECR pull role (so App Runner can pull the Docker image from ECR) but **no instance role** (so the running container can call AWS APIs).
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Transaction exports from banks/credit cards (CSV, Excel, PDF) |
+| **Processing** | Parse documents → extract transactions → auto-categorize |
+| **Storage** | Transactions, categories, budgets, accounts |
+| **AI** | Smart categorization, spending pattern analysis, budget recommendations |
+| **RAG** | Query past spending: "How much did I spend on dining in January?" |
+| **Unique needs** | Multi-format document parsing, recurring pattern detection, budget vs actual calculations |
 
-The Node.js app needs to call DynamoDB and Step Functions. Without an instance IAM role, all AWS SDK calls will fail with AccessDenied.
+### 2.2 Tax Processor
 
-**What to add to `modules/compute_container/main.tf`:**
-- `aws_iam_role` for App Runner instance (`tasks.apprunner.amazonaws.com`)
-- Inline policy with:
-  - `dynamodb:GetItem`, `dynamodb:PutItem`, `dynamodb:UpdateItem`, `dynamodb:DeleteItem`, `dynamodb:Query` on the journal table and its GSIs
-  - `states:StartExecution` on the Step Functions state machine ARN
-- Wire the role into `aws_apprunner_service` via `instance_configuration.instance_role_arn`
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Tax documents (T4, T5, receipts, investment statements) |
+| **Processing** | OCR/scan → extract structured data → map to tax form fields |
+| **Storage** | Tax profiles, documents, extracted fields, submissions |
+| **AI** | Document classification, field extraction, deduction suggestions |
+| **RAG** | Query tax rules: "Am I eligible for the home office deduction?" |
+| **Unique needs** | OCR pipeline, external tax API integration, compliance-grade audit trail |
 
-### Gap 2 — Insights endpoints missing from Node.js API *(feature gap)*
+### 2.3 Curriculum Platform
 
-`services/container_api/src/server.js` implements all journal entry endpoints but is missing the full Insights (period summary) feature:
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Learning materials (PDFs, text, videos, URLs) |
+| **Processing** | Ingest content → chunk → embed → generate training materials |
+| **Storage** | Courses, modules, exams, student progress, scores |
+| **AI** | Generate MCQs, theory assignments, personalized study plans |
+| **RAG** | Query course content: "Explain the concept of polymorphism with examples from Module 3" |
+| **Unique needs** | Exam engine (MCQ + theory + answer-based), scoring, performance analytics, personalized learning paths |
 
-| Endpoint | Status |
-|----------|--------|
-| `GET /insights/summaries` | ❌ missing |
-| `POST /insights/summaries` | ❌ missing |
-| `GET /insights/summaries/:summaryId` | ❌ missing |
-| `DELETE /insights/summaries/:summaryId` | ❌ missing |
-| `POST /insights/summaries/:summaryId/regenerate` | ❌ missing |
+### 2.4 Family Tree
 
-These need to be added to `server.js`, matching the DynamoDB data model and Step Functions payload format used by the Lambda API (Template 3).
-
-**DynamoDB key pattern for summaries:**
-```
-PK: USER#<userId>
-SK: SUMMARY#<createdAt>#<summaryId>
-```
-
-**Step Functions payload for summary:**
-```json
-{
-  "type": "summary",
-  "userId": "<userId>",
-  "summaryId": "<summaryId>",
-  "requestId": "<requestId>"
-}
-```
-
-### Gap 3 — Missing env vars for App Runner service
-
-The `compute_container/main.tf` does not pass `AI_ENABLED` to the container. The Node.js server needs to know whether to call Step Functions when creating a summary.
-
-Add to `image_configuration.runtime_environment_variables`:
-```hcl
-AI_ENABLED = var.ai_enabled
-```
-
-Add `ai_enabled` as a variable in `variables.tf`.
-
-### Gap 4 — Dockerfile for Node.js API
-
-A production-ready Dockerfile is needed for `services/container_api/`. The existing `Dockerfile` in that directory needs to be reviewed and confirmed to work with the AWS App Runner port expectations (`PORT` env var, `0.0.0.0` bind address).
+| Aspect | Detail |
+|--------|--------|
+| **Input** | Family member profiles, photos, relationship definitions |
+| **Processing** | Build/traverse graph relationships, classify connections |
+| **Storage** | People, relationships (parent/child/spouse/sibling), media |
+| **AI** | Relationship inference, photo tagging, story generation from family history |
+| **RAG** | Query family: "Who are all the descendants of my grandfather?" |
+| **Unique needs** | Graph data model (or adjacency list in DynamoDB), bidirectional relationship traversal, media uploads, sharing/permissions |
 
 ---
 
-## 4. What to simplify vs Template 3
+## 3. Shared Platform Capabilities
 
-Template 3 supports `compute_mode = serverless | container | hybrid`. Template 4 removes this complexity — it is **always container**.
+These are the capabilities every app needs. The platform template provides them out of the box:
 
-| Template 3 | Template 4 |
-|------------|------------|
-| `compute_mode` variable | Removed — always container |
-| Hybrid Lambda+Container routing | Removed |
-| Lambda zip cache management | Removed |
-| Two-pass Terraform apply for Cognito | Same (CloudFront URL needed for callback) |
-| `step-3b-build-push-container.sh` | Kept — builds + pushes image to ECR |
-| Lambda API deploy | Removed — no Lambda API |
-| `step-3c-deploy-backend.sh` | Simplified — targets App Runner + AI Gateway only |
-
----
-
-## 5. Proposed directory structure
-
-```
-template-4-container-journal/
-├── README.md
-├── docs/
-│   ├── Scope.md           ← this file
-│   ├── Architecture.md
-│   └── Setup.md
-├── apps/
-│   └── web/               ← React SPA (same as Template 3)
-├── services/
-│   ├── container_api/     ← Node.js/Express API
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   └── src/
-│   │       └── server.js  ← add Insights endpoints
-│   └── workflows/         ← Step Functions + AI Gateway Lambda (same as Template 3)
-│       ├── src/
-│       │   └── ai_gateway.py
-│       └── statemachine/
-│           └── process_entry_ai.asl.json
-└── infra/
-    └── terraform/
-        ├── main.tf        ← no compute_mode switch, always container
-        ├── variables.tf
-        ├── outputs.tf
-        └── modules/
-            ├── auth/
-            ├── db/
-            ├── compute_container/  ← fix instance IAM role
-            ├── api_edge/
-            ├── ai_gateway/
-            ├── workflow/
-            └── web_hosting/
-```
+| # | Capability | Template 3 status | Platform action |
+|---|-----------|-------------------|-----------------|
+| 1 | **Authentication & user management** | ✅ Cognito PKCE + hosted UI | Generalize — add user roles, profile management |
+| 2 | **API layer** | ✅ Lambda + API Gateway | Keep — add request validation middleware, rate limiting |
+| 3 | **Structured data storage** | ✅ DynamoDB single-table | Generalize — define entity patterns, not journal-specific keys |
+| 4 | **LLM integration** | ✅ Provider abstraction (Groq/Bedrock/Ollama) | Keep as-is — already portable |
+| 5 | **Async AI pipeline** | ✅ Step Functions + AI Gateway Lambda | Generalize — support multiple workflow types |
+| 6 | **Frontend SPA** | ✅ React + Vite + CloudFront | Keep — extract reusable shell (auth, nav, layout) |
+| 7 | **Local dev** | ✅ Docker Compose + DynamoDB Local | Keep — add LocalStack for S3/SFN if needed |
+| 8 | **IaC** | ✅ Terraform modules | Generalize — parameterize for any app |
+| 9 | **Setup/destroy scripts** | ✅ Numbered steps | Keep pattern — parameterize app name |
+| 10 | **RAG / vector search** | ❌ Not built | **New** — embeddings + vector store + retrieval |
+| 11 | **File upload & processing** | ❌ Not built | **New** — S3 upload + processing pipeline |
+| 12 | **Audit / cost tracking** | ❌ Not built | **New** — log AI calls, token usage, cost per request |
+| 13 | **Subscription / billing** | ❌ Not built | **New** — usage tiers, Stripe integration (future) |
+| 14 | **Multi-tenancy** | ❌ Not built | **New** — org/tenant isolation in DynamoDB |
 
 ---
 
-## 6. Build sequence (when implementation begins)
+## 4. App-Specific Layers (built on top of the platform)
 
-1. **Scaffold** — Create directory structure, copy modules from Template 3
-2. **Fix compute_container** — Add App Runner instance IAM role
-3. **Add Insights endpoints** — Extend `server.js` with all 5 summary endpoints
-4. **Simplify Terraform** — Remove `compute_mode` logic, always container
-5. **Simplify scripts** — Remove Lambda zip steps, keep container build/push
-6. **Test locally** — Docker compose with DynamoDB Local
-7. **Deploy to AWS** — Full setup script run
-8. **Update docs** — Architecture diagram, Setup.md
+Each app adds its own:
 
----
-
-## 7. Open decisions
-
-| Decision | Options | Preferred |
-|----------|---------|-----------|
-| Container runtime | Node.js (existing) vs Python FastAPI | **Node.js** — already written |
-| Container orchestration | App Runner vs ECS Fargate | **App Runner** — simpler, no VPC required |
-| Step Functions AI | Lambda (reuse) vs container sidecar | **Lambda** — already works, reuse as-is |
-| Auth in container | JWKS verify in Express middleware | **Same as current** — `jose` library already used |
-| Local dev | Docker Compose with DynamoDB Local | **Same pattern as Template 3** |
+| Layer | What's custom |
+|-------|--------------|
+| **Data model** | Entity types, relationships, validation rules |
+| **Business logic** | Domain handlers (budget calculations, tax rules, exam scoring, graph traversal) |
+| **AI prompts** | Domain-specific LLM prompts and response parsers |
+| **RAG knowledge base** | What gets embedded, how it's chunked, what queries are supported |
+| **UI components** | Domain-specific views (budget charts, tax forms, exam interface, family tree visualization) |
+| **File processors** | CSV parser, PDF extractor, image handler — each app needs different parsers |
 
 ---
 
-## 8. Non-goals for Template 4
+## 5. What Template 3 validated
 
-- VPC / private networking (App Runner public endpoint is sufficient for this template)
-- Custom domain / ACM certificate (out of scope; same as Template 3)
-- Blue/green deployment or canary releases
-- CI/CD pipeline (manual deploy scripts only)
-- Multi-region deployment
+Template 3 proved these architectural patterns work end-to-end:
+
+| Pattern | Evidence |
+|---------|----------|
+| Core + Adapters | `services/api/src/core/` (business logic) + `adapters/fastapi/` + `adapters/lambda_/` — same logic, two runtimes |
+| LLM Provider Abstraction | `services/api/src/llm/` — swap Ollama/Groq/OpenAI/Bedrock via env var, zero code changes |
+| Single-table DynamoDB | `USER#{id}` + `ENTRY#`, `SUMMARY#`, `ENTRYID#` sort keys — flexible, performant |
+| Async AI via Step Functions | Entry enrichment + period summary generation — decoupled from request/response |
+| Dual-mode auth | Local (`X-User-Id` header) + AWS (Cognito PKCE) — same API, different auth middleware |
+| Compute flexibility | Lambda (serverless) / App Runner (container) / Hybrid — controlled by `compute_mode` variable |
+| Docker Compose local dev | Full stack runs locally with DynamoDB Local + LLM overlays |
+| Scripted deployment | Numbered setup steps: bootstrap → apply → deploy → verify |
+
+---
+
+## 6. What needs to change for the platform
+
+These are the areas where Template 3's architecture is too tightly coupled to the journal domain and needs to be generalized:
+
+| Area | Current (Template 3) | Needed (Platform) |
+|------|---------------------|-------------------|
+| **DynamoDB keys** | `USER#{userId}` + `ENTRY#{date}#{id}` hardcoded | Generic entity pattern: `TENANT#{id}` + `{EntityType}#{sortKey}` |
+| **API routes** | `/entries`, `/insights/summaries` — journal-specific | Route registration pattern — each app defines its own routes |
+| **Step Functions** | Single workflow for entry + summary AI | Workflow registry — apps register their own async tasks |
+| **Frontend shell** | Topnav with Home/Journal/Insights tabs | Configurable nav — apps define their own tabs and routes |
+| **AI prompts** | Journal summarization + tag extraction | Prompt templates — apps bring their own prompts, platform handles LLM calls |
+| **File handling** | None | S3 upload + event-driven processing pipeline (new capability) |
+| **RAG** | None | Embedding + vector store + retrieval layer (new capability) |
+| **Cost tracking** | None | Middleware to log token usage, model, latency per AI call |
+
+---
+
+## 7. Implementation priorities
+
+### Phase 1 — Foundation (extract from Template 3)
+- Extract reusable Terraform modules into shared module library
+- Define generic DynamoDB entity patterns
+- Create app scaffold generator (cookiecutter or script)
+- Set up shared frontend shell (auth + nav + layout)
+
+### Phase 2 — RAG pipeline
+- Embedding service (chunk text → generate embeddings)
+- Vector store (OpenSearch Serverless or DynamoDB + approximate search)
+- Retrieval API (query → similar documents → context for LLM)
+- Integration with existing LLM provider abstraction
+
+### Phase 3 — File processing pipeline
+- S3 upload endpoint (pre-signed URLs)
+- Event-driven processing (S3 → Lambda/Step Functions)
+- Document parsers: CSV, Excel, PDF (Textract or open-source)
+- Parsed data → DynamoDB + optional RAG embedding
+
+### Phase 4 — First app (Budget Tracker)
+- Build on platform foundation
+- CSV/Excel transaction import
+- Auto-categorization via LLM
+- Budget planning + expense tracking
+- RAG queries on spending history
+
+### Phase 5 — Operational maturity
+- AI cost tracking + audit logs
+- Usage tiers + subscription hooks
+- Multi-tenancy patterns
+- CI/CD pipeline templates

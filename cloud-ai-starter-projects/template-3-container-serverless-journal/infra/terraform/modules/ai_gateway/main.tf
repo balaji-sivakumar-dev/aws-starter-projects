@@ -81,6 +81,7 @@ resource "aws_lambda_function" "this" {
       GROQ_API_KEY       = var.llm_provider == "groq" ? data.aws_ssm_parameter.groq_key[0].value : ""
       GROQ_MODEL_ID      = var.groq_model_id
       BEDROCK_MODEL_ID   = var.bedrock_model_id
+      BEDROCK_REGION     = var.bedrock_region
       MAX_INPUT_CHARS    = "8000"
       MAX_OUTPUT_TOKENS  = "256"
       MAX_SUMMARY_TOKENS = "512"

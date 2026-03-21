@@ -6,7 +6,7 @@ import {
   regenerateSummary,
 } from "../api/insights";
 
-export function useInsights() {
+export function useInsights(providerName) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [summaries, setSummaries] = useState([]);
@@ -33,7 +33,7 @@ export function useInsights() {
     setLoading(true);
     setError("");
     try {
-      const resp = await generateSummary(payload);
+      const resp = await generateSummary(payload, providerName || undefined);
       setSummaries((prev) => [resp.item, ...prev]);
       setSelected(resp.item);
     } catch (err) {
@@ -61,7 +61,7 @@ export function useInsights() {
     setLoading(true);
     setError("");
     try {
-      const resp = await regenerateSummary(summaryId);
+      const resp = await regenerateSummary(summaryId, providerName || undefined);
       setSummaries((prev) =>
         prev.map((s) => (s.summaryId === summaryId ? resp.item : s))
       );

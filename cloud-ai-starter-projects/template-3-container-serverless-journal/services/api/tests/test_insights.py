@@ -61,8 +61,8 @@ def _reset_factory():
     os.environ.pop("LLM_PROVIDER", None)
 
 
-def _inject(stub: LLMProvider):
-    factory._instance = stub
+def _inject(stub: LLMProvider, name: str = "stub"):
+    factory._cache[name] = stub
 
 
 # ── Helper: create entries with specific dates ─────────────────────────────────
