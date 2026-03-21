@@ -182,6 +182,7 @@ export default function App() {
                 if (entryId) { app.select(entryId); setJournalView("detail"); }
               }}
               onViewInsights={() => switchTab("insights")}
+              onViewAsk={() => switchTab("ask")}
             />
           </div>
         )}

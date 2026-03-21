@@ -34,7 +34,7 @@ function deriveName(me) {
   return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase(); // "John"
 }
 
-export default function Dashboard({ me, entries, summaries, onNewEntry, onViewJournal, onViewInsights, onLoadInsights }) {
+export default function Dashboard({ me, entries, summaries, onNewEntry, onViewJournal, onViewInsights, onViewAsk, onLoadInsights }) {
   useEffect(() => {
     onLoadInsights?.();
   }, []);
@@ -196,6 +196,14 @@ export default function Dashboard({ me, entries, summaries, onNewEntry, onViewJo
             <div className="about-icon">📊</div>
             <h3>Period Insights</h3>
             <p>Generate weekly, monthly, or yearly summaries with mood analysis, highlights, and personal reflections powered by AI.</p>
+          </div>
+          <div className="about-card about-card--cta" role="button" tabIndex={0}
+               onClick={onViewAsk}
+               onKeyDown={(e) => e.key === "Enter" && onViewAsk?.()}>
+            <div className="about-icon">💬</div>
+            <h3>Ask Your Journal</h3>
+            <p>Chat with your own entries using AI. Ask questions like "What was I worried about last month?" and get answers grounded in what you've written.</p>
+            {onViewAsk && <span className="about-card-link">Try Ask →</span>}
           </div>
         </div>
       </section>

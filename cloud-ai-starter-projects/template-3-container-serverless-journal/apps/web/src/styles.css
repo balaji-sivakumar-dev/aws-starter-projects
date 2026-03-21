@@ -731,7 +731,7 @@ select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px
 }
 .about-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 16px;
 }
 .about-card {
@@ -739,6 +739,23 @@ select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px
   background: var(--content-bg);
   border-radius: 8px;
   border: 1px solid var(--card-border);
+  display: flex;
+  flex-direction: column;
+}
+.about-card--cta {
+  cursor: pointer;
+  background: var(--accent-light);
+  border-color: #bfdbfe;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+.about-card--cta:hover { box-shadow: 0 2px 8px rgba(37,99,235,0.12); border-color: var(--accent); }
+.about-card-link {
+  display: inline-block;
+  margin-top: auto;
+  padding-top: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--accent);
 }
 .about-icon { font-size: 1.5rem; margin-bottom: 8px; }
 .about-card h3 { font-size: 0.9rem; font-weight: 600; margin-bottom: 6px; }
@@ -809,13 +826,15 @@ select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px
   .insights-layout { grid-template-columns: 1fr; }
   .dashboard-stats { grid-template-columns: repeat(2, 1fr); }
   .dashboard-grid { grid-template-columns: 1fr; }
-  .about-grid { grid-template-columns: 1fr; gap: 10px; }
+  .about-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
   .user-name { max-width: 140px; }
   .audit-row { grid-template-columns: 70px 90px 70px 1fr; font-size: 0.75rem; }
 }
 
 /* ── Responsive — Mobile ─────────────────────────────────────────────────── */
 @media (max-width: 640px) {
+  .about-grid { grid-template-columns: 1fr; gap: 10px; }
+
   /* Hamburger visible */
   .hamburger { display: flex; }
   .menu-overlay { display: block; }
