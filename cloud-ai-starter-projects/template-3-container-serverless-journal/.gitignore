@@ -27,6 +27,7 @@ dist/
 
 # Lambda build artifacts (regenerated on every deploy)
 **/.build/
+**/*.zip
 
 # Local test scripts with real credentials (copy from *.example, never commit)
 *.local
