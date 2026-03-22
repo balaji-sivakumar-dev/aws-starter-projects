@@ -1,0 +1,160 @@
+# routes.yaml — Single source of truth for API endpoints
+#
+# Every route listed here MUST exist in:
+#   1. Terraform api_routes map (infra/terraform/main.tf)
+#   2. Lambda handler dispatch table (services/lambda_api/src/handler.py)
+#   3. FastAPI route decorators (services/api/src/adapters/fastapi/)
+#
+# Run `make validate-routes` to check alignment.
+#
+# Custom headers listed under cors_headers are automatically included in
+# the API Gateway CORS config and the Lambda _cors_headers() function.
+
+cors_headers:
+  - Content-Type
+  - Authorization
+  - X-User-Id
+  - X-Request-Id
+  - X-LLM-Provider
+
+routes:
+  # ── Unauthenticated ──────────────────────────────────────────────
+  - path: /health
+    method: GET
+    auth: none
+    description: Health check
+
+  - path: /config/providers
+    method: GET
+    auth: none
+    description: List available AI providers
+    feature: ai
+
+  # ── Core CRUD ────────────────────────────────────────────────────
+  - path: /me
+    method: GET
+    auth: jwt
+    description: Current user identity + admin status
+
+  - path: /items
+    method: GET
+    auth: jwt
+    description: List items with pagination
+
+  - path: /items
+    method: POST
+    auth: jwt
+    description: Create a new item
+
+  - path: /items/{itemId}
+    method: GET
+    auth: jwt
+    description: Get item by ID
+
+  - path: /items/{itemId}
+    method: PUT
+    auth: jwt
+    description: Update an item
+
+  - path: /items/{itemId}
+    method: DELETE
+    auth: jwt
+    description: Soft-delete an item
+
+  - path: /items/count
+    method: GET
+    auth: jwt
+    description: Count items for current user
+
+  - path: /items/bulk-delete
+    method: POST
+    auth: jwt
+    description: Bulk soft-delete items
+
+  - path: /items/bulk-import
+    method: POST
+    auth: jwt
+    description: Bulk import items (CSV)
+    feature: csv_import
+
+  # ── AI Enrichment ────────────────────────────────────────────────
+  - path: /items/{itemId}/enrich
+    method: POST
+    auth: jwt
+    description: Trigger AI enrichment for an item
+    feature: ai
+
+  # ── RAG / Ask ────────────────────────────────────────────────────
+  - path: /rag/ask
+    method: POST
+    auth: jwt
+    description: Ask a question over all items (RAG)
+    feature: rag
+
+  - path: /rag/embed
+    method: POST
+    auth: jwt
+    description: Embed a single item
+    feature: rag
+
+  - path: /rag/embed-all
+    method: POST
+    auth: jwt
+    description: Embed all items
+    feature: rag
+
+  - path: /rag/search
+    method: POST
+    auth: jwt
+    description: Semantic search over items
+    feature: rag
+
+  - path: /rag/stats
+    method: GET
+    auth: jwt
+    description: RAG index stats (vector count)
+    feature: rag
+
+  - path: /rag/conversations
+    method: GET
+    auth: jwt
+    description: List recent RAG conversations
+    feature: rag
+
+  - path: /rag/conversations/{convId}
+    method: DELETE
+    auth: jwt
+    description: Delete a conversation
+    feature: rag
+
+  # ── Insights ─────────────────────────────────────────────────────
+  - path: /insights/summaries
+    method: GET
+    auth: jwt
+    description: List period summaries
+    feature: insights
+
+  - path: /insights/generate
+    method: POST
+    auth: jwt
+    description: Generate a period summary
+    feature: insights
+
+  - path: /insights/summaries/{summaryId}
+    method: DELETE
+    auth: jwt
+    description: Delete a summary
+    feature: insights
+
+  # ── Admin ────────────────────────────────────────────────────────
+  - path: /admin/audit
+    method: GET
+    auth: jwt
+    description: Query audit logs (admin only)
+    feature: admin
+
+  - path: /admin/metrics
+    method: GET
+    auth: jwt
+    description: Aggregate metrics (admin only)
+    feature: admin

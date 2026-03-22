@@ -1,0 +1,104 @@
+{
+  "name": "aws-fullstack-starter",
+  "version": "1.0.0",
+  "description": "AWS full-stack starter template with Cognito auth, DynamoDB, Lambda/API Gateway, CloudFront, and optional AI enrichment.",
+  "variables": {
+    "APP_PREFIX": {
+      "prompt": "App name (lowercase, no spaces, used for AWS resource names)",
+      "default": "myapp",
+      "pattern": "^[a-z][a-z0-9-]{1,20}$"
+    },
+    "APP_TITLE": {
+      "prompt": "Display name (shown in browser title and UI)",
+      "default": "My App"
+    },
+    "AWS_REGION": {
+      "prompt": "AWS region for deployment",
+      "default": "ca-central-1"
+    },
+    "AWS_PROFILE": {
+      "prompt": "AWS CLI profile name",
+      "default": "default"
+    },
+    "ENABLE_AI": {
+      "prompt": "Enable AI enrichment pipeline? (y/n)",
+      "default": "y",
+      "type": "boolean"
+    },
+    "ENABLE_RAG": {
+      "prompt": "Enable RAG (Ask) pipeline? (y/n)",
+      "default": "y",
+      "type": "boolean"
+    },
+    "ENABLE_ADMIN": {
+      "prompt": "Enable admin dashboard? (y/n)",
+      "default": "y",
+      "type": "boolean"
+    },
+    "ENABLE_CSV_IMPORT": {
+      "prompt": "Enable CSV import? (y/n)",
+      "default": "y",
+      "type": "boolean"
+    },
+    "ENABLE_INSIGHTS": {
+      "prompt": "Enable period insights/summaries? (y/n)",
+      "default": "y",
+      "type": "boolean"
+    }
+  },
+  "placeholders": {
+    "{{APP_PREFIX}}": "APP_PREFIX",
+    "{{APP_TITLE}}": "APP_TITLE",
+    "{{AWS_REGION}}": "AWS_REGION",
+    "{{AWS_PROFILE}}": "AWS_PROFILE"
+  },
+  "features": {
+    "ai": {
+      "variable": "ENABLE_AI",
+      "dirs": ["services/workflows"],
+      "terraform_modules": ["ai_gateway", "workflow"],
+      "web_components": ["components/ProviderSelector.jsx", "state/useProvider.js"],
+      "description": "AI enrichment via Step Functions + Lambda AI Gateway (Bedrock/Groq)"
+    },
+    "rag": {
+      "variable": "ENABLE_RAG",
+      "dirs": ["services/api/src/rag"],
+      "files": [
+        "services/api/src/adapters/fastapi/rag_routes.py",
+        "services/lambda_api/src/embeddings.py",
+        "services/lambda_api/src/vector_store.py",
+        "apps/web/src/components/AskPanel.jsx",
+        "apps/web/src/api/rag.js"
+      ],
+      "description": "RAG pipeline — Bedrock Titan Embeddings + DynamoDB vector store + Ask UI"
+    },
+    "admin": {
+      "variable": "ENABLE_ADMIN",
+      "files": [
+        "services/api/src/adapters/fastapi/admin_routes.py",
+        "services/api/src/core/audit.py",
+        "apps/web/src/components/AdminPanel.jsx",
+        "apps/web/src/api/admin.js"
+      ],
+      "description": "Admin dashboard with audit log and user metrics"
+    },
+    "csv_import": {
+      "variable": "ENABLE_CSV_IMPORT",
+      "files": [
+        "apps/web/src/components/ImportCSV.jsx"
+      ],
+      "description": "CSV bulk import with drag-and-drop, preview, and column mapping"
+    },
+    "insights": {
+      "variable": "ENABLE_INSIGHTS",
+      "files": [
+        "services/api/src/adapters/fastapi/insights_routes.py",
+        "services/api/src/core/insights.py",
+        "apps/web/src/components/InsightsPanel.jsx",
+        "apps/web/src/api/insights.js",
+        "apps/web/src/state/useInsights.js"
+      ],
+      "description": "Period insights — weekly/monthly AI summaries of items"
+    }
+  }
+}

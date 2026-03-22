@@ -1,0 +1,21 @@
+variable "app_prefix" { type = string }
+variable "env" { type = string }
+variable "source_dir" { type = string }
+variable "handler" { type = string }
+variable "runtime" { type = string }
+variable "app_table_arn" { type = string }
+variable "app_table_name" { type = string }
+variable "bedrock_model_id" { type = string }
+variable "llm_provider" {
+  type    = string
+  default = "groq"
+}
+variable "groq_model_id" {
+  type    = string
+  default = "llama-3.1-8b-instant"
+}
+variable "bedrock_region" {
+  type        = string
+  default     = "us-east-1"
+  description = "AWS region for Bedrock API calls (nova-lite not available in ca-central-1)"
+}

@@ -1,0 +1,5 @@
+bucket         = "{{APP_PREFIX}}-tfstate-ACCOUNT_ID-REGION"
+key            = "{{APP_PREFIX}}/dev/terraform.tfstate"
+region         = "{{AWS_REGION}}"
+dynamodb_table = "{{APP_PREFIX}}-tflock"
+encrypt        = true
