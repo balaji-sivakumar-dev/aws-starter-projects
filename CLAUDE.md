@@ -20,11 +20,12 @@ Each template is self-contained under `cloud-ai-starter-projects/template-*/`.
 ## Creating a New Project
 
 ```bash
-make new-project APP=budget              # interactive prompts
-make new-project APP=budget DEFAULTS=true # skip prompts
+make new-project APP=budget                          # → generated/budget/
+make new-project APP=budget DEFAULTS=true             # skip prompts
+make new-project APP=budget OUT=~/projects/budget     # custom output path (standalone repo)
 ```
 
-This copies `_base-template/` → `template-{APP}/`, replaces all `{{PLACEHOLDER}}` values, and removes opt-out features per `template.json`.
+Default output: `generated/{APP}/` (gitignored). Use `--out` for standalone projects outside this repo.
 
 ## Template-Level Instructions
 

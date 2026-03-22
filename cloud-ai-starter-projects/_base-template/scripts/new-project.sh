@@ -2,14 +2,16 @@
 # scripts/new-project.sh — Bootstrap a new project from the base template.
 #
 # Usage:
-#   bash scripts/new-project.sh budget
-#   bash scripts/new-project.sh budget --defaults    # skip interactive prompts
+#   bash scripts/new-project.sh budget                        # → generated/budget/
+#   bash scripts/new-project.sh budget --defaults              # skip interactive prompts
+#   bash scripts/new-project.sh budget --out ~/projects/budget # custom output path
 #
-# Creates: cloud-ai-starter-projects/template-{APP_PREFIX}/
+# Default output: {repo}/generated/{APP_PREFIX}/
+# Custom output:  any absolute or relative path via --out
 #
 # The script:
 # 1. Reads template.json for variable prompts (or uses --defaults)
-# 2. Copies _base-template/ → template-{APP_PREFIX}/
+# 2. Copies _base-template/ → target directory
 # 3. Replaces all {{PLACEHOLDER}} strings with actual values
 # 4. Removes opt-out features (dirs/files listed in template.json)
 # 5. Generates .env files with correct values
@@ -21,16 +23,19 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 BASE_DIR="$REPO_ROOT/cloud-ai-starter-projects/_base-template"
-PROJECTS_DIR="$REPO_ROOT/cloud-ai-starter-projects"
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 
 APP_PREFIX="${1:-}"
 USE_DEFAULTS=false
+CUSTOM_OUT=""
 
 if [ -z "$APP_PREFIX" ]; then
-  echo "Usage: $0 <app-name> [--defaults]"
-  echo "  e.g.: $0 budget"
+  echo "Usage: $0 <app-name> [--defaults] [--out <path>]"
+  echo ""
+  echo "  e.g.: $0 budget                          # → generated/budget/"
+  echo "        $0 budget --out ~/projects/budget   # custom output path"
+  echo "        $0 budget --defaults                # skip interactive prompts"
   exit 1
 fi
 
@@ -38,6 +43,14 @@ shift
 while [ $# -gt 0 ]; do
   case "$1" in
     --defaults) USE_DEFAULTS=true ;;
+    --out)
+      shift
+      CUSTOM_OUT="${1:-}"
+      if [ -z "$CUSTOM_OUT" ]; then
+        echo "ERROR: --out requires a path argument"
+        exit 1
+      fi
+      ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
   shift
@@ -49,7 +62,17 @@ if ! echo "$APP_PREFIX" | grep -qE '^[a-z][a-z0-9-]{1,20}$'; then
   exit 1
 fi
 
-TARGET_DIR="$PROJECTS_DIR/template-$APP_PREFIX"
+# Determine target directory
+if [ -n "$CUSTOM_OUT" ]; then
+  # Resolve to absolute path
+  if [[ "$CUSTOM_OUT" = /* ]]; then
+    TARGET_DIR="$CUSTOM_OUT"
+  else
+    TARGET_DIR="$(pwd)/$CUSTOM_OUT"
+  fi
+else
+  TARGET_DIR="$REPO_ROOT/generated/$APP_PREFIX"
+fi
 
 if [ -d "$TARGET_DIR" ]; then
   echo "ERROR: $TARGET_DIR already exists. Remove it first or choose a different name."
@@ -60,6 +83,9 @@ if [ ! -d "$BASE_DIR" ]; then
   echo "ERROR: Base template not found at $BASE_DIR"
   exit 1
 fi
+
+# Create parent directory if needed
+mkdir -p "$(dirname "$TARGET_DIR")"
 
 # ── Collect variables ────────────────────────────────────────────────────────
 

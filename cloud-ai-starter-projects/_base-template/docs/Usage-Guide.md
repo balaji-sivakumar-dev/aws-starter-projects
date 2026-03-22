@@ -30,9 +30,17 @@ make new-project APP=budget
 make new-project APP=budget DEFAULTS=true
 ```
 
+### Custom output path (standalone project outside this repo)
+
+```bash
+make new-project APP=budget OUT=~/projects/budget
+```
+
+This creates a fully standalone project at the given path — useful when you want a separate git repo.
+
 ### What happens
 
-1. Copies `_base-template/` → `cloud-ai-starter-projects/template-budget/`
+1. Copies `_base-template/` → target directory
 2. Replaces all `{{PLACEHOLDER}}` strings with your values
 3. Prompts to enable/disable features (AI, RAG, Admin, CSV Import, Insights)
 4. Removes files for disabled features
@@ -63,27 +71,33 @@ make new-project APP=budget DEFAULTS=true
 
 ### Where projects go
 
-All generated projects land in:
+**Default** — inside this repo (gitignored):
 
 ```
 aws-starter-projects/
 ├── cloud-ai-starter-projects/
-│   ├── _base-template/          ← source template (don't edit generated projects here)
-│   ├── template-budget/         ← your generated project
-│   ├── template-tracker/        ← another project
-│   └── template-3-.../          ← existing Reflect app
+│   └── _base-template/          ← source template (never edit generated projects here)
+├── generated/
+│   ├── budget/                  ← make new-project APP=budget
+│   └── tracker/                 ← make new-project APP=tracker
 ├── Makefile                     ← run `make new-project` from here
-└── CLAUDE.md
+└── .gitignore                   ← generated/ is gitignored
 ```
 
-The destination is always `cloud-ai-starter-projects/template-{APP_PREFIX}/`. This is not configurable — it keeps all projects in a consistent location.
+**Custom** — anywhere on disk:
+
+```bash
+make new-project APP=budget OUT=~/projects/budget
+# Creates ~/projects/budget/ as a standalone project
+# You can `cd ~/projects/budget && git init` to make it its own repo
+```
 
 ---
 
 ## 2. Run Locally
 
 ```bash
-cd cloud-ai-starter-projects/template-budget
+cd generated/budget
 
 # Start all services (DynamoDB + API + Web)
 make dev
@@ -153,7 +167,7 @@ Note: The Vite dev server proxies `/api/*` to `localhost:8080`, so the API conta
 ## 3. Stop the Project
 
 ```bash
-cd cloud-ai-starter-projects/template-budget
+cd generated/budget
 
 # Stop containers (keeps images and volumes)
 make dev-down
@@ -173,7 +187,7 @@ docker compose down --rmi local
 ## 4. Run Tests
 
 ```bash
-cd cloud-ai-starter-projects/template-budget
+cd generated/budget
 
 # Create virtualenv (first time only)
 python3 -m venv services/api/.venv
@@ -198,7 +212,7 @@ If you no longer need a generated project:
 
 ```bash
 # From repo root
-rm -rf cloud-ai-starter-projects/template-budget
+rm -rf generated/budget
 ```
 
 That's it. Docker images will be cleaned up on next `docker system prune`.
@@ -208,7 +222,7 @@ That's it. Docker images will be cleaned up on next `docker system prune`.
 Run the destroy scripts **before** deleting local files:
 
 ```bash
-cd cloud-ai-starter-projects/template-budget
+cd generated/budget
 
 # Step 1: Terraform destroy (removes all AWS resources)
 make destroy
@@ -224,7 +238,7 @@ bash scripts/destroy/step-1d-verify-destroy.sh dev
 
 # Step 5: Remove local files
 cd ../..
-rm -rf cloud-ai-starter-projects/template-budget
+rm -rf generated/budget
 ```
 
 ### Clean up Docker resources
@@ -249,7 +263,7 @@ docker system prune -a
 ### First-time setup
 
 ```bash
-cd cloud-ai-starter-projects/template-budget
+cd generated/budget
 
 # 1. Configure AWS CLI profile (see scripts/setup/step-1-aws-configure.md)
 
@@ -318,5 +332,5 @@ ports:
 | Rebuild API | `docker compose up --build api -d` | Project dir |
 | Run tests | `make test` | Project dir |
 | Deploy to AWS | `make deploy` | Project dir |
-| Delete project | `rm -rf cloud-ai-starter-projects/template-budget` | Repo root |
+| Delete project | `rm -rf generated/budget` | Repo root |
 | List projects | `make help` | Repo root |
