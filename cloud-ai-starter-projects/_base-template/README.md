@@ -73,6 +73,7 @@ make cognito-admin # Create admin user in Cognito
 
 | Doc | Purpose |
 |-----|---------|
+| [Usage Guide](docs/Usage-Guide.md) | Create, run, stop, delete projects — full walkthrough |
 | [Setup.md](docs/Setup.md) | Step-by-step local + AWS setup |
 | [Architecture.md](docs/Architecture.md) | Architecture overview + diagrams |
 | [routes.yaml](routes.yaml) | API endpoint definitions |
