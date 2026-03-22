@@ -17,7 +17,7 @@ services:
   # ── Python FastAPI ──────────────────────────────────────────────────────────
   api:
     build:
-      context: ./services/api
+      context: ../services/api
       dockerfile: Dockerfile
     container_name: ${COMPOSE_PROJECT_NAME:-app}-api
     environment:
@@ -37,7 +37,7 @@ services:
   # ── React + Nginx ───────────────────────────────────────────────────────────
   web:
     build:
-      context: ./apps/web
+      context: ../apps/web
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: /api

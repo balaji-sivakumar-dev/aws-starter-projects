@@ -151,9 +151,9 @@ remove_feature() {
       rm -f "$TARGET_DIR/apps/web/src/components/ProviderSelector.jsx"
       rm -f "$TARGET_DIR/apps/web/src/state/useProvider.js"
       rm -f "$TARGET_DIR/apps/web/src/api/config.js"
-      rm -f "$TARGET_DIR/docker-compose.groq.yml"
-      rm -f "$TARGET_DIR/docker-compose.openai.yml"
-      rm -f "$TARGET_DIR/docker-compose.ollama.yml"
+      rm -f "$TARGET_DIR/docker/docker-compose.groq.yml"
+      rm -f "$TARGET_DIR/docker/docker-compose.openai.yml"
+      rm -f "$TARGET_DIR/docker/docker-compose.ollama.yml"
       ;;
     rag)
       rm -rf "$TARGET_DIR/services/api/src/rag"
@@ -163,7 +163,7 @@ remove_feature() {
       rm -f "$TARGET_DIR/services/lambda_api/src/llm_provider.py"
       rm -f "$TARGET_DIR/apps/web/src/components/AskPanel.jsx"
       rm -f "$TARGET_DIR/apps/web/src/api/rag.js"
-      rm -f "$TARGET_DIR/docker-compose.rag.yml"
+      rm -f "$TARGET_DIR/docker/docker-compose.rag.yml"
       ;;
     admin)
       rm -f "$TARGET_DIR/services/api/src/adapters/fastapi/admin_routes.py"
@@ -210,7 +210,7 @@ ENVEOF
 
 # ── Create IMPLEMENTATION_CHECKLIST.md ────────────────────────────────────────
 
-cat > "$TARGET_DIR/IMPLEMENTATION_CHECKLIST.md" << MDEOF
+cat > "$TARGET_DIR/docs/IMPLEMENTATION_CHECKLIST.md" << MDEOF
 # Implementation Checklist — $APP_TITLE
 
 ## Requirements

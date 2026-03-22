@@ -46,9 +46,13 @@ make cognito-admin # Create admin user in Cognito
 │   ├── config.sh              # Shared deployment constants
 │   ├── setup/                 # Numbered deploy scripts
 │   └── destroy/               # Teardown scripts
+├── docker/
+│   ├── docker-compose.yml     # Main local dev stack
+│   ├── docker-compose.groq.yml
+│   ├── docker-compose.ollama.yml
+│   └── ...                    # Provider-specific overrides
 ├── routes.yaml                # Single source of truth for API routes
 ├── template.json              # Template metadata + feature flags
-├── docker-compose.yml
 ├── Makefile
 └── CLAUDE.md                  # AI assistant rules
 ```

@@ -35,14 +35,16 @@ template-{name}/
     config.sh                # Shared constants (SSM paths, app prefix, region)
     setup/                   # Numbered deployment scripts
     destroy/                 # Teardown scripts
+  docker/
+    docker-compose.yml       # Main local dev stack
+    docker-compose.*.yml     # Provider-specific overrides
   docs/
     Architecture.md
     Setup.md
+    IMPLEMENTATION_CHECKLIST.md
   routes.yaml                # Single source of truth for API routes
   Makefile
-  docker-compose.yml
   CLAUDE.md                  # Project-specific rules (inherits from this file)
-  IMPLEMENTATION_CHECKLIST.md
 ```
 
 ---

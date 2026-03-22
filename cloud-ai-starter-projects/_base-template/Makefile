@@ -110,7 +110,7 @@ deploy-all-routes: deploy-routes deploy-web
 # ── Local dev ─────────────────────────────────────────────────────────────────
 .PHONY: dev
 dev:
-	docker compose up -d
+	docker compose -f docker/docker-compose.yml --env-file .env.docker up -d
 	@echo ""
 	@echo "  Web UI  -> http://localhost:3000"
 	@echo "  API     -> http://localhost:8080/docs"
@@ -118,7 +118,7 @@ dev:
 
 .PHONY: dev-down
 dev-down:
-	docker compose down
+	docker compose -f docker/docker-compose.yml --env-file .env.docker down
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 .PHONY: test

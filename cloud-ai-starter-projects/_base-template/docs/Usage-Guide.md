@@ -38,7 +38,7 @@ make new-project APP=budget DEFAULTS=true
 4. Removes files for disabled features
 5. Generates `.env.docker` and `.env.users`
 6. Runs `npm install` for the web app
-7. Creates an `IMPLEMENTATION_CHECKLIST.md`
+7. Creates `docs/IMPLEMENTATION_CHECKLIST.md`
 
 ### Configuration prompts
 
@@ -295,7 +295,7 @@ make deploy-api
 
 Each project runs independently. Default ports are the same, so **only run one project at a time** locally, or change the ports:
 
-Edit `docker-compose.yml` in the second project:
+Edit `docker/docker-compose.yml` in the second project:
 
 ```yaml
 # Change ports to avoid conflicts
