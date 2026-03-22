@@ -24,7 +24,7 @@ class SearchRequest(BaseModel):
 
 
 class EmbedRequest(BaseModel):
-    entry_id: str = Field(..., alias="entryId")
+    item_id: str = Field(..., alias="entryId")
 
 
 def _get_rag_service():
@@ -90,62 +90,62 @@ async def search_items(req: SearchRequest, user_id: str = Depends(get_current_us
 
 
 @router.post("/embed")
-async def embed_entry(req: EmbedRequest, user_id: str = Depends(get_current_user)):
+async def embed_item(req: EmbedRequest, user_id: str = Depends(get_current_user)):
     """Manually embed a specific item."""
-    from ...core.repository import resolve_entry
+    from ...core.repository import resolve_item
 
     _, retriever = _get_rag_service()
-    entry = resolve_entry(user_id, req.entry_id)
-    if not entry:
-        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "entry not found"})
+    item = resolve_item(user_id, req.item_id)
+    if not item:
+        raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "item not found"})
 
     retriever.embed_entry(
         tenant_id=user_id,
-        entry_id=entry["entryId"],
-        title=entry["title"],
-        body=entry["body"],
-        created_at=entry["createdAt"],
+        entry_id=item["entryId"],
+        title=item["title"],
+        body=item["body"],
+        created_at=item["createdAt"],
     )
-    return {"status": "embedded", "entryId": entry["entryId"]}
+    return {"status": "embedded", "entryId": item["entryId"]}
 
 
 @router.post("/embed-all")
-async def embed_all_entries(user_id: str = Depends(get_current_user)):
+async def embed_all_items(user_id: str = Depends(get_current_user)):
     """Embed all items for the current user. Used for initial setup or re-indexing."""
     check_rate_limit(user_id, "embed_all")
     try:
-        from ...core.repository import list_entries
+        from ...core.repository import list_items
 
         _, retriever = _get_rag_service()
 
-        all_entries = []
+        all_items = []
         next_token = None
         while True:
-            # list_entries returns a (items, next_token) tuple
-            items, next_token = list_entries(user_id, limit=100, next_token=next_token)
-            all_entries.extend(items)
+            # list_items returns a (items, next_token) tuple
+            items, next_token = list_items(user_id, limit=100, next_token=next_token)
+            all_items.extend(items)
             if not next_token:
                 break
 
         embedded_count = 0
-        for entry in all_entries:
+        for item in all_items:
             try:
                 retriever.embed_entry(
                     tenant_id=user_id,
-                    entry_id=entry["entryId"],
-                    title=entry["title"],
-                    body=entry["body"],
-                    created_at=entry["createdAt"],
+                    entry_id=item["entryId"],
+                    title=item["title"],
+                    body=item["body"],
+                    created_at=item["createdAt"],
                 )
                 embedded_count += 1
             except Exception as e:
-                logger.error("Failed to embed entry %s: %s", entry["entryId"], e)
+                logger.error("Failed to embed item %s: %s", item["entryId"], e)
 
         return {
             "status": "completed",
-            "totalEntries": len(all_entries),
+            "totalEntries": len(all_items),
             "embedded": embedded_count,
-            "failed": len(all_entries) - embedded_count,
+            "failed": len(all_items) - embedded_count,
         }
     except Exception as e:
         logger.error("RAG /embed-all failed: %s", e, exc_info=True)

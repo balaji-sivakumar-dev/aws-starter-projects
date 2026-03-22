@@ -276,7 +276,7 @@ def test_bulk_delete_removes_specified_entries(client):
 
     resp = client.post(
         "/entries/bulk-delete",
-        json={"entryIds": [e1["entryId"], e2["entryId"]]},
+        json={"itemIds": [e1["entryId"], e2["entryId"]]},
         headers=LOCAL_HEADERS,
     )
     assert resp.status_code == 200
@@ -291,7 +291,7 @@ def test_bulk_delete_skips_nonexistent_ids(client):
     e1 = create_entry(client, title="Real entry")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"entryIds": [e1["entryId"], "00000000-0000-0000-0000-000000000000"]},
+        json={"itemIds": [e1["entryId"], "00000000-0000-0000-0000-000000000000"]},
         headers=LOCAL_HEADERS,
     )
     assert resp.status_code == 200
@@ -301,7 +301,7 @@ def test_bulk_delete_skips_nonexistent_ids(client):
 def test_bulk_delete_empty_list_returns_400(client):
     resp = client.post(
         "/entries/bulk-delete",
-        json={"entryIds": []},
+        json={"itemIds": []},
         headers=LOCAL_HEADERS,
     )
     assert resp.status_code == 400
@@ -313,7 +313,7 @@ def test_bulk_delete_user_isolation(client):
     e1 = create_entry(client, title="User A private")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"entryIds": [e1["entryId"]]},
+        json={"itemIds": [e1["entryId"]]},
         headers={"X-User-Id": "user-b"},
     )
     assert resp.status_code == 200
@@ -326,7 +326,7 @@ def test_bulk_delete_response_includes_request_id(client):
     e1 = create_entry(client, title="Entry")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"entryIds": [e1["entryId"]]},
+        json={"itemIds": [e1["entryId"]]},
         headers=LOCAL_HEADERS,
     )
     assert "requestId" in resp.json()

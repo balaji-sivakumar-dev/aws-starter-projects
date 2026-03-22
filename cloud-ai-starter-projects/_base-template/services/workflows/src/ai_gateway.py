@@ -37,14 +37,14 @@ def summary_sk(summary_id: str) -> str:
     return f"SUMMARY#{summary_id}"
 
 
-def get_entry(user_id: str, entry_id: str):
-    lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(entry_id)}).get("Item")
+def get_item(user_id: str, item_id: str):
+    lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(item_id)}).get("Item")
     if not lookup:
-        raise ValueError("entry not found")
-    entry = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup["entrySk"]}).get("Item")
-    if not entry or entry.get("deletedAt"):
-        raise ValueError("entry not found")
-    return entry
+        raise ValueError("item not found")
+    item = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup["entrySk"]}).get("Item")
+    if not item or item.get("deletedAt"):
+        raise ValueError("item not found")
+    return item
 
 
 def get_summary(user_id: str, summary_id: str):
@@ -162,26 +162,26 @@ def invoke_llm(prompt: str, max_tokens: int, provider: str = None) -> str:
     raise ValueError(f"Unknown provider: {p!r}. Must be 'groq' or 'bedrock'.")
 
 
-# ── Entry enrichment ──────────────────────────────────────────────────────────
+# ── Item enrichment ───────────────────────────────────────────────────────────
 
-def enrich_entry(user_id: str, entry_id: str, provider_override: str = None) -> dict:
-    entry = get_entry(user_id, entry_id)
+def enrich_item(user_id: str, item_id: str, provider_override: str = None) -> dict:
+    item = get_item(user_id, item_id)
 
     TABLE.update_item(
-        Key={"PK": entry["PK"], "SK": entry["SK"]},
+        Key={"PK": item["PK"], "SK": item["SK"]},
         UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
         ExpressionAttributeValues={":s": "PROCESSING", ":e": None, ":u": now_iso()},
     )
 
     try:
-        body = str(entry.get("body") or "")
+        body = str(item.get("body") or "")
         if len(body) > MAX_INPUT_CHARS:
-            raise ValueError("entry body exceeds configured size")
+            raise ValueError("item body exceeds configured size")
 
         prompt = (
             "Return only JSON with keys summary and tags. "
             "summary <= 240 chars, tags 1..5 short lowercase tags.\n"
-            f"title: {entry.get('title','')}\n"
+            f"title: {item.get('title','')}\n"
             f"body: {body}"
         )
 
@@ -195,7 +195,7 @@ def enrich_entry(user_id: str, entry_id: str, provider_override: str = None) -> 
         tags = normalize_tags(parsed.get("tags")) or ["item"]
 
         TABLE.update_item(
-            Key={"PK": entry["PK"], "SK": entry["SK"]},
+            Key={"PK": item["PK"], "SK": item["SK"]},
             UpdateExpression=(
                 "SET aiStatus = :s, summary = :summary, tags = :tags, "
                 "aiUpdatedAt = :aiUpdatedAt, aiError = :e, updatedAt = :u, aiProvider = :p"
@@ -211,11 +211,11 @@ def enrich_entry(user_id: str, entry_id: str, provider_override: str = None) -> 
             },
         )
 
-        return {"ok": True, "entryId": entry_id, "userId": user_id, "summary": summary, "tags": tags}
+        return {"ok": True, "entryId": item_id, "userId": user_id, "summary": summary, "tags": tags}
 
     except Exception as exc:
         TABLE.update_item(
-            Key={"PK": entry["PK"], "SK": entry["SK"]},
+            Key={"PK": item["PK"], "SK": item["SK"]},
             UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
             ExpressionAttributeValues={":s": "FAILED", ":e": friendly_error(exc), ":u": now_iso()},
         )
@@ -304,7 +304,7 @@ def generate_summary(user_id: str, summary_id: str, provider_override: str = Non
 # ── Lambda entrypoint ─────────────────────────────────────────────────────────
 
 def handler(event, _context):
-    event_type = str(event.get("type") or "entry").strip()
+    event_type = str(event.get("type") or "item").strip()
     # providerOverride is set when the user selects a specific provider in the UI
     provider_override = str(event.get("providerOverride") or "").strip().lower() or None
 
@@ -315,9 +315,9 @@ def handler(event, _context):
             raise ValueError("userId and summaryId are required for type=summary")
         return generate_summary(user_id, summary_id, provider_override=provider_override)
 
-    # default: entry enrichment
+    # default: item enrichment
     user_id = str(event.get("userId") or "").strip()
-    entry_id = str(event.get("entryId") or "").strip()
-    if not user_id or not entry_id:
+    item_id = str(event.get("entryId") or "").strip()
+    if not user_id or not item_id:
         raise ValueError("userId and entryId are required")
-    return enrich_entry(user_id, entry_id, provider_override=provider_override)
+    return enrich_item(user_id, item_id, provider_override=provider_override)

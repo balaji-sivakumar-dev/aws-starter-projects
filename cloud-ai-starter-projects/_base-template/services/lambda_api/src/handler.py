@@ -219,7 +219,7 @@ def count_entries_in_range(user_id: str, start_date: str, end_date: str) -> int:
     return sum(1 for item in result.get("Items", []) if not item.get("deletedAt"))
 
 
-def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+def create_item(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     title = str(payload.get("title") or "").strip()
     body = str(payload.get("body") or "").strip()
     if not title:
@@ -227,7 +227,7 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     if not body:
         raise ApiError(400, "VALIDATION_ERROR", "body is required")
 
-    entry_id = str(uuid.uuid4())
+    item_id = str(uuid.uuid4())
     ts = now_iso()
     # entryDate: user-selected date (YYYY-MM-DD) — defaults to today
     raw_date = str(payload.get("entryDate") or "").strip()
@@ -235,9 +235,9 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
     item = {
         "PK": user_pk(user_id),
-        "SK": entry_sk(ts, entry_id),
+        "SK": entry_sk(ts, item_id),
         "entityType": "ITEM",
-        "entryId": entry_id,
+        "entryId": item_id,
         "userId": user_id,
         "title": title,
         "body": body,
@@ -250,9 +250,9 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
 
     lookup = {
         "PK": user_pk(user_id),
-        "SK": lookup_sk(entry_id),
+        "SK": lookup_sk(item_id),
         "entityType": "ITEM_LOOKUP",
-        "entryId": entry_id,
+        "entryId": item_id,
         "entrySk": item["SK"],
         "createdAt": ts,
     }
@@ -262,17 +262,17 @@ def create_entry(user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
     return item
 
 
-def resolve_entry(user_id: str, entry_id: str) -> Dict[str, Any]:
-    lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(entry_id)}).get("Item")
+def resolve_item(user_id: str, item_id: str) -> Dict[str, Any]:
+    lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(item_id)}).get("Item")
     if not lookup:
-        raise ApiError(404, "NOT_FOUND", "entry not found")
+        raise ApiError(404, "NOT_FOUND", "item not found")
     item = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup["entrySk"]}).get("Item")
     if not item or item.get("deletedAt"):
-        raise ApiError(404, "NOT_FOUND", "entry not found")
+        raise ApiError(404, "NOT_FOUND", "item not found")
     return item
 
 
-def list_entries(user_id: str, limit: int, next_token: Optional[str]):
+def list_items(user_id: str, limit: int, next_token: Optional[str]):
     params: Dict[str, Any] = {
         "KeyConditionExpression": Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
         "Limit": limit,
@@ -297,8 +297,8 @@ def embed_sk(entry_id: str) -> str:
     return f"VECTOR#{entry_id}"
 
 
-def list_all_entries(user_id: str) -> List[Dict[str, Any]]:
-    """Fetch all non-deleted entries for the user (for bulk embed)."""
+def list_all_items(user_id: str) -> List[Dict[str, Any]]:
+    """Fetch all non-deleted items for the user (for bulk embed)."""
     result = TABLE.query(
         KeyConditionExpression=Key("PK").eq(user_pk(user_id)) & Key("SK").begins_with("ENTRY#"),
         ScanIndexForward=False,
@@ -380,7 +380,7 @@ def handler(event, context):
             query = event.get("queryStringParameters") or {}
             limit = int(query.get("limit") or 50)
             limit = max(1, min(limit, 100))
-            items, next_token = list_entries(user_id, limit, query.get("nextToken"))
+            items, next_token = list_items(user_id, limit, query.get("nextToken"))
             return response(200, {"items": items, "nextToken": next_token, "requestId": request_id})
 
         if method == "GET" and path == "/entries/count":
@@ -404,14 +404,14 @@ def handler(event, context):
 
         if method == "POST" and path == "/entries/bulk-delete":
             payload = parse_body(event)
-            entry_ids = payload.get("entryIds", [])
-            if not isinstance(entry_ids, list) or len(entry_ids) == 0:
-                raise ApiError(400, "VALIDATION_ERROR", "entryIds must be a non-empty list")
-            if len(entry_ids) > 200:
-                raise ApiError(400, "VALIDATION_ERROR", "cannot delete more than 200 entries at once")
+            item_ids = payload.get("itemIds", [])
+            if not isinstance(item_ids, list) or len(item_ids) == 0:
+                raise ApiError(400, "VALIDATION_ERROR", "itemIds must be a non-empty list")
+            if len(item_ids) > 200:
+                raise ApiError(400, "VALIDATION_ERROR", "cannot delete more than 200 items at once")
             deleted_count = 0
             ts = now_iso()
-            for eid in entry_ids:
+            for eid in item_ids:
                 try:
                     lookup = TABLE.get_item(Key={"PK": user_pk(user_id), "SK": lookup_sk(str(eid))}).get("Item")
                     if not lookup:
@@ -444,7 +444,7 @@ def handler(event, context):
                     body = str(row.get("body") or "").strip()
                     if not title or not body:
                         raise ValueError("title and body are required")
-                    item = create_entry(user_id, {
+                    item = create_item(user_id, {
                         "title": title,
                         "body": body,
                         "entryDate": str(row.get("entryDate") or row.get("date") or "").strip(),
@@ -457,18 +457,18 @@ def handler(event, context):
             return response(201, {"imported": imported, "failed": failed, "errors": errors, "requestId": request_id})
 
         if method == "POST" and path == "/entries":
-            item = create_entry(user_id, parse_body(event))
+            item = create_item(user_id, parse_body(event))
             write_audit(user_id, "CREATE_ENTRY", request_id, {"entryId": item["entryId"]}, email=_email, username=_username)
             return response(201, {"item": to_entry(item), "requestId": request_id})
 
         entry_id = str(path_params.get("entryId") or "").strip()
 
         if method == "GET" and entry_id and path == f"/entries/{entry_id}":
-            item = resolve_entry(user_id, entry_id)
+            item = resolve_item(user_id, entry_id)
             return response(200, {"item": to_entry(item), "requestId": request_id})
 
         if method == "PUT" and entry_id and path == f"/entries/{entry_id}":
-            item = resolve_entry(user_id, entry_id)
+            item = resolve_item(user_id, entry_id)
             payload = parse_body(event)
             updates = ["updatedAt = :u"]
             names: Dict[str, str] = {}
@@ -507,7 +507,7 @@ def handler(event, context):
             return response(200, {"item": to_entry(updated), "requestId": request_id})
 
         if method == "DELETE" and entry_id and path == f"/entries/{entry_id}":
-            item = resolve_entry(user_id, entry_id)
+            item = resolve_item(user_id, entry_id)
             TABLE.update_item(
                 Key={"PK": item["PK"], "SK": item["SK"]},
                 UpdateExpression="SET deletedAt = :d, updatedAt = :u",
@@ -520,7 +520,7 @@ def handler(event, context):
             ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
             if not ai_enabled:
                 raise ApiError(503, "AI_NOT_CONFIGURED", "AI enrichment is not configured. Set AI_ENABLED=true and configure an LLM provider.")
-            item = resolve_entry(user_id, entry_id)
+            item = resolve_item(user_id, entry_id)
             TABLE.update_item(
                 Key={"PK": item["PK"], "SK": item["SK"]},
                 UpdateExpression="SET aiStatus = :s, aiError = :e, updatedAt = :u",
@@ -647,7 +647,7 @@ def handler(event, context):
 
         if method == "GET" and path == "/rag/status":
             embedded = count_vectors(user_id)
-            total = len(list_all_entries(user_id))
+            total = len(list_all_items(user_id))
             return response(200, {
                 "totalVectors": embedded,
                 "totalEntries": total,
@@ -764,7 +764,7 @@ def handler(event, context):
             ai_enabled = os.environ.get("AI_ENABLED", "false").lower() == "true"
             if not ai_enabled:
                 raise ApiError(503, "AI_NOT_CONFIGURED", "AI_ENABLED is not set to true.")
-            entries = list_all_entries(user_id)
+            entries = list_all_items(user_id)
             embedded = 0
             failed = 0
             errors = []

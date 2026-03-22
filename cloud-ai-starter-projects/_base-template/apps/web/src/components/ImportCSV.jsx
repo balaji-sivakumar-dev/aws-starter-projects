@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { bulkImportEntries } from "../api/entries";
+import { bulkImportItems } from "../api/entries";
 
 // ── CSV parser ────────────────────────────────────────────────────────────────
 // Handles quoted fields, commas/newlines inside quotes, and optional BOM.
@@ -110,7 +110,7 @@ export default function ImportCSV({ onDone, onCancel }) {
     setImporting(true);
     setResult(null);
     try {
-      const res = await bulkImportEntries(parsed.entries);
+      const res = await bulkImportItems(parsed.entries);
       setResult(res);
       if (res.imported > 0) {
         setTimeout(() => onDone && onDone(res.imported), 1500);

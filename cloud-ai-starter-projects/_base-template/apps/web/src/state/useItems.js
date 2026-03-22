@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { bulkDeleteEntries, countEntries, createEntry, deleteEntry, getEntry, getMe, listEntries, triggerAi, updateEntry } from "../api/entries";
+import { bulkDeleteItems, countItems, createItem, deleteItem, getItem, getMe, listItems, triggerAi, updateItem } from "../api/entries";
 
 export function useItems(providerName) {
   const [loading, setLoading] = useState(false);
@@ -18,7 +18,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const [meResp, listResp, countResp] = await Promise.all([getMe(), listEntries(), countEntries()]);
+      const [meResp, listResp, countResp] = await Promise.all([getMe(), listItems(), countItems()]);
       setMe(meResp);
       setEntries(listResp.items || []);
       setNextToken(listResp.nextToken || null);
@@ -38,7 +38,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const resp = await getEntry(entryId);
+      const resp = await getItem(entryId);
       setSelectedId(entryId);
       setSelected(resp.item);
       setMode("detail");
@@ -59,7 +59,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const resp = await listEntries(nextToken);
+      const resp = await listItems(nextToken);
       setEntries((prev) => [...prev, ...(resp.items || [])]);
       setNextToken(resp.nextToken || null);
     } catch (err) {
@@ -73,7 +73,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const resp = await createEntry(payload);
+      const resp = await createItem(payload);
       setEntries((prev) => [resp.item, ...prev]);
       setSelectedId(resp.item.entryId);
       setSelected(resp.item);
@@ -90,7 +90,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const resp = await updateEntry(selectedId, payload);
+      const resp = await updateItem(selectedId, payload);
       setSelected(resp.item);
       setEntries((prev) => prev.map((e) => (e.entryId === selectedId ? resp.item : e)));
       setMode("detail");
@@ -105,7 +105,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      await deleteEntry(entryId);
+      await deleteItem(entryId);
       const remaining = entries.filter((e) => e.entryId !== entryId);
       setEntries(remaining);
       setTotalCount((c) => (c !== null ? c - 1 : null));
@@ -127,7 +127,7 @@ export function useItems(providerName) {
     setLoading(true);
     setError("");
     try {
-      const resp = await bulkDeleteEntries(entryIds);
+      const resp = await bulkDeleteItems(entryIds);
       const deletedSet = new Set(entryIds);
       const remaining = entries.filter((e) => !deletedSet.has(e.entryId));
       setEntries(remaining);

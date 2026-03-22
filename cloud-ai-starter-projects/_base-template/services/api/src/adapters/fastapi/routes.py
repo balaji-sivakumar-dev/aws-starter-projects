@@ -17,10 +17,10 @@ from pydantic import BaseModel
 from ...core import handlers
 from ...core.models import (
     AppError,
-    CreateEntryRequest,
-    ListEntriesResponse,
-    SingleEntryResponse,
-    UpdateEntryRequest,
+    CreateItemRequest,
+    ListItemsResponse,
+    SingleItemResponse,
+    UpdateItemRequest,
 )
 from .deps import get_current_user, get_current_user_email
 
@@ -56,100 +56,100 @@ def me(
     return {**handlers.me(user_id, email), "requestId": _rid(request)}
 
 
-# ── Entries ───────────────────────────────────────────────────────────────────
+# ── Items ─────────────────────────────────────────────────────────────────────
 
 class BulkDeleteRequest(BaseModel):
-    entryIds: List[str]
+    itemIds: List[str]
 
 
-@router.get("/entries", response_model=ListEntriesResponse, tags=["entries"])
-def list_entries(
+@router.get("/entries", response_model=ListItemsResponse, tags=["items"])
+def list_items(
     request: Request,
     limit: int = Query(default=20, ge=1, le=100),
     nextToken: Optional[str] = Query(default=None),
     user_id: str = Depends(get_current_user),
 ):
     try:
-        items, next_tok = handlers.list_entries(user_id, limit, nextToken)
+        items, next_tok = handlers.list_items(user_id, limit, nextToken)
     except AppError as exc:
         raise _http(exc)
     return {"items": items, "nextToken": next_tok, "requestId": _rid(request)}
 
 
 # NOTE: static sub-paths (/count, /bulk-delete) must be registered BEFORE
-# the parameterised route /entries/{entry_id} to avoid FastAPI swallowing
+# the parameterised route /entries/{item_id} to avoid FastAPI swallowing
 # "count" and "bulk-delete" as path parameter values.
 
-@router.get("/entries/count", tags=["entries"])
-def count_entries(
+@router.get("/entries/count", tags=["items"])
+def count_items(
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
-    count = handlers.count_entries(user_id)
+    count = handlers.count_items(user_id)
     return {"count": count, "requestId": _rid(request)}
 
 
-@router.post("/entries/bulk-delete", tags=["entries"])
-def bulk_delete_entries(
+@router.post("/entries/bulk-delete", tags=["items"])
+def bulk_delete_items(
     body: BulkDeleteRequest,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     try:
-        deleted = handlers.bulk_delete_entries(user_id, body.entryIds)
+        deleted = handlers.bulk_delete_items(user_id, body.itemIds)
     except AppError as exc:
         raise _http(exc)
     return {"deleted": deleted, "requestId": _rid(request)}
 
 
-@router.post("/entries", response_model=SingleEntryResponse, status_code=201, tags=["entries"])
-def create_entry(
-    body: CreateEntryRequest,
+@router.post("/entries", response_model=SingleItemResponse, status_code=201, tags=["items"])
+def create_item(
+    body: CreateItemRequest,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     try:
-        item = handlers.create_entry(user_id, body.title, body.body)
+        item = handlers.create_item(user_id, body.title, body.body)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}
 
 
-@router.get("/entries/{entry_id}", response_model=SingleEntryResponse, tags=["entries"])
-def get_entry(
-    entry_id: str,
+@router.get("/entries/{item_id}", response_model=SingleItemResponse, tags=["items"])
+def get_item(
+    item_id: str,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     try:
-        item = handlers.get_entry(user_id, entry_id)
+        item = handlers.get_item(user_id, item_id)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}
 
 
-@router.put("/entries/{entry_id}", response_model=SingleEntryResponse, tags=["entries"])
-def update_entry(
-    entry_id: str,
-    body: UpdateEntryRequest,
+@router.put("/entries/{item_id}", response_model=SingleItemResponse, tags=["items"])
+def update_item(
+    item_id: str,
+    body: UpdateItemRequest,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     try:
-        item = handlers.update_entry(user_id, entry_id, body.title, body.body)
+        item = handlers.update_item(user_id, item_id, body.title, body.body)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}
 
 
-@router.delete("/entries/{entry_id}", tags=["entries"])
-def delete_entry(
-    entry_id: str,
+@router.delete("/entries/{item_id}", tags=["items"])
+def delete_item(
+    item_id: str,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     try:
-        handlers.delete_entry(user_id, entry_id)
+        handlers.delete_item(user_id, item_id)
     except AppError as exc:
         raise _http(exc)
     return {"deleted": True, "requestId": _rid(request)}
@@ -157,15 +157,15 @@ def delete_entry(
 
 # ── AI ────────────────────────────────────────────────────────────────────────
 
-@router.post("/entries/{entry_id}/ai", status_code=202, tags=["ai"])
+@router.post("/entries/{item_id}/ai", status_code=202, tags=["ai"])
 def trigger_ai(
-    entry_id: str,
+    item_id: str,
     request: Request,
     user_id: str = Depends(get_current_user),
 ):
     provider_name = request.headers.get("x-llm-provider") or None
     try:
-        result = handlers.trigger_ai(user_id, entry_id, provider_name=provider_name)
+        result = handlers.trigger_ai(user_id, item_id, provider_name=provider_name)
     except AppError as exc:
         raise _http(exc)
     return {**result, "requestId": _rid(request)}

@@ -106,32 +106,32 @@ def dispatch(event: Dict[str, Any]) -> Dict[str, Any]:
         # /entries
         if method == "GET" and path == "/entries":
             limit = max(1, min(int(query.get("limit") or 20), 100))
-            items, next_tok = handlers.list_entries(user_id, limit, query.get("nextToken"))
+            items, next_tok = handlers.list_items(user_id, limit, query.get("nextToken"))
             return _ok(200, {"items": items, "nextToken": next_tok, "requestId": rid})
 
         if method == "POST" and path == "/entries":
-            item = handlers.create_entry(user_id, str(body.get("title") or ""), str(body.get("body") or ""))
+            item = handlers.create_item(user_id, str(body.get("title") or ""), str(body.get("body") or ""))
             return _ok(201, {"item": item, "requestId": rid})
 
         # /entries/{entryId}
-        entry_id = path_params.get("entryId") or path.rsplit("/", 1)[-1]
+        item_id = path_params.get("entryId") or path.rsplit("/", 1)[-1]
 
         if method == "GET":
-            item = handlers.get_entry(user_id, entry_id)
+            item = handlers.get_item(user_id, item_id)
             return _ok(200, {"item": item, "requestId": rid})
 
         if method == "PUT":
             title: Optional[str] = body.get("title")
             content: Optional[str] = body.get("body")
-            item = handlers.update_entry(user_id, entry_id, title, content)
+            item = handlers.update_item(user_id, item_id, title, content)
             return _ok(200, {"item": item, "requestId": rid})
 
         if method == "DELETE":
-            handlers.delete_entry(user_id, entry_id)
+            handlers.delete_item(user_id, item_id)
             return _ok(200, {"deleted": True, "requestId": rid})
 
         if method == "POST" and path.endswith("/ai"):
-            result = handlers.trigger_ai(user_id, entry_id)
+            result = handlers.trigger_ai(user_id, item_id)
             return _ok(202, {**result, "requestId": rid})
 
         raise AppError(404, "NOT_FOUND", "route not found")

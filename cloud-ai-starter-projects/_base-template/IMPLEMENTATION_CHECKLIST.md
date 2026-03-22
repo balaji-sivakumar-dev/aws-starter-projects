@@ -28,3 +28,4 @@
 | F-002 | Fix Terraform db module table name mangled by sed | Done | Removed extra `${var.app_prefix}` in name |
 | F-003 | Fix Docker Compose duplicate TABLE_NAME env var | Done | Removed duplicate line |
 | F-004 | Fix double-nested os.getenv in Python files | Done | Simplified to single getenv with default |
+| F-005 | Rename remaining entry-based function calls to item-based names | Done | 9 files: rag_routes, lambda handler, tests, ai_gateway, web API, useItems, ImportCSV |

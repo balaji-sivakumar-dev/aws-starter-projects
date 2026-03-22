@@ -49,10 +49,11 @@ class ItemOut(BaseModel):
 
 
 class SingleItemResponse(BaseModel):
-    data: ItemOut
-    meta: Dict[str, Any] = {}
+    item: ItemOut
+    requestId: str = ""
 
 
 class ListItemsResponse(BaseModel):
     items: List[ItemOut]
-    meta: Dict[str, Any] = {}
+    nextToken: Optional[str] = None
+    requestId: str = ""
