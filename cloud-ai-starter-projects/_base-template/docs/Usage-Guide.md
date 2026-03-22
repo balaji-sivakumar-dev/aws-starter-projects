@@ -256,34 +256,114 @@ docker system prune -a
 
 ---
 
-## 6. Deploy to AWS
+## 6. AWS Configuration
 
-> This section is for when you're ready to go beyond local dev.
+> Complete this section before deploying. Not needed for local dev.
+
+### Option A: IAM User (simple, for personal projects)
+
+1. Go to **AWS Console → IAM → Users → Create User**
+2. Name it something like `budget-deploy`
+3. Attach these managed policies:
+   - `AmazonDynamoDBFullAccess`
+   - `AWSLambda_FullAccess`
+   - `AmazonS3FullAccess`
+   - `AmazonCognitoPowerUser`
+   - `IAMFullAccess`
+   - `CloudFrontFullAccess`
+   - `AmazonAPIGatewayAdministrator`
+   - `AmazonECR_FullAccess`
+   - `AWSStepFunctionsFullAccess`
+   - `AmazonSSMFullAccess`
+4. Create an **Access Key** (CLI type) and note the ID + secret
+5. Configure the CLI:
+
+```bash
+aws configure --profile budget-dev
+# AWS Access Key ID:     AKIA...
+# AWS Secret Access Key: wJal...
+# Default region:        ca-central-1
+# Default output:        json
+```
+
+### Option B: IAM Identity Center / SSO (recommended for teams)
+
+```bash
+aws configure sso --profile budget-dev
+# SSO start URL:     https://your-org.awsapps.com/start
+# SSO Region:        us-east-1
+# Account:           123456789012
+# Role:              AdministratorAccess (or a scoped role)
+# CLI default region: ca-central-1
+# CLI output:        json
+```
+
+Login before running any commands:
+
+```bash
+aws sso login --profile budget-dev
+```
+
+### Verify credentials work
+
+```bash
+aws sts get-caller-identity --profile budget-dev
+# Should show your account ID and ARN
+```
+
+### Bedrock access (required for AI features)
+
+Bedrock LLMs and Titan Embeddings V2 are **only available in certain regions** (us-east-1, us-west-2, eu-west-1). The template defaults Bedrock calls to `us-east-1` regardless of your deploy region.
+
+You must **enable model access** in the Bedrock console:
+
+1. Go to **AWS Console → Amazon Bedrock → Model access** (in **us-east-1**)
+2. Click **Manage model access**
+3. Enable:
+   - `Amazon Titan Text Embeddings V2` (for RAG)
+   - `Anthropic Claude 3 Haiku` or your preferred model (for AI enrichment)
+4. Wait for status to show "Access granted"
+
+> If you skip this, AI features will fail silently at runtime. The app still works for CRUD — AI just won't enrich items.
+
+### Environment variables reference
+
+| Variable | Where set | Purpose |
+|----------|-----------|---------|
+| `AWS_PROFILE` | Shell / Makefile | Which AWS credentials to use |
+| `AWS_REGION` | Terraform vars | Where to deploy infrastructure |
+| `BEDROCK_REGION` | Terraform → Lambda env | Where Bedrock calls go (default: `us-east-1`) |
+| `TABLE_NAME` | Terraform → Lambda env | DynamoDB table name |
+| `ADMIN_EMAILS` | SSM → Lambda env | Comma-separated admin emails |
+| `LLM_PROVIDER` | Lambda env / docker-compose | AI provider: `bedrock`, `groq`, `ollama`, `openai` |
+| `GROQ_API_KEY` | SSM → Lambda env | Groq API key (if using Groq) |
+
+---
+
+## 7. Deploy to AWS
 
 ### First-time setup
 
 ```bash
 cd generated/budget
 
-# 1. Configure AWS CLI profile (see scripts/setup/step-1-aws-configure.md)
-
-# 2. Create Terraform backend (S3 + DynamoDB lock table)
+# 1. Create Terraform backend (S3 + DynamoDB lock table)
 make bootstrap
 
-# 3. Edit user allowlist
+# 2. Edit user allowlist
 cp .env.users.example .env.users
 # Add your email(s), one per line. Prefix with "admin:" for admin access.
 
-# 4. Store secrets in SSM Parameter Store
+# 3. Store secrets in SSM Parameter Store
 make secrets
 
-# 5. Deploy all infrastructure
+# 4. Deploy all infrastructure
 make infra
 
-# 6. Deploy code (Lambda + frontend)
+# 5. Deploy code (Lambda + frontend)
 make deploy
 
-# 7. Create admin Cognito user
+# 6. Create admin Cognito user
 make cognito-admin
 ```
 
@@ -305,7 +385,7 @@ make deploy-api
 
 ---
 
-## 7. Multiple Projects Side by Side
+## 8. Multiple Projects Side by Side
 
 Each project runs independently. Default ports are the same, so **only run one project at a time** locally, or change the ports:
 
