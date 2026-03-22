@@ -260,7 +260,38 @@ docker system prune -a
 
 > Complete this section before deploying. Not needed for local dev.
 
-### Option A: IAM User (simple, for personal projects)
+Choose the option that matches your AWS account type:
+
+### Option A: Root User Access Keys (AWS Free Tier / personal learning)
+
+If you're on the **AWS Free Tier** and don't have IAM access (creating IAM users may switch your account to pay-as-you-go), you can use the root user's access keys directly.
+
+> **Warning:** Root access keys have full account access with no restrictions. This is acceptable for personal learning/experimentation but should never be used in production or shared environments.
+
+1. Sign in to **AWS Console** as the root user
+2. Click your account name (top-right) → **Security credentials**
+3. Scroll to **Access keys** → **Create access key**
+4. Acknowledge the warning and create the key
+5. Copy the Access Key ID and Secret Access Key (you won't see the secret again)
+6. Configure the CLI:
+
+```bash
+aws configure --profile budget-dev
+# AWS Access Key ID:     AKIA...
+# AWS Secret Access Key: wJal...
+# Default region:        ca-central-1
+# Default output:        json
+```
+
+**Free Tier considerations:**
+- Most services this template uses (DynamoDB, Lambda, S3, CloudFront, Cognito, API Gateway) have a free tier allowance
+- Bedrock is **not** included in the free tier — AI features will incur charges
+- You can disable AI/RAG features during project creation to stay within free tier
+- Monitor costs at **AWS Console → Billing → Free Tier** dashboard
+
+### Option B: IAM User (personal projects, pay-as-you-go accounts)
+
+If your account supports IAM (most accounts outside the free tier trial):
 
 1. Go to **AWS Console → IAM → Users → Create User**
 2. Name it something like `budget-deploy`
@@ -286,7 +317,9 @@ aws configure --profile budget-dev
 # Default output:        json
 ```
 
-### Option B: IAM Identity Center / SSO (recommended for teams)
+### Option C: IAM Identity Center / SSO (recommended for teams)
+
+Best for organizations with multiple developers or AWS accounts:
 
 ```bash
 aws configure sso --profile budget-dev
@@ -303,6 +336,15 @@ Login before running any commands:
 ```bash
 aws sso login --profile budget-dev
 ```
+
+### Which option should I pick?
+
+| Situation | Recommended option |
+|-----------|-------------------|
+| AWS Free Tier, learning/experimenting | **Option A** — Root access keys |
+| Personal project, pay-as-you-go account | **Option B** — IAM user |
+| Team / organization / multiple accounts | **Option C** — IAM Identity Center |
+| Production workload | **Option C** — with least-privilege role |
 
 ### Verify credentials work
 
