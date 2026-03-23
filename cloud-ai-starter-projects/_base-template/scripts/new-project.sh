@@ -144,9 +144,10 @@ echo ""
 echo "  Copying base template..."
 cp -R "$BASE_DIR" "$TARGET_DIR"
 
-# Remove template metadata from the new project
+# Remove template-level files not needed in generated projects
 rm -f "$TARGET_DIR/template.json"
 rm -f "$TARGET_DIR/scripts/new-project.sh"
+rm -f "$TARGET_DIR/docs/Usage-Guide.md"   # template-author guide, not app guide
 
 # ── Replace placeholders ─────────────────────────────────────────────────────
 

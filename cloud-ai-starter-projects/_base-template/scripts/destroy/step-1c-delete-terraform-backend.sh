@@ -18,7 +18,7 @@ LOCK_TABLE="${LOCK_TABLE:-${PROJECT_PREFIX}-tflock}"
 ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
 STATE_BUCKET="${STATE_BUCKET:-${PROJECT_PREFIX}-tfstate-${ACCOUNT_ID}-${REGION}}"
 
-echo "== Delete Terraform Backend (Template 3) =="
+echo "== Delete Terraform Backend: {{APP_PREFIX}} =="
 echo "Account     : ${ACCOUNT_ID}"
 echo "Region      : ${REGION}"
 echo "State bucket: ${STATE_BUCKET}"

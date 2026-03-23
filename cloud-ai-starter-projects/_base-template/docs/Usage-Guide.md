@@ -27,7 +27,7 @@ make new-project APP=budget
 ### Quick mode (use all defaults)
 
 ```bash
-make new-project APP=budget DEFAULTS=true
+make new-project DEFAULTS=true APP=first-my-app 
 ```
 
 ### Custom output path (standalone project outside this repo)
@@ -55,7 +55,7 @@ This creates a fully standalone project at the given path — useful when you wa
 | `APP_PREFIX` | AWS resource names, table names, container names | (required) | `budget` |
 | `APP_TITLE` | Browser title, UI brand name | Capitalized prefix | `Budget Tracker` |
 | `AWS_REGION` | Deployment region | `ca-central-1` | `us-east-1` |
-| `AWS_PROFILE` | AWS CLI profile for deployments | `{prefix}-dev` | `budget-dev` |
+| `AWS_PROFILE` | AWS CLI profile for deployments | `{prefix}-dev` | `my-app-dev` |
 | `ENABLE_AI` | AI enrichment (summarize + tag items) | `y` | `n` |
 | `ENABLE_RAG` | RAG pipeline (chat with your data) | `y` | `n` |
 | `ENABLE_ADMIN` | Admin dashboard + audit logs | `y` | `n` |
@@ -262,21 +262,20 @@ docker system prune -a
 
 Choose the option that matches your AWS account type:
 
-### Option A: Root User Access Keys (AWS Free Tier / personal learning)
+### Option A: Admin IAM User (AWS Free Tier / personal learning)
 
-If you're on the **AWS Free Tier** and don't have IAM access (creating IAM users may switch your account to pay-as-you-go), you can use the root user's access keys directly.
+Create a dedicated **IAM user** with administrator access. This works on all account types including the Free Tier.
 
-> **Warning:** Root access keys have full account access with no restrictions. This is acceptable for personal learning/experimentation but should never be used in production or shared environments.
+> **Free Tier note:** Creating an IAM **user** is allowed and free. What may trigger a pay-as-you-go prompt is creating IAM **roles** with cross-account trust policies (used by SSO/Identity Center). A plain IAM user with an access key is the simplest approach and always available.
 
-1. Sign in to **AWS Console** as the root user
-2. Click your account name (top-right) → **Security credentials**
-3. Scroll to **Access keys** → **Create access key**
-4. Acknowledge the warning and create the key
-5. Copy the Access Key ID and Secret Access Key (you won't see the secret again)
-6. Configure the CLI:
+1. Go to **AWS Console → IAM → Users → Create User**
+2. Name it something like `{{APP_PREFIX}}-deploy` (or any name you prefer)
+3. Attach the **AdministratorAccess** managed policy (or the scoped list in Option B below)
+4. Create an **Access Key** (CLI type) and copy the ID + secret
+5. Configure the CLI:
 
 ```bash
-aws configure --profile budget-dev
+aws configure --profile {{APP_PREFIX}}-dev
 # AWS Access Key ID:     AKIA...
 # AWS Secret Access Key: wJal...
 # Default region:        ca-central-1
@@ -289,12 +288,12 @@ aws configure --profile budget-dev
 - You can disable AI/RAG features during project creation to stay within free tier
 - Monitor costs at **AWS Console → Billing → Free Tier** dashboard
 
-### Option B: IAM User (personal projects, pay-as-you-go accounts)
+### Option B: Scoped IAM User (personal projects, pay-as-you-go accounts)
 
-If your account supports IAM (most accounts outside the free tier trial):
+Same as Option A but with least-privilege policies instead of AdministratorAccess:
 
 1. Go to **AWS Console → IAM → Users → Create User**
-2. Name it something like `budget-deploy`
+2. Name it something like `{{APP_PREFIX}}-deploy`
 3. Attach these managed policies:
    - `AmazonDynamoDBFullAccess`
    - `AWSLambda_FullAccess`
@@ -310,7 +309,7 @@ If your account supports IAM (most accounts outside the free tier trial):
 5. Configure the CLI:
 
 ```bash
-aws configure --profile budget-dev
+aws configure --profile {{APP_PREFIX}}-dev
 # AWS Access Key ID:     AKIA...
 # AWS Secret Access Key: wJal...
 # Default region:        ca-central-1
@@ -322,7 +321,7 @@ aws configure --profile budget-dev
 Best for organizations with multiple developers or AWS accounts:
 
 ```bash
-aws configure sso --profile budget-dev
+aws configure sso --profile {{APP_PREFIX}}-dev
 # SSO start URL:     https://your-org.awsapps.com/start
 # SSO Region:        us-east-1
 # Account:           123456789012
@@ -334,22 +333,22 @@ aws configure sso --profile budget-dev
 Login before running any commands:
 
 ```bash
-aws sso login --profile budget-dev
+aws sso login --profile {{APP_PREFIX}}-dev
 ```
 
 ### Which option should I pick?
 
 | Situation | Recommended option |
 |-----------|-------------------|
-| AWS Free Tier, learning/experimenting | **Option A** — Root access keys |
-| Personal project, pay-as-you-go account | **Option B** — IAM user |
+| AWS Free Tier / personal learning | **Option A** — Admin IAM user |
+| Personal project, pay-as-you-go account | **Option B** — Scoped IAM user |
 | Team / organization / multiple accounts | **Option C** — IAM Identity Center |
 | Production workload | **Option C** — with least-privilege role |
 
 ### Verify credentials work
 
 ```bash
-aws sts get-caller-identity --profile budget-dev
+aws sts get-caller-identity --profile {{APP_PREFIX}}-dev
 # Should show your account ID and ARN
 ```
 
@@ -357,16 +356,9 @@ aws sts get-caller-identity --profile budget-dev
 
 Bedrock LLMs and Titan Embeddings V2 are **only available in certain regions** (us-east-1, us-west-2, eu-west-1). The template defaults Bedrock calls to `us-east-1` regardless of your deploy region.
 
-You must **enable model access** in the Bedrock console:
+Bedrock model access is **activated automatically on first API call** — no manual setup required. The template uses `us-east-1` for all Bedrock calls regardless of your deploy region.
 
-1. Go to **AWS Console → Amazon Bedrock → Model access** (in **us-east-1**)
-2. Click **Manage model access**
-3. Enable:
-   - `Amazon Titan Text Embeddings V2` (for RAG)
-   - `Anthropic Claude 3 Haiku` or your preferred model (for AI enrichment)
-4. Wait for status to show "Access granted"
-
-> If you skip this, AI features will fail silently at runtime. The app still works for CRUD — AI just won't enrich items.
+> If AI enrichment fails silently, verify that your IAM user has `AmazonBedrockFullAccess` (or equivalent) and that you're calling from a supported region (`us-east-1`, `us-west-2`, `eu-west-1`).
 
 ### Environment variables reference
 

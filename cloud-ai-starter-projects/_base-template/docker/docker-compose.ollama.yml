@@ -1,7 +1,8 @@
 # Docker Compose overlay — adds Ollama for local LLM testing.
 #
-# Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.ollama.yml up --build
+# Usage (from project root):
+#   make dev-ai    # Ollama AI only
+#   make dev       # Ollama AI + RAG
 #
 # First startup downloads the model (~2 GB) — this can take several minutes.
 # Subsequent starts reuse the cached model from the ollama-data volume.
@@ -14,7 +15,7 @@ services:
   # ── Ollama server ────────────────────────────────────────────────────────────
   ollama:
     image: ollama/ollama:latest
-    container_name: t3-ollama
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-ollama
     ports:
       - "11434:11434"         # exposed so you can also run: ollama run llama3.2
     volumes:
@@ -32,7 +33,7 @@ services:
   # The api service waits for this to complete before starting.
   ollama-pull:
     image: ollama/ollama:latest
-    container_name: t3-ollama-pull
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-ollama-pull
     entrypoint: ["ollama", "pull", "llama3.2"]
     environment:
       OLLAMA_HOST: http://ollama:11434

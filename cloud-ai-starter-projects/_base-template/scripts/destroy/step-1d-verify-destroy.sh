@@ -24,7 +24,7 @@ COGNITO_POOL_NAME="${APP_PREFIX}-${ENV_NAME}-users"
 ECR_REPO_NAME="${APP_PREFIX}-${ENV_NAME}-api"
 APPRUNNER_SERVICE="${APP_PREFIX}-${ENV_NAME}-api"
 
-echo "== Verify Destroy (Template 3) =="
+echo "== Verify Destroy: {{APP_PREFIX}} =="
 echo "Account      : ${ACCOUNT_ID}"
 echo "Region       : ${REGION}"
 echo "Env          : ${ENV_NAME}"

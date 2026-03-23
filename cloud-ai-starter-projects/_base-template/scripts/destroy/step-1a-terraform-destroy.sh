@@ -20,7 +20,7 @@ VAR_FILE="${TF_DIR}/environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 REL_VAR_FILE="environments/${ENV_NAME}/${ENV_NAME}.tfvars"
 BACKEND_FILE="${TF_DIR}/backend.${ENV_NAME}.tfbackend"
 
-echo "== Terraform Destroy (Template 3) =="
+echo "== Terraform Destroy: {{APP_PREFIX}} =="
 echo "Environment : ${ENV_NAME}"
 echo "TF_DIR      : ${TF_DIR}"
 echo "VAR_FILE    : ${VAR_FILE}"

@@ -29,3 +29,11 @@
 | F-003 | Fix Docker Compose duplicate TABLE_NAME env var | Done | Removed duplicate line |
 | F-004 | Fix double-nested os.getenv in Python files | Done | Simplified to single getenv with default |
 | F-005 | Rename remaining entry-based function calls to item-based names | Done | 9 files: rag_routes, lambda handler, tests, ai_gateway, web API, useItems, ImportCSV |
+| F-006 | Integrate Ollama + RAG into default `make dev` | Done | Tiered targets: dev (full), dev-ai (Ollama only), dev-minimal (CRUD only) |
+| F-007 | Parameterize container names from `t3-*` to `${COMPOSE_PROJECT_NAME}` | Done | All overlay compose files now use dynamic names |
+| F-008 | Create missing `docs/Setup.md` and `docs/Architecture.md` | Done | Project-specific setup + Mermaid architecture diagram |
+| F-009 | Exclude `docs/Usage-Guide.md` from generated projects (template-author guide only) | Done | Bootstrap script removes it; README updated |
+| F-010 | Fix "Root User Access Keys" → "Admin IAM User" in AWS setup guide | Done | Option A rewritten — no root user references |
+| F-011 | Fix hardcoded `budget-dev` → `{{APP_PREFIX}}-dev` in Usage-Guide.md | Done | All 5 instances replaced |
+| F-012 | Fix hardcoded "Template 3" in destroy scripts | Done | All 4 scripts use `{{APP_PREFIX}}` in headers |
+| F-013 | Add `make destroy` and `make destroy-infra` targets | Done | Full teardown (Terraform + ECR + backend + verify) |

@@ -1,10 +1,7 @@
 # Docker Compose overlay — adds RAG support (ChromaDB + embedding model).
 #
-# Usage (with Ollama for both LLM + embeddings):
-#   docker compose -f docker-compose.yml \
-#                  -f docker-compose.ollama.yml \
-#                  -f docker-compose.rag.yml \
-#                  up --build
+# Usage (from project root):
+#   make dev       # Full stack: Ollama AI + RAG + ChromaDB
 #
 # This overlay:
 #   1. Adds a ChromaDB container for vector storage
@@ -18,7 +15,7 @@ services:
   # ── ChromaDB vector store ────────────────────────────────────────────────────
   chromadb:
     image: chromadb/chroma:0.6.3
-    container_name: t3-chromadb
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-chromadb
     ports:
       - "8001:8000"           # ChromaDB default port (exposed for debugging)
     volumes:
@@ -35,7 +32,7 @@ services:
   # ── Pull embedding model into Ollama ─────────────────────────────────────────
   ollama-pull-embed:
     image: ollama/ollama:latest
-    container_name: t3-ollama-pull-embed
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-ollama-pull-embed
     entrypoint: ["ollama", "pull", "nomic-embed-text"]
     environment:
       OLLAMA_HOST: http://ollama:11434

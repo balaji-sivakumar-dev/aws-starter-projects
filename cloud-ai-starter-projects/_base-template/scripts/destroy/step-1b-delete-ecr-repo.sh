@@ -19,7 +19,7 @@ PROJECT_PREFIX="${PROJECT_PREFIX:-{{APP_PREFIX}}}"
 
 ECR_REPO_NAME="${PROJECT_PREFIX}-${ENV_NAME}-api"
 
-echo "== Delete ECR Repository (Template 3) =="
+echo "== Delete ECR Repository: {{APP_PREFIX}} =="
 echo "Environment : ${ENV_NAME}"
 echo "Region      : ${REGION}"
 echo "ECR repo    : ${ECR_REPO_NAME}"

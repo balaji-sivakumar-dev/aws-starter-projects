@@ -42,9 +42,16 @@ help:
 	@echo "    make deploy             deploy-backend + deploy-web"
 	@echo "    make deploy-all-routes  deploy-routes + deploy-web"
 	@echo ""
+	@echo "  Teardown (destructive — deletes all AWS resources)"
+	@echo "    make destroy            Full teardown: Terraform + ECR + backend + verify"
+	@echo "    make destroy-infra      Terraform destroy only (keeps ECR + TF backend)"
+	@echo ""
 	@echo "  Local Dev"
-	@echo "    make dev                Start full local stack (Docker Compose)"
+	@echo "    make dev                Full local stack with Ollama AI + RAG"
+	@echo "    make dev-minimal        Minimal stack (no AI, no RAG)"
+	@echo "    make dev-ai             Stack with Ollama AI (no RAG)"
 	@echo "    make dev-down           Stop local stack"
+	@echo "    make dev-logs           Tail logs from all containers"
 	@echo "    make test               Run backend Python tests"
 	@echo "    make web-dev            Start Vite dev server (localhost:5173)"
 	@echo ""
@@ -107,18 +114,74 @@ deploy: deploy-backend deploy-web
 .PHONY: deploy-all-routes
 deploy-all-routes: deploy-routes deploy-web
 
+# ── Teardown ──────────────────────────────────────────────────────────────────
+DESTROY := scripts/destroy
+
+.PHONY: destroy
+destroy:
+	@echo ""
+	@echo "  ⚠️  This will delete ALL AWS resources for $(ENV) (prefix: $(PROFILE))"
+	@echo "  Steps: Terraform → ECR → TF backend → verify"
+	@echo ""
+	AWS_PROFILE=$(PROFILE) bash $(DESTROY)/step-1a-terraform-destroy.sh $(ENV)
+	AWS_PROFILE=$(PROFILE) bash $(DESTROY)/step-1b-delete-ecr-repo.sh $(ENV)
+	AWS_PROFILE=$(PROFILE) bash $(DESTROY)/step-1c-delete-terraform-backend.sh
+	AWS_PROFILE=$(PROFILE) bash $(DESTROY)/step-1d-verify-destroy.sh $(ENV)
+
+.PHONY: destroy-infra
+destroy-infra:
+	@echo ""
+	@echo "  ⚠️  Terraform destroy only — ECR and TF backend will remain."
+	@echo ""
+	AWS_PROFILE=$(PROFILE) bash $(DESTROY)/step-1a-terraform-destroy.sh $(ENV)
+
 # ── Local dev ─────────────────────────────────────────────────────────────────
+COMPOSE_BASE := docker compose --env-file .env.docker -f docker/docker-compose.yml
+COMPOSE_AI   := $(COMPOSE_BASE) $(if $(wildcard docker/docker-compose.ollama.yml),-f docker/docker-compose.ollama.yml)
+COMPOSE_FULL := $(COMPOSE_AI) $(if $(wildcard docker/docker-compose.rag.yml),-f docker/docker-compose.rag.yml)
+
 .PHONY: dev
 dev:
-	docker compose -f docker/docker-compose.yml --env-file .env.docker up -d
+	$(COMPOSE_FULL) up -d
 	@echo ""
-	@echo "  Web UI  -> http://localhost:3000"
-	@echo "  API     -> http://localhost:8080/docs"
+	@echo "  Web UI   → http://localhost:3000"
+	@echo "  API      → http://localhost:8080/docs"
+	@echo "  Ollama   → http://localhost:11434"
+	@echo "  ChromaDB → http://localhost:8001"
+	@echo ""
+	@echo "  First run downloads models (~2 GB LLM + 275 MB embeddings)."
+	@echo "  Run 'make dev-logs' to watch progress."
+	@echo ""
+
+.PHONY: dev-ai
+dev-ai:
+	$(COMPOSE_AI) up -d
+	@echo ""
+	@echo "  Web UI  → http://localhost:3000"
+	@echo "  API     → http://localhost:8080/docs"
+	@echo "  Ollama  → http://localhost:11434"
+	@echo ""
+	@echo "  AI enrichment enabled (Ollama + llama3.2). No RAG/vector search."
+	@echo ""
+
+.PHONY: dev-minimal
+dev-minimal:
+	$(COMPOSE_BASE) up -d
+	@echo ""
+	@echo "  Web UI  → http://localhost:3000"
+	@echo "  API     → http://localhost:8080/docs"
+	@echo ""
+	@echo "  Minimal mode — no AI, no RAG. CRUD only."
 	@echo ""
 
 .PHONY: dev-down
 dev-down:
-	docker compose -f docker/docker-compose.yml --env-file .env.docker down
+	$(COMPOSE_FULL) down
+	@echo "  All containers stopped."
+
+.PHONY: dev-logs
+dev-logs:
+	$(COMPOSE_FULL) logs -f
 
 # ── Tests ─────────────────────────────────────────────────────────────────────
 .PHONY: test

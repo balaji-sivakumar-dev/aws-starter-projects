@@ -5,7 +5,8 @@
 ## Quick Start (Local)
 
 ```bash
-make dev          # Start DynamoDB + API + Web via Docker Compose
+make dev          # Full stack: DynamoDB + API + Web + Ollama AI + ChromaDB RAG
+make dev-minimal  # CRUD only (no AI/RAG, fastest startup)
 # Web UI  → http://localhost:3000
 # API     → http://localhost:8080/docs
 ```
@@ -77,9 +78,8 @@ make cognito-admin # Create admin user in Cognito
 
 | Doc | Purpose |
 |-----|---------|
-| [Usage Guide](docs/Usage-Guide.md) | Create, run, stop, delete projects — full walkthrough |
-| [Setup.md](docs/Setup.md) | Step-by-step local + AWS setup |
-| [Architecture.md](docs/Architecture.md) | Architecture overview + diagrams |
+| [Setup Guide](docs/Setup.md) | Local dev setup + AWS deployment walkthrough |
+| [Architecture](docs/Architecture.md) | Architecture overview + diagrams |
 | [routes.yaml](routes.yaml) | API endpoint definitions |
 | [CLAUDE.md](CLAUDE.md) | AI assistant rules for this project |
 

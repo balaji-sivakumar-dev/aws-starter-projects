@@ -1,7 +1,7 @@
 # Docker Compose overlay — Groq cloud LLM (fast inference, generous free tier).
 #
-# Usage (keys loaded automatically from .env.local):
-#   docker compose -f docker-compose.yml -f docker-compose.groq.yml up --build
+# Usage (from project root — keys loaded automatically from .env.local):
+#   docker compose --env-file .env.docker -f docker/docker-compose.yml -f docker/docker-compose.groq.yml up -d
 #
 # Setup (one-time):
 #   cp .env.local.example .env.local
