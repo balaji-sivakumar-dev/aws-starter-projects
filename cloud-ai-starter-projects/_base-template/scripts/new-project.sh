@@ -149,6 +149,10 @@ rm -f "$TARGET_DIR/template.json"
 rm -f "$TARGET_DIR/scripts/new-project.sh"
 rm -f "$TARGET_DIR/docs/Usage-Guide.md"   # template-author guide, not app guide
 
+# Remove the copied .venv — it has hardcoded paths from the source repo.
+# A fresh venv will be created below.
+rm -rf "$TARGET_DIR/services/api/.venv"
+
 # ── Replace placeholders ─────────────────────────────────────────────────────
 
 echo "  Replacing placeholders..."
@@ -256,6 +260,24 @@ cat > "$TARGET_DIR/docs/IMPLEMENTATION_CHECKLIST.md" << MDEOF
 | ID | Fix | Status | Notes |
 |----|-----|--------|-------|
 MDEOF
+
+# ── Install Python dependencies ──────────────────────────────────────────────
+
+PYTHON_CMD=""
+for cmd in python3.11 python3.12 python3 python; do
+  if command -v "$cmd" &> /dev/null; then
+    PYTHON_CMD="$cmd"
+    break
+  fi
+done
+
+if [ -n "$PYTHON_CMD" ]; then
+  echo "  Creating Python venv ($PYTHON_CMD)..."
+  (cd "$TARGET_DIR/services/api" && "$PYTHON_CMD" -m venv .venv && .venv/bin/pip install -q -r requirements.txt 2>/dev/null) \
+    || echo "  WARN: Python setup failed — run manually: cd $TARGET_DIR/services/api && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+else
+  echo "  SKIP: python3 not found — run: cd $TARGET_DIR/services/api && python3 -m venv .venv && .venv/bin/pip install -r requirements.txt"
+fi
 
 # ── Install npm dependencies ─────────────────────────────────────────────────
 

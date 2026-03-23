@@ -52,8 +52,14 @@ help:
 	@echo "    make dev-ai             Stack with Ollama AI (no RAG)"
 	@echo "    make dev-down           Stop local stack"
 	@echo "    make dev-logs           Tail logs from all containers"
-	@echo "    make test               Run backend Python tests"
 	@echo "    make web-dev            Start Vite dev server (localhost:5173)"
+	@echo ""
+	@echo "  Tests"
+	@echo "    make test               Unit tests (no Docker needed)"
+	@echo "    make test-integration   Integration tests against live Docker stack"
+	@echo "    make test-ui            Playwright UI + API tests (requires make dev)"
+	@echo "    make test-ui-headed     Playwright tests with browser visible"
+	@echo "    make test-all           All tests (unit + integration + UI)"
 	@echo ""
 	@echo "  Validation"
 	@echo "    make validate-routes    Check routes.yaml vs Terraform + handler alignment"
@@ -186,7 +192,30 @@ dev-logs:
 # ── Tests ─────────────────────────────────────────────────────────────────────
 .PHONY: test
 test:
-	. services/api/.venv/bin/activate && pytest services/ -q
+	. services/api/.venv/bin/activate && pytest services/api/tests/ -q --ignore=services/api/tests/integration
+
+.PHONY: test-integration
+test-integration:
+	@echo "  Running integration tests against http://localhost:8080 ..."
+	@echo "  Ensure 'make dev' is running first."
+	. services/api/.venv/bin/activate && INTEGRATION_TEST=1 pytest services/api/tests/integration/ -v
+
+.PHONY: test-ui
+test-ui:
+	@echo "  Running Playwright UI tests against http://localhost:3000 ..."
+	@echo "  Ensure 'make dev' is running first."
+	cd apps/web && npx playwright test
+
+.PHONY: test-ui-headed
+test-ui-headed:
+	cd apps/web && npx playwright test --headed
+
+.PHONY: test-ui-report
+test-ui-report:
+	cd apps/web && npx playwright show-report
+
+.PHONY: test-all
+test-all: test test-integration test-ui
 
 # ── Web dev server ────────────────────────────────────────────────────────────
 .PHONY: web-dev

@@ -11,7 +11,7 @@ Strategy
 
 import os
 from typing import Any, Dict, List
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime, timezone
 
 import pytest
 
@@ -85,7 +85,7 @@ def test_generate_weekly_summary_returns_201(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     iso_year, iso_week, _ = today.isocalendar()
 
     _make_entry(client, "Entry this week")
@@ -111,7 +111,7 @@ def test_generate_monthly_summary_returns_201(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Monthly entry")
 
     resp = client.post(
@@ -131,7 +131,7 @@ def test_generate_yearly_summary_returns_201(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Yearly entry")
 
     resp = client.post(
@@ -149,7 +149,7 @@ def test_generate_summary_text_only_when_no_llm_provider(client):
     """When LLM_PROVIDER is unset, a text-only summary should be created."""
     os.environ.pop("LLM_PROVIDER", None)
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Text-only entry")
 
     resp = client.post(
@@ -202,7 +202,7 @@ def test_generate_summary_llm_error_returns_502(client):
     _inject(_FailingPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Doomed entry")
 
     resp = client.post(
@@ -218,7 +218,7 @@ def test_generate_summary_response_includes_request_id(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "ID check entry")
 
     resp = client.post(
@@ -243,7 +243,7 @@ def test_list_summaries_returns_created_summaries(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Listed entry")
 
     client.post(
@@ -262,7 +262,7 @@ def test_list_summaries_user_isolation(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "User A entry", user="user-a")
 
     client.post(
@@ -282,7 +282,7 @@ def test_get_summary_returns_correct_item(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Get test entry")
 
     create_resp = client.post(
@@ -310,7 +310,7 @@ def test_get_summary_user_isolation(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Private summary", user="user-a")
 
     create_resp = client.post(
@@ -331,7 +331,7 @@ def test_delete_summary_removes_item(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "To delete")
 
     create_resp = client.post(
@@ -368,7 +368,7 @@ def test_regenerate_summary_returns_updated_item(client):
     _inject(_StubPeriodProvider())
     os.environ["LLM_PROVIDER"] = "stub"
 
-    today = date.today()
+    today = datetime.now(timezone.utc).date()
     _make_entry(client, "Regenerate me")
 
     create_resp = client.post(

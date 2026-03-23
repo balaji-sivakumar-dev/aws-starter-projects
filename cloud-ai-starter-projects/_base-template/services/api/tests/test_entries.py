@@ -65,7 +65,7 @@ def test_create_entry(client):
     assert item["userId"] == "dev-user"
     assert item["aiStatus"] == "NOT_REQUESTED"
     assert item["tags"] == []
-    assert "entryId" in item
+    assert "itemId" in item
     assert "requestId" in data
 
 
@@ -144,11 +144,11 @@ def test_list_entries_pagination(client):
 
 def test_get_entry(client):
     item = create_entry(client)
-    entry_id = item["entryId"]
+    entry_id = item["itemId"]
 
     resp = client.get(f"/entries/{entry_id}", headers=LOCAL_HEADERS)
     assert resp.status_code == 200
-    assert resp.json()["item"]["entryId"] == entry_id
+    assert resp.json()["item"]["itemId"] == entry_id
 
 
 def test_get_entry_not_found(client):
@@ -158,7 +158,7 @@ def test_get_entry_not_found(client):
 
 def test_get_entry_other_user_cannot_see(client):
     item = create_entry(client)
-    entry_id = item["entryId"]
+    entry_id = item["itemId"]
 
     resp = client.get(f"/entries/{entry_id}", headers={"X-User-Id": "eve"})
     assert resp.status_code == 404
@@ -169,7 +169,7 @@ def test_get_entry_other_user_cannot_see(client):
 
 def test_update_entry_title_and_body(client):
     item = create_entry(client)
-    entry_id = item["entryId"]
+    entry_id = item["itemId"]
 
     resp = client.put(
         f"/entries/{entry_id}",
@@ -184,7 +184,7 @@ def test_update_entry_title_and_body(client):
 
 def test_update_entry_title_only(client):
     item = create_entry(client, body="Original body")
-    entry_id = item["entryId"]
+    entry_id = item["itemId"]
 
     resp = client.put(
         f"/entries/{entry_id}",
@@ -211,7 +211,7 @@ def test_update_entry_not_found(client):
 
 def test_delete_entry(client):
     item = create_entry(client)
-    entry_id = item["entryId"]
+    entry_id = item["itemId"]
 
     resp = client.delete(f"/entries/{entry_id}", headers=LOCAL_HEADERS)
     assert resp.status_code == 200
@@ -250,7 +250,7 @@ def test_count_returns_correct_number(client):
 def test_count_excludes_deleted_entries(client):
     create_entry(client, title="Keep me")
     e2 = create_entry(client, title="Delete me")
-    client.delete(f"/entries/{e2['entryId']}", headers=LOCAL_HEADERS)
+    client.delete(f"/entries/{e2['itemId']}", headers=LOCAL_HEADERS)
     resp = client.get("/entries/count", headers=LOCAL_HEADERS)
     assert resp.json()["count"] == 1
 
@@ -276,22 +276,22 @@ def test_bulk_delete_removes_specified_entries(client):
 
     resp = client.post(
         "/entries/bulk-delete",
-        json={"itemIds": [e1["entryId"], e2["entryId"]]},
+        json={"itemIds": [e1["itemId"], e2["itemId"]]},
         headers=LOCAL_HEADERS,
     )
     assert resp.status_code == 200
     assert resp.json()["deleted"] == 2
 
-    assert client.get(f"/entries/{e3['entryId']}", headers=LOCAL_HEADERS).status_code == 200
-    assert client.get(f"/entries/{e1['entryId']}", headers=LOCAL_HEADERS).status_code == 404
-    assert client.get(f"/entries/{e2['entryId']}", headers=LOCAL_HEADERS).status_code == 404
+    assert client.get(f"/entries/{e3['itemId']}", headers=LOCAL_HEADERS).status_code == 200
+    assert client.get(f"/entries/{e1['itemId']}", headers=LOCAL_HEADERS).status_code == 404
+    assert client.get(f"/entries/{e2['itemId']}", headers=LOCAL_HEADERS).status_code == 404
 
 
 def test_bulk_delete_skips_nonexistent_ids(client):
     e1 = create_entry(client, title="Real entry")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"itemIds": [e1["entryId"], "00000000-0000-0000-0000-000000000000"]},
+        json={"itemIds": [e1["itemId"], "00000000-0000-0000-0000-000000000000"]},
         headers=LOCAL_HEADERS,
     )
     assert resp.status_code == 200
@@ -313,20 +313,20 @@ def test_bulk_delete_user_isolation(client):
     e1 = create_entry(client, title="User A private")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"itemIds": [e1["entryId"]]},
+        json={"itemIds": [e1["itemId"]]},
         headers={"X-User-Id": "user-b"},
     )
     assert resp.status_code == 200
     assert resp.json()["deleted"] == 0
     # Entry still exists for the original user
-    assert client.get(f"/entries/{e1['entryId']}", headers=LOCAL_HEADERS).status_code == 200
+    assert client.get(f"/entries/{e1['itemId']}", headers=LOCAL_HEADERS).status_code == 200
 
 
 def test_bulk_delete_response_includes_request_id(client):
     e1 = create_entry(client, title="Entry")
     resp = client.post(
         "/entries/bulk-delete",
-        json={"itemIds": [e1["entryId"]]},
+        json={"itemIds": [e1["itemId"]]},
         headers=LOCAL_HEADERS,
     )
     assert "requestId" in resp.json()

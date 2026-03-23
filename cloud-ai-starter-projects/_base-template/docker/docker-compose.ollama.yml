@@ -5,7 +5,10 @@
 #   make dev       # Ollama AI + RAG
 #
 # First startup downloads the model (~2 GB) — this can take several minutes.
-# Subsequent starts reuse the cached model from the ollama-data volume.
+# Subsequent starts reuse the cached model from the shared ollama-models volume.
+#
+# The ollama-models volume is shared across ALL projects on this machine — models
+# are only downloaded once regardless of how many apps you run.
 #
 # To change the model, set OLLAMA_MODEL in the api service below and
 # update the ollama-pull command accordingly.
@@ -19,7 +22,7 @@ services:
     ports:
       - "11434:11434"         # exposed so you can also run: ollama run llama3.2
     volumes:
-      - ollama-data:/root/.ollama
+      - ollama-models:/root/.ollama   # shared across all projects — downloaded once
     healthcheck:
       # ollama list returns exit 0 when the server is ready
       test: ["CMD", "ollama", "list"]
@@ -53,4 +56,5 @@ services:
         condition: service_completed_successfully
 
 volumes:
-  ollama-data:
+  ollama-models:
+    name: ollama-models   # fixed name — not prefixed by project, shared machine-wide

@@ -72,7 +72,7 @@ def test_entry_delete_by_different_user_returns_404(client):
         json={"title": "Owner entry", "body": "Mine"},
         headers=owner_headers,
     )
-    entry_id = create_resp.json()["item"]["entryId"]
+    entry_id = create_resp.json()["item"]["itemId"]
 
     delete_resp = client.delete(f"/entries/{entry_id}", headers=attacker_headers)
     assert delete_resp.status_code == 404

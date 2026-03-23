@@ -90,7 +90,7 @@ def generate_summary(
         raise AppError(400, "VALIDATION_ERROR", "period must be weekly | monthly | yearly")
 
     # Fetch entries for the period
-    entries = repository.get_entries_in_range(user_id, start_date, end_date)
+    entries = repository.get_items_in_range(user_id, start_date, end_date)
     if not entries:
         raise AppError(
             404,
@@ -150,7 +150,7 @@ def regenerate_summary(
     if not item:
         raise AppError(404, "NOT_FOUND", "summary not found")
 
-    entries = repository.get_entries_in_range(
+    entries = repository.get_items_in_range(
         user_id, item["startDate"], item["endDate"]
     )
     if not entries:

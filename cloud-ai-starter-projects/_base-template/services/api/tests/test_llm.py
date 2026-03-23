@@ -80,7 +80,7 @@ def test_trigger_ai_returns_done_with_summary_and_tags(client):
         json={"title": "Mountain Hike", "body": "Went hiking today. Amazing views."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     resp = client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
     assert resp.status_code == 202
@@ -100,7 +100,7 @@ def test_trigger_ai_persists_fields_in_dynamodb(client):
         json={"title": "Test Entry", "body": "Body text for AI."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
 
@@ -121,7 +121,7 @@ def test_trigger_ai_response_includes_request_id(client):
         json={"title": "T", "body": "B"},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     resp = client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
     assert "requestId" in resp.json()
@@ -139,7 +139,7 @@ def test_trigger_ai_sets_error_status_when_provider_fails(client):
         json={"title": "Failing AI", "body": "This will fail."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     resp = client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
     assert resp.status_code == 502
@@ -154,7 +154,7 @@ def test_trigger_ai_writes_error_to_dynamodb_on_failure(client):
         json={"title": "Failing AI", "body": "This will fail."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
 
@@ -175,7 +175,7 @@ def test_trigger_ai_returns_skipped_when_no_provider(client):
         json={"title": "No AI", "body": "LLM_PROVIDER is unset."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     resp = client.post(f"/entries/{entry_id}/ai", headers={"X-User-Id": "dev-user"})
     assert resp.status_code == 202
@@ -205,7 +205,7 @@ def test_trigger_ai_cannot_enrich_another_users_entry(client):
         json={"title": "Owner's entry", "body": "Private."},
         headers={"X-User-Id": "owner"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     # Attacker tries to enrich owner's entry
     resp = client.post(
@@ -240,7 +240,7 @@ def test_trigger_ai_uses_provider_from_header(client):
         json={"title": "Header Test", "body": "Using a specific provider."},
         headers={"X-User-Id": "dev-user"},
     )
-    entry_id = create.json()["item"]["entryId"]
+    entry_id = create.json()["item"]["itemId"]
 
     resp = client.post(
         f"/entries/{entry_id}/ai",

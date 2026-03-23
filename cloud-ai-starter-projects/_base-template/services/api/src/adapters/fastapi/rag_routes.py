@@ -101,12 +101,12 @@ async def embed_item(req: EmbedRequest, user_id: str = Depends(get_current_user)
 
     retriever.embed_entry(
         tenant_id=user_id,
-        entry_id=item["entryId"],
+        entry_id=item["itemId"],
         title=item["title"],
         body=item["body"],
         created_at=item["createdAt"],
     )
-    return {"status": "embedded", "entryId": item["entryId"]}
+    return {"status": "embedded", "itemId": item["itemId"]}
 
 
 @router.post("/embed-all")
@@ -132,14 +132,14 @@ async def embed_all_items(user_id: str = Depends(get_current_user)):
             try:
                 retriever.embed_entry(
                     tenant_id=user_id,
-                    entry_id=item["entryId"],
+                    entry_id=item["itemId"],
                     title=item["title"],
                     body=item["body"],
                     created_at=item["createdAt"],
                 )
                 embedded_count += 1
             except Exception as e:
-                logger.error("Failed to embed item %s: %s", item["entryId"], e)
+                logger.error("Failed to embed item %s: %s", item["itemId"], e)
 
         return {
             "status": "completed",
