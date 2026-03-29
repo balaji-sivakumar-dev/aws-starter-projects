@@ -74,6 +74,7 @@ def to_item(raw: Dict[str, Any]) -> Dict[str, Any]:
         "userId": raw["userId"],
         "title": raw["title"],
         "body": raw["body"],
+        "entryDate": raw.get("entryDate"),
         "data": raw.get("data", {}),
         "createdAt": raw["createdAt"],
         "updatedAt": raw["updatedAt"],
@@ -150,7 +151,7 @@ def ensure_table(retries: int = 12, delay: float = 3.0) -> None:
 
 # ── CRUD ──────────────────────────────────────────────────────────────────────
 
-def create_item(user_id: str, title: str, body: str, data: Dict[str, Any] = None) -> Dict[str, Any]:
+def create_item(user_id: str, title: str, body: str, entry_date: str = None, data: Dict[str, Any] = None) -> Dict[str, Any]:
     table = _table()
     item_id = str(uuid.uuid4())
     ts = now_iso()
@@ -163,6 +164,7 @@ def create_item(user_id: str, title: str, body: str, data: Dict[str, Any] = None
         "userId": user_id,
         "title": title,
         "body": body,
+        "entryDate": entry_date or ts[:10],
         "data": data or {},
         "createdAt": ts,
         "updatedAt": ts,
@@ -228,6 +230,7 @@ def update_item(
     item_id: str,
     title: Optional[str],
     body: Optional[str],
+    entry_date: Optional[str] = None,
     data: Optional[Dict[str, Any]] = None,
 ) -> Optional[Dict[str, Any]]:
     table = _table()
@@ -247,6 +250,9 @@ def update_item(
         names["#body"] = "body"
         values[":body"] = body
         parts.append("#body = :body")
+    if entry_date is not None:
+        values[":entryDate"] = entry_date
+        parts.append("entryDate = :entryDate")
     if data is not None:
         names["#data"] = "data"
         values[":data"] = data

@@ -1,10 +1,7 @@
-## {{APP_TITLE}} — Makefile
+## AWS Full-Stack Starter Template — Makefile
 ##
-## Wraps the setup/deploy shell scripts under scripts/setup/.
-## All targets accept ENV and PROFILE overrides:
-##
-##   make deploy-backend              # ENV=dev, PROFILE={{APP_PREFIX}}-dev
-##   make deploy-backend ENV=staging PROFILE=my-profile
+## Run `make new-project APP=myapp` to scaffold a new app (created as a sibling directory).
+## All other targets are for the generated project — run them from the generated project root.
 ##
 ## Prerequisites: AWS CLI, Terraform, Node.js/npm, Docker
 
@@ -12,15 +9,32 @@ ENV     ?= dev
 PROFILE ?= {{APP_PREFIX}}-dev
 SCRIPTS := scripts/setup
 
+APP      ?=
+DEFAULTS ?=
+OUT      ?=
+
 .DEFAULT_GOAL := help
+
+# ── New project ───────────────────────────────────────────────────────────────
+.PHONY: new-project
+new-project:
+ifndef APP
+	$(error APP is required. Usage: make new-project APP=myapp)
+endif
+	@bash scripts/new-project.sh $(APP) $(if $(filter true,$(DEFAULTS)),--defaults,) $(if $(OUT),--out $(OUT),)
 
 # ── Help ──────────────────────────────────────────────────────────────────────
 .PHONY: help
 help:
 	@echo ""
-	@echo "  {{APP_TITLE}} — AWS Deployment Targets"
+	@echo "  AWS Full-Stack Starter Template"
 	@echo "  ──────────────────────────────────────────────────────────"
-	@echo "  Bootstrap & Secrets"
+	@echo "  Create a New App"
+	@echo "    make new-project APP=<name>              Create sibling dir ../<name>/"
+	@echo "    make new-project APP=<name> DEFAULTS=true  Skip interactive prompts"
+	@echo "    make new-project APP=<name> OUT=<path>   Custom output path"
+	@echo ""
+	@echo "  Bootstrap & Secrets  (run from generated project)"
 	@echo "    make bootstrap          Bootstrap Terraform S3 backend + DynamoDB lock table"
 	@echo "    make secrets            Store API keys + user allowlist in SSM Parameter Store"
 	@echo "    make cognito-admin      Create the admin Cognito user (post-deploy)"
@@ -63,6 +77,9 @@ help:
 	@echo ""
 	@echo "  Validation"
 	@echo "    make validate-routes    Check routes.yaml vs Terraform + handler alignment"
+	@echo ""
+	@echo "  Docker"
+	@echo "    make docker-clean       Stop all containers + prune unused images/cache"
 	@echo ""
 	@echo "  Options: ENV=$(ENV)  PROFILE=$(PROFILE)"
 	@echo ""
@@ -226,6 +243,15 @@ web-dev:
 .PHONY: validate-routes
 validate-routes:
 	@bash scripts/validate-routes.sh
+
+# ── Docker cleanup ────────────────────────────────────────────────────────────
+.PHONY: docker-clean
+docker-clean:
+	@echo "  Stopping all running containers..."
+	@docker ps -q | xargs -r docker stop
+	@echo "  Pruning unused images, containers, networks, and build cache..."
+	@docker system prune -af
+	@echo "  Done."
 
 # ── draw.io MCP server ────────────────────────────────────────────────────────
 .PHONY: drawio

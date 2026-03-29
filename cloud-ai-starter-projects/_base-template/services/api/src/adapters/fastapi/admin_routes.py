@@ -89,7 +89,7 @@ async def list_users(
         scan_kwargs["ExclusiveStartKey"] = result["LastEvaluatedKey"]
 
     return {
-        "users": sorted(users),
+        "users": [{"userId": uid} for uid in sorted(users)],
         "totalUsers": len(users),
     }
 

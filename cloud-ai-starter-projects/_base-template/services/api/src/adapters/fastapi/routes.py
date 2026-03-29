@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from ...core import handlers
 from ...core.models import (
     AppError,
+    BulkImportRequest,
     CreateItemRequest,
     ListItemsResponse,
     SingleItemResponse,
@@ -89,6 +90,21 @@ def count_items(
     return {"count": count, "requestId": _rid(request)}
 
 
+@router.post("/entries/bulk-import", tags=["items"])
+def bulk_import_items(
+    body: BulkImportRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user),
+):
+    try:
+        result = handlers.bulk_import_items(
+            user_id, [e.model_dump() for e in body.entries]
+        )
+    except AppError as exc:
+        raise _http(exc)
+    return {**result, "requestId": _rid(request)}
+
+
 @router.post("/entries/bulk-delete", tags=["items"])
 def bulk_delete_items(
     body: BulkDeleteRequest,
@@ -109,7 +125,7 @@ def create_item(
     user_id: str = Depends(get_current_user),
 ):
     try:
-        item = handlers.create_item(user_id, body.title, body.body)
+        item = handlers.create_item(user_id, body.title, body.body, body.entryDate)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}
@@ -136,7 +152,7 @@ def update_item(
     user_id: str = Depends(get_current_user),
 ):
     try:
-        item = handlers.update_item(user_id, item_id, body.title, body.body)
+        item = handlers.update_item(user_id, item_id, body.title, body.body, body.entryDate)
     except AppError as exc:
         raise _http(exc)
     return {"item": item, "requestId": _rid(request)}

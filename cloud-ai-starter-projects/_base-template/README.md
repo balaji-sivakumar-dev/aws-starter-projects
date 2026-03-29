@@ -1,6 +1,31 @@
-# {{APP_TITLE}}
+# AWS Full-Stack Starter Template
 
-> Generated from the AWS Full-Stack Starter Template.
+> **This is the base template.** Use `make new-project` to scaffold a new app from it (see below).
+> The generated project will use your app name in place of all `{{APP_TITLE}}` placeholders.
+
+---
+
+## Creating a New App
+
+Run from `aws-starter-projects/` (the repo root — one level above `cloud-ai-starter-projects/`):
+
+```bash
+cd aws-starter-projects
+
+# Interactive — prompts for app name, AWS region, and features to enable
+make new-project APP=myapp
+
+# Skip all prompts, use defaults
+make new-project APP=myapp DEFAULTS=true
+
+# Output to a custom path outside this repo (standalone project)
+make new-project APP=myapp OUT=~/projects/myapp
+```
+
+The generated project lands in `generated/myapp/` (gitignored) or your custom `OUT` path.
+`cd` into it and follow the Quick Start below.
+
+---
 
 ## Quick Start (Local)
 
@@ -73,6 +98,9 @@ make cognito-admin # Create admin user in Cognito
 | `make deploy-web` | Build React + sync S3 + invalidate CloudFront |
 | `make validate-routes` | Check routes.yaml vs Terraform + handler |
 | `make cognito-admin` | Create admin Cognito user |
+| `make docker-clean` | Stop all containers + prune unused images/cache |
+
+> **Note:** All `make` commands must be run from the `_base-template/` directory (or the project root after `make new-project`).
 
 ## Documentation
 

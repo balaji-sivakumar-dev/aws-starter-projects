@@ -21,13 +21,26 @@ class AppError(Exception):
 class CreateItemRequest(BaseModel):
     title: str
     body: str
+    entryDate: Optional[str] = None
     data: Dict[str, Any] = {}
 
 
 class UpdateItemRequest(BaseModel):
     title: Optional[str] = None
     body: Optional[str] = None
+    entryDate: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
+
+
+class BulkImportItemIn(BaseModel):
+    title: str
+    body: str
+    entryDate: Optional[str] = None
+    data: Dict[str, Any] = {}
+
+
+class BulkImportRequest(BaseModel):
+    entries: List["BulkImportItemIn"]
 
 
 # ── Response models ───────────────────────────────────────────────────────────
@@ -37,6 +50,7 @@ class ItemOut(BaseModel):
     userId: str
     title: str
     body: str
+    entryDate: Optional[str] = None
     data: Dict[str, Any] = {}
     createdAt: str
     updatedAt: str

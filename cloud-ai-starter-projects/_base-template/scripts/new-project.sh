@@ -2,16 +2,17 @@
 # scripts/new-project.sh — Bootstrap a new project from the base template.
 #
 # Usage:
-#   bash scripts/new-project.sh budget                        # → generated/budget/
+#   bash scripts/new-project.sh budget                         # → ../budget/ (sibling to template repo)
 #   bash scripts/new-project.sh budget --defaults              # skip interactive prompts
 #   bash scripts/new-project.sh budget --out ~/projects/budget # custom output path
 #
-# Default output: {repo}/generated/{APP_PREFIX}/
-# Custom output:  any absolute or relative path via --out
+# Default output (standalone repo): one level above the template repo, e.g.
+#   template repo : /cloud-projects/aws-full-stack-template/
+#   generated app : /cloud-projects/budget/
 #
 # The script:
-# 1. Reads template.json for variable prompts (or uses --defaults)
-# 2. Copies _base-template/ → target directory
+# 1. Prompts for config variables (or uses --defaults)
+# 2. Copies this repo → target directory
 # 3. Replaces all {{PLACEHOLDER}} strings with actual values
 # 4. Removes opt-out features (dirs/files listed in template.json)
 # 5. Generates .env files with correct values
@@ -21,8 +22,8 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-BASE_DIR="$REPO_ROOT/cloud-ai-starter-projects/_base-template"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"   # template repo root
+BASE_DIR="$REPO_ROOT"                        # template IS the repo root
 
 # ── Parse arguments ──────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ if [ -n "$CUSTOM_OUT" ]; then
     TARGET_DIR="$(pwd)/$CUSTOM_OUT"
   fi
 else
-  TARGET_DIR="$REPO_ROOT/generated/$APP_PREFIX"
+  TARGET_DIR="$(dirname "$REPO_ROOT")/$APP_PREFIX"
 fi
 
 if [ -d "$TARGET_DIR" ]; then
@@ -169,6 +170,11 @@ find "$TARGET_DIR" -type f \( \
   -e "s|{{AWS_REGION}}|$AWS_REGION|g" \
   -e "s|{{AWS_PROFILE}}|$AWS_PROFILE|g" \
   {} +
+
+# Set the generated project's README title to the real app name
+sed -i '' "s|^# AWS Full-Stack Starter Template|# $APP_TITLE|" "$TARGET_DIR/README.md"
+# Remove the template-only banner (lines between the template note and the first ---)
+sed -i '' '/^> \*\*This is the base template/d' "$TARGET_DIR/README.md"
 
 # ── Remove opt-out features ──────────────────────────────────────────────────
 

@@ -39,14 +39,14 @@ def me(user_id: str, email: str = "") -> Dict[str, Any]:
 
 # ── Items ─────────────────────────────────────────────────────────────────────
 
-def create_item(user_id: str, title: str, body: str, data: Dict[str, Any] = None) -> Dict[str, Any]:
+def create_item(user_id: str, title: str, body: str, entry_date: str = None, data: Dict[str, Any] = None) -> Dict[str, Any]:
     title = title.strip()
     body = body.strip()
     if not title:
         raise AppError(400, "VALIDATION_ERROR", "title is required")
     if not body:
         raise AppError(400, "VALIDATION_ERROR", "body is required")
-    item = repository.create_item(user_id, title, body, data)
+    item = repository.create_item(user_id, title, body, entry_date, data)
     return repository.to_item(item)
 
 
@@ -72,13 +72,14 @@ def update_item(
     item_id: str,
     title: Optional[str],
     body: Optional[str],
+    entry_date: Optional[str] = None,
     data: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     if title is not None and not title.strip():
         raise AppError(400, "VALIDATION_ERROR", "title cannot be empty")
     if body is not None and not body.strip():
         raise AppError(400, "VALIDATION_ERROR", "body cannot be empty")
-    if title is None and body is None and data is None:
+    if title is None and body is None and entry_date is None and data is None:
         raise AppError(400, "VALIDATION_ERROR", "nothing to update")
 
     updated = repository.update_item(
@@ -86,6 +87,7 @@ def update_item(
         item_id,
         title.strip() if title else None,
         body.strip() if body else None,
+        entry_date,
         data,
     )
     if not updated:
@@ -101,6 +103,41 @@ def delete_item(user_id: str, item_id: str) -> None:
 
 def count_items(user_id: str) -> int:
     return repository.count_items(user_id)
+
+
+def bulk_import_items(user_id: str, entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+    if not entries:
+        raise AppError(400, "VALIDATION_ERROR", "entries must not be empty")
+    if len(entries) > 500:
+        raise AppError(400, "VALIDATION_ERROR", "bulk import limited to 500 items at a time")
+
+    created = 0
+    failed = 0
+    errors: List[Dict[str, Any]] = []
+
+    for i, entry in enumerate(entries):
+        try:
+            title = (entry.get("title") or "").strip()
+            body = (entry.get("body") or "").strip()
+            if not title:
+                failed += 1
+                errors.append({"index": i, "error": "title is required"})
+                continue
+            if not body:
+                failed += 1
+                errors.append({"index": i, "error": "body is required"})
+                continue
+            repository.create_item(
+                user_id, title, body,
+                entry.get("entryDate"),
+                entry.get("data"),
+            )
+            created += 1
+        except Exception as exc:
+            failed += 1
+            errors.append({"index": i, "error": str(exc)})
+
+    return {"created": created, "failed": failed, "errors": errors}
 
 
 def bulk_delete_items(user_id: str, item_ids: List[str]) -> int:
