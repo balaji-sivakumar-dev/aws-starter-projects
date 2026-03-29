@@ -1,0 +1,18 @@
+# Docker Compose overlay — OpenAI (or any OpenAI-compatible API endpoint).
+#
+# Usage (from project root):
+#   export OPENAI_API_KEY=sk-...
+#   docker compose --env-file .env.docker -f docker/docker-compose.yml -f docker/docker-compose.openai.yml up -d
+#
+# Compatible endpoints (set OPENAI_BASE_URL to override):
+#   Azure OpenAI, Together AI, Perplexity, Anyscale, local vLLM, etc.
+#
+# OPENAI_API_KEY must be set in your shell (or a .env file) — it is never hardcoded here.
+
+services:
+  api:
+    environment:
+      LLM_PROVIDER: openai
+      OPENAI_API_KEY: ${OPENAI_API_KEY:?OPENAI_API_KEY is required — export it before running}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}   # leave blank for official OpenAI API

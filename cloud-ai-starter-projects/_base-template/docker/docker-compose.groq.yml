@@ -1,0 +1,21 @@
+# Docker Compose overlay — Groq cloud LLM (fast inference, generous free tier).
+#
+# Usage (from project root — keys loaded automatically from .env.local):
+#   docker compose --env-file .env.docker -f docker/docker-compose.yml -f docker/docker-compose.groq.yml up -d
+#
+# Setup (one-time):
+#   cp .env.local.example .env.local
+#   # Edit .env.local and set GROQ_API_KEY
+#
+# Get a free API key at https://console.groq.com
+# Available models: llama-3.3-70b-versatile (default), llama-3.1-8b-instant, mixtral-8x7b-32768
+
+services:
+  api:
+    env_file:
+      - path: .env.local
+        required: false   # silently skipped if file doesn't exist
+    environment:
+      LLM_PROVIDER: groq
+      GROQ_API_KEY: ${GROQ_API_KEY:?GROQ_API_KEY not set — add it to .env.local or export it}
+      GROQ_MODEL: ${GROQ_MODEL_ID:-llama-3.1-8b-instant}

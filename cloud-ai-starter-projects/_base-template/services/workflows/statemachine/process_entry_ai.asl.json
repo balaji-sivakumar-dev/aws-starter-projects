@@ -1,0 +1,66 @@
+{
+  "Comment": "ProcessEntryAIWorkflow",
+  "StartAt": "ValidateInput",
+  "States": {
+    "ValidateInput": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Comment": "Entry AI enrichment",
+          "And": [
+            { "Variable": "$.userId", "IsPresent": true },
+            { "Variable": "$.entryId", "IsPresent": true },
+            { "Variable": "$.requestId", "IsPresent": true }
+          ],
+          "Next": "InvokeAIGateway"
+        },
+        {
+          "Comment": "Period summary generation",
+          "And": [
+            { "Variable": "$.userId", "IsPresent": true },
+            { "Variable": "$.summaryId", "IsPresent": true },
+            { "Variable": "$.requestId", "IsPresent": true }
+          ],
+          "Next": "InvokeAIGateway"
+        }
+      ],
+      "Default": "Failed"
+    },
+    "InvokeAIGateway": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${ai_gateway_lambda_arn}",
+        "Payload.$": "$"
+      },
+      "OutputPath": "$.Payload",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException",
+            "States.Timeout"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "Failed"
+        }
+      ],
+      "Next": "Complete"
+    },
+    "Complete": {
+      "Type": "Succeed"
+    },
+    "Failed": {
+      "Type": "Fail",
+      "Error": "ProcessEntryAIWorkflowFailed"
+    }
+  }
+}

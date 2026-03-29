@@ -1,0 +1,60 @@
+# Docker Compose overlay — adds RAG support (ChromaDB + embedding model).
+#
+# Usage (from project root):
+#   make dev       # Full stack: Ollama AI + RAG + ChromaDB
+#
+# This overlay:
+#   1. Adds a ChromaDB container for vector storage
+#   2. Pulls the nomic-embed-text model into Ollama for embeddings
+#   3. Configures the API with RAG environment variables
+#
+# First startup downloads nomic-embed-text (~275 MB) in addition to the LLM model.
+
+services:
+
+  # ── ChromaDB vector store ────────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:0.6.3
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-chromadb
+    ports:
+      - "8001:8000"           # ChromaDB default port (exposed for debugging)
+    volumes:
+      - chroma-data:/chroma/chroma
+    environment:
+      ANONYMIZED_TELEMETRY: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8000'"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+      start_period: 10s
+
+  # ── Pull embedding model into Ollama ─────────────────────────────────────────
+  ollama-pull-embed:
+    image: ollama/ollama:latest
+    container_name: ${COMPOSE_PROJECT_NAME:-app}-ollama-pull-embed
+    entrypoint: ["ollama", "pull", "nomic-embed-text"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
+  # ── API — add RAG env vars and wait for ChromaDB + embedding model ──────────
+  api:
+    environment:
+      EMBEDDING_PROVIDER: ollama
+      EMBEDDING_MODEL: nomic-embed-text
+      VECTOR_STORE: chroma
+      CHROMA_HOST: chromadb
+      CHROMA_PORT: "8000"
+      AUDIT_ENABLED: "true"
+    depends_on:
+      chromadb:
+        condition: service_healthy
+      ollama-pull-embed:
+        condition: service_completed_successfully
+
+volumes:
+  chroma-data:
